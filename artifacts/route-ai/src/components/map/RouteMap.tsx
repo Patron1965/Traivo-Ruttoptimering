@@ -129,7 +129,7 @@ export function RouteMap({
                       <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
                       <span className="font-bold text-sm">{route.name}</span>
                     </div>
-                    <h4 className="font-bold">{stop.customerName || "Customer Stop"}</h4>
+                    <h4 className="font-bold">{stop.notes || "Delivery Stop"}</h4>
                     <p className="text-sm text-muted-foreground mt-1 truncate max-w-[200px]" title={stop.address}>{stop.address}</p>
                     <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
                       <div className="bg-muted p-1.5 rounded-md">

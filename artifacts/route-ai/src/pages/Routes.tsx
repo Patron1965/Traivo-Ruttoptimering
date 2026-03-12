@@ -4,6 +4,7 @@ import { LoadingState } from "@/components/ui/LoadingState";
 import { Route as RouteIcon, Trash2, MapPin, Clock, Gauge } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { type Route } from "@workspace/api-client-react";
 
 const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
   draft: { bg: "bg-muted/50", text: "text-muted-foreground" },
@@ -39,7 +40,7 @@ export default function Routes() {
 
         {routes && routes.length > 0 && (
           <div className="space-y-4">
-            {routes.map((route: any) => {
+            {routes.map((route: Route) => {
               const style = STATUS_STYLES[route.status] || STATUS_STYLES.draft;
               return (
                 <div

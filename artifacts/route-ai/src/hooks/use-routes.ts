@@ -13,7 +13,7 @@ export function useRoutes() {
 
 export function useRouteStops(routeId: string) {
   return useGeneratedGetRouteStops(routeId, {
-    query: { enabled: !!routeId },
+    query: { enabled: !!routeId, queryKey: ["/api/routes", routeId, "stops"] },
   });
 }
 

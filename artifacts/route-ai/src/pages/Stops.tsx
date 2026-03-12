@@ -15,12 +15,14 @@ import { type Stop } from "@workspace/api-client-react";
 
 const stopSchema = z.object({
   address: z.string().min(1, "Address is required"),
-  customerName: z.string().optional(),
+  notes: z.string().optional(),
   latitude: z.coerce.number().min(-90).max(90),
   longitude: z.coerce.number().min(-180).max(180),
   serviceDurationMin: z.coerce.number().min(1),
   weightKg: z.coerce.number().optional().nullable(),
   volumeM3: z.coerce.number().optional().nullable(),
+  timeWindowStart: z.string().optional().nullable(),
+  timeWindowEnd: z.string().optional().nullable(),
 });
 
 type StopFormValues = z.infer<typeof stopSchema>;
@@ -63,8 +65,9 @@ export default function Stops() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-muted/50 border-b border-border">
-                  <th className="p-4 font-semibold text-muted-foreground text-sm">Customer / Address</th>
+                  <th className="p-4 font-semibold text-muted-foreground text-sm">Address</th>
                   <th className="p-4 font-semibold text-muted-foreground text-sm">Coordinates</th>
+                  <th className="p-4 font-semibold text-muted-foreground text-sm">Time Window</th>
                   <th className="p-4 font-semibold text-muted-foreground text-sm">Requirements</th>
                   <th className="p-4 font-semibold text-muted-foreground text-sm">Status</th>
                   <th className="p-4 font-semibold text-muted-foreground text-sm text-right">Actions</th>
@@ -79,7 +82,7 @@ export default function Stops() {
                           <MapPin className="h-5 w-5 text-primary/70" />
                         </div>
                         <div>
-                          <p className="font-bold text-foreground">{stop.customerName || "No Name"}</p>
+                          <p className="font-bold text-foreground">{stop.notes || "Delivery Stop"}</p>
                           <p className="text-sm text-muted-foreground mt-0.5 max-w-xs truncate" title={stop.address}>{stop.address}</p>
                         </div>
                       </div>
@@ -87,6 +90,14 @@ export default function Stops() {
                     <td className="p-4 text-xs font-mono text-muted-foreground space-y-1">
                       <p>Lat: {stop.latitude.toFixed(4)}</p>
                       <p>Lng: {stop.longitude.toFixed(4)}</p>
+                    </td>
+                    <td className="p-4 text-xs text-muted-foreground space-y-1">
+                      {stop.timeWindowStart ? (
+                        <p>{new Date(stop.timeWindowStart).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}</p>
+                      ) : <p>-</p>}
+                      {stop.timeWindowEnd ? (
+                        <p>to {new Date(stop.timeWindowEnd).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}</p>
+                      ) : null}
                     </td>
                     <td className="p-4 text-sm space-y-1 text-muted-foreground">
                       <p>{stop.serviceDurationMin} mins</p>
@@ -127,7 +138,7 @@ export default function Stops() {
                 ))}
                 {(!stops || stops.length === 0) && (
                   <tr>
-                    <td colSpan={5} className="p-8 text-center text-muted-foreground">No stops found. Add some deliveries to route.</td>
+                    <td colSpan={6} className="p-8 text-center text-muted-foreground">No stops found. Add some deliveries to route.</td>
                   </tr>
                 )}
               </tbody>
@@ -162,7 +173,7 @@ function StopForm({ initialData, onSuccess }: { initialData?: Stop, onSuccess: (
     resolver: zodResolver(stopSchema),
     defaultValues: initialData ? {
       ...initialData,
-      customerName: initialData.customerName || "",
+      notes: initialData.notes || "",
       weightKg: initialData.weightKg || null,
       volumeM3: initialData.volumeM3 || null,
     } : {
@@ -185,8 +196,8 @@ function StopForm({ initialData, onSuccess }: { initialData?: Stop, onSuccess: (
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-4">
       <div className="space-y-2">
-        <Label>Customer Name</Label>
-        <Input {...register("customerName")} placeholder="Optional" />
+        <Label>Notes</Label>
+        <Input {...register("notes")} placeholder="Optional customer/delivery notes" />
       </div>
 
       <div className="space-y-2">
@@ -209,6 +220,17 @@ function StopForm({ initialData, onSuccess }: { initialData?: Stop, onSuccess: (
       <div className="space-y-2">
         <Label>Service Duration (mins)</Label>
         <Input type="number" {...register("serviceDurationMin")} />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Time Window Start</Label>
+          <Input type="datetime-local" {...register("timeWindowStart")} />
+        </div>
+        <div className="space-y-2">
+          <Label>Time Window End</Label>
+          <Input type="datetime-local" {...register("timeWindowEnd")} />
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
