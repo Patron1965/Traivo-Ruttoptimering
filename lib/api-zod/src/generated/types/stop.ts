@@ -23,5 +23,6 @@ export interface Stop {
   status: StopStatus;
   sequenceOrder?: number | null;
   notes?: string | null;
+  trackingCode?: string | null;
   createdAt: Date;
 }

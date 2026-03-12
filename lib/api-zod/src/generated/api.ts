@@ -145,6 +145,7 @@ export const ListStopsResponseItem = zod.object({
   ]),
   sequenceOrder: zod.number().nullish(),
   notes: zod.string().nullish(),
+  trackingCode: zod.string().nullish(),
   createdAt: zod.date(),
 });
 export const ListStopsResponse = zod.array(ListStopsResponseItem);
@@ -214,6 +215,7 @@ export const GetStopResponse = zod.object({
   ]),
   sequenceOrder: zod.number().nullish(),
   notes: zod.string().nullish(),
+  trackingCode: zod.string().nullish(),
   createdAt: zod.date(),
 });
 
@@ -264,6 +266,7 @@ export const UpdateStopResponse = zod.object({
   ]),
   sequenceOrder: zod.number().nullish(),
   notes: zod.string().nullish(),
+  trackingCode: zod.string().nullish(),
   createdAt: zod.date(),
 });
 
@@ -421,6 +424,7 @@ export const GetRouteStopsResponseItem = zod.object({
   ]),
   sequenceOrder: zod.number().nullish(),
   notes: zod.string().nullish(),
+  trackingCode: zod.string().nullish(),
   createdAt: zod.date(),
 });
 export const GetRouteStopsResponse = zod.array(GetRouteStopsResponseItem);
@@ -485,6 +489,7 @@ export const GetDashboardStatsResponse = zod.object({
   completedRoutes: zod.number(),
   pendingStops: zod.number(),
   co2EmissionsKg: zod.number(),
+  activeDrivers: zod.number().optional(),
 });
 
 /**
@@ -554,4 +559,232 @@ export const AiChatBody = zod.object({
       }),
     )
     .max(aiChatBodyMessagesMax),
+});
+
+/**
+ * @summary List all drivers
+ */
+export const ListDriversQueryParams = zod.object({
+  organizationId: zod.coerce.string().uuid(),
+});
+
+export const ListDriversResponseItem = zod.object({
+  id: zod.string().uuid(),
+  organizationId: zod.string().uuid(),
+  name: zod.string(),
+  phone: zod.string().nullish(),
+  email: zod.string().nullish(),
+  vehicleId: zod.string().uuid().nullish(),
+  isActive: zod.boolean(),
+  createdAt: zod.date(),
+});
+export const ListDriversResponse = zod.array(ListDriversResponseItem);
+
+/**
+ * @summary Create a driver
+ */
+export const CreateDriverBody = zod.object({
+  organizationId: zod.string().uuid(),
+  name: zod.string(),
+  phone: zod.string().nullish(),
+  email: zod.string().nullish(),
+  vehicleId: zod.string().uuid().nullish(),
+});
+
+/**
+ * @summary Get a driver by ID
+ */
+export const GetDriverParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const GetDriverResponse = zod.object({
+  id: zod.string().uuid(),
+  organizationId: zod.string().uuid(),
+  name: zod.string(),
+  phone: zod.string().nullish(),
+  email: zod.string().nullish(),
+  vehicleId: zod.string().uuid().nullish(),
+  isActive: zod.boolean(),
+  createdAt: zod.date(),
+});
+
+/**
+ * @summary Update a driver
+ */
+export const UpdateDriverParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const UpdateDriverBody = zod.object({
+  name: zod.string().optional(),
+  phone: zod.string().nullish(),
+  email: zod.string().nullish(),
+  vehicleId: zod.string().uuid().nullish(),
+  isActive: zod.boolean().optional(),
+});
+
+export const UpdateDriverResponse = zod.object({
+  id: zod.string().uuid(),
+  organizationId: zod.string().uuid(),
+  name: zod.string(),
+  phone: zod.string().nullish(),
+  email: zod.string().nullish(),
+  vehicleId: zod.string().uuid().nullish(),
+  isActive: zod.boolean(),
+  createdAt: zod.date(),
+});
+
+/**
+ * @summary Delete a driver
+ */
+export const DeleteDriverParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+/**
+ * @summary Get simulated real-time vehicle positions
+ */
+export const GetVehiclePositionsQueryParams = zod.object({
+  organizationId: zod.coerce.string().uuid(),
+});
+
+export const GetVehiclePositionsResponseItem = zod.object({
+  vehicleId: zod.string().uuid(),
+  vehicleName: zod.string(),
+  vehicleType: zod.enum(["fossil", "electric"]),
+  licensePlate: zod.string(),
+  latitude: zod.number(),
+  longitude: zod.number(),
+  heading: zod.number(),
+  speedKmh: zod.number(),
+  routeId: zod.string().uuid(),
+  routeName: zod.string(),
+  nextStopAddress: zod.string().nullish(),
+  etaMinutes: zod.number().nullish(),
+  batteryPercent: zod.number().nullish(),
+  distanceTravelledKm: zod.number(),
+});
+export const GetVehiclePositionsResponse = zod.array(
+  GetVehiclePositionsResponseItem,
+);
+
+/**
+ * @summary Get recent geofence events
+ */
+export const getGeofenceEventsQueryLimitDefault = 50;
+
+export const GetGeofenceEventsQueryParams = zod.object({
+  organizationId: zod.coerce.string().uuid(),
+  limit: zod.coerce.number().default(getGeofenceEventsQueryLimitDefault),
+});
+
+export const GetGeofenceEventsResponseItem = zod.object({
+  id: zod.string().uuid(),
+  organizationId: zod.string().uuid(),
+  vehicleId: zod.string().uuid(),
+  stopId: zod.string().uuid(),
+  routeId: zod.string().uuid(),
+  eventType: zod.enum(["entered", "exited"]),
+  vehicleName: zod.string(),
+  stopAddress: zod.string(),
+  timestamp: zod.date(),
+  createdAt: zod.date(),
+});
+export const GetGeofenceEventsResponse = zod.array(
+  GetGeofenceEventsResponseItem,
+);
+
+/**
+ * @summary Get notifications with unread count
+ */
+export const getNotificationsQueryLimitDefault = 50;
+
+export const GetNotificationsQueryParams = zod.object({
+  organizationId: zod.coerce.string().uuid(),
+  limit: zod.coerce.number().default(getNotificationsQueryLimitDefault),
+});
+
+export const GetNotificationsResponse = zod.object({
+  unreadCount: zod.number(),
+  notifications: zod.array(
+    zod.object({
+      id: zod.string().uuid(),
+      organizationId: zod.string().uuid(),
+      type: zod.enum([
+        "route_started",
+        "stop_completed",
+        "stop_failed",
+        "route_completed",
+        "geofence_entry",
+        "geofence_exit",
+      ]),
+      title: zod.string(),
+      message: zod.string(),
+      relatedEntityId: zod.string().uuid().nullish(),
+      isRead: zod.boolean(),
+      createdAt: zod.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary Mark a notification as read
+ */
+export const MarkNotificationReadParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const MarkNotificationReadResponse = zod.object({
+  id: zod.string().uuid(),
+  organizationId: zod.string().uuid(),
+  type: zod.enum([
+    "route_started",
+    "stop_completed",
+    "stop_failed",
+    "route_completed",
+    "geofence_entry",
+    "geofence_exit",
+  ]),
+  title: zod.string(),
+  message: zod.string(),
+  relatedEntityId: zod.string().uuid().nullish(),
+  isRead: zod.boolean(),
+  createdAt: zod.date(),
+});
+
+/**
+ * @summary Mark all notifications as read
+ */
+export const MarkAllNotificationsReadQueryParams = zod.object({
+  organizationId: zod.coerce.string().uuid(),
+});
+
+export const MarkAllNotificationsReadResponse = zod.object({
+  success: zod.boolean().optional(),
+});
+
+/**
+ * @summary Public delivery tracking by code
+ */
+export const TrackDeliveryParams = zod.object({
+  code: zod.coerce.string(),
+});
+
+export const TrackDeliveryResponse = zod.object({
+  trackingCode: zod.string(),
+  status: zod.enum([
+    "scheduled",
+    "on_the_way",
+    "arriving_soon",
+    "delivered",
+    "failed",
+  ]),
+  address: zod.string(),
+  latitude: zod.number(),
+  longitude: zod.number(),
+  timeWindowStart: zod.date().nullish(),
+  timeWindowEnd: zod.date().nullish(),
+  vehicleType: zod.string().nullish(),
+  vehicleName: zod.string().nullish(),
 });

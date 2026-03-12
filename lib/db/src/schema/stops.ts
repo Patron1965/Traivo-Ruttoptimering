@@ -23,6 +23,7 @@ export const stopsTable = pgTable("stops", {
   status: stopStatusEnum("status").notNull().default("pending"),
   sequenceOrder: integer("sequence_order"),
   notes: text("notes"),
+  trackingCode: text("tracking_code"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

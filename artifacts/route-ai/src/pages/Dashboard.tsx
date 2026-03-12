@@ -2,7 +2,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { useDashboardStats } from "@/hooks/use-dashboard";
 import { LoadingState, ErrorState } from "@/components/ui/LoadingState";
 import { InsightsPanel } from "@/components/insights/InsightsPanel";
-import { Truck, MapPin, Route, Clock, Leaf, Gauge } from "lucide-react";
+import { Truck, MapPin, Route, Clock, Leaf, Gauge, Users } from "lucide-react";
 import { formatDistance, formatDuration } from "@/lib/utils";
 
 export default function Dashboard() {
@@ -46,7 +46,7 @@ export default function Dashboard() {
 
         <h2 className="text-2xl font-bold tracking-tight mt-12 mb-6">Fleet & Sustainability</h2>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6">
           <div className="bg-card rounded-2xl p-6 border border-card-border shadow-lg shadow-black/5 hover:-translate-y-1 transition-transform duration-300 relative overflow-hidden group">
             <div className="absolute -right-6 -top-6 w-32 h-32 bg-primary/10 rounded-full blur-3xl group-hover:bg-primary/20 transition-colors" />
             <div className="flex items-center gap-4">
@@ -82,6 +82,19 @@ export default function Dashboard() {
               <div>
                 <p className="text-sm font-medium text-muted-foreground">CO₂ Emissions</p>
                 <p className="text-3xl font-bold text-foreground mt-1">{stats.co2EmissionsKg.toFixed(1)} kg</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-card rounded-2xl p-6 border border-card-border shadow-lg shadow-black/5 hover:-translate-y-1 transition-transform duration-300 relative overflow-hidden group">
+            <div className="absolute -right-6 -top-6 w-32 h-32 bg-violet-500/10 rounded-full blur-3xl group-hover:bg-violet-500/20 transition-colors" />
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 rounded-xl bg-violet-500/10 flex items-center justify-center">
+                <Users className="h-6 w-6 text-violet-500" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Drivers on Duty</p>
+                <p className="text-3xl font-bold text-foreground mt-1">{(stats as any).activeDrivers ?? 0}</p>
               </div>
             </div>
           </div>

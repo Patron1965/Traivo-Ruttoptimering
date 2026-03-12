@@ -1,8 +1,19 @@
 import { Router, type IRouter } from "express";
 import { eq, and, inArray } from "drizzle-orm";
-import { db, vehiclesTable, stopsTable, routesTable } from "@workspace/db";
+import { db, vehiclesTable, stopsTable, routesTable, notificationsTable } from "@workspace/db";
 import { OptimizeRoutesBody } from "@workspace/api-zod";
 import { handleError } from "../lib/errors";
+import crypto from "crypto";
+
+function generateTrackingCode(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const random = crypto.randomBytes(4);
+  let code = "RT-";
+  for (let i = 0; i < 4; i++) {
+    code += chars[random[i] % chars.length];
+  }
+  return code;
+}
 
 const CHARGING_STATIONS = [
   { id: "cs-1", name: "Ionity Stockholm North", latitude: 59.3850, longitude: 18.0200 },
@@ -387,9 +398,10 @@ router.post("/optimize", async (req, res) => {
             : arrivalTime;
 
           seqOrder++;
+          const trackingCode1 = generateTrackingCode();
           await db
             .update(stopsTable)
-            .set({ routeId: route.id, sequenceOrder: seqOrder })
+            .set({ routeId: route.id, sequenceOrder: seqOrder, trackingCode: trackingCode1 })
             .where(and(eq(stopsTable.id, va.stops[i].id), eq(stopsTable.organizationId, organizationId)));
 
           optimizedStops.push({
@@ -416,9 +428,10 @@ router.post("/optimize", async (req, res) => {
             : arrivalTime;
 
           seqOrder++;
+          const trackingCode2 = generateTrackingCode();
           await db
             .update(stopsTable)
-            .set({ routeId: route.id, sequenceOrder: seqOrder })
+            .set({ routeId: route.id, sequenceOrder: seqOrder, trackingCode: trackingCode2 })
             .where(and(eq(stopsTable.id, stop.id), eq(stopsTable.organizationId, organizationId)));
 
           optimizedStops.push({

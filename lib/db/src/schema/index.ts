@@ -4,3 +4,6 @@ export * from "./customers";
 export * from "./routes";
 export * from "./stops";
 export * from "./routeHistory";
+export * from "./drivers";
+export * from "./geofenceEvents";
+export * from "./notifications";

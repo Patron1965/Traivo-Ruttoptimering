@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { MapContainer, TileLayer, Marker, Popup, Polyline, ZoomControl } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Polyline, ZoomControl, Circle } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { type Route, type Stop } from "@workspace/api-client-react";
+import { type Route, type Stop, type VehiclePosition } from "@workspace/api-client-react";
 import { ROUTE_COLORS, DEPOT_LOCATION } from "@/lib/constants";
-import { formatDistance, formatDuration } from "@/lib/utils";
-import { MapPin, Truck, Warehouse } from "lucide-react";
+import { formatDistance } from "@/lib/utils";
+import { MapPin, Truck, Warehouse, Battery, Navigation, Clock, Zap, Fuel } from "lucide-react";
 import { renderToString } from "react-dom/server";
 
 interface RouteData extends Route {
@@ -15,12 +15,12 @@ interface RouteData extends Route {
 interface RouteMapProps {
   routes?: RouteData[];
   unassignedStops?: Stop[];
+  vehiclePositions?: VehiclePosition[];
   center?: [number, number];
   zoom?: number;
   interactive?: boolean;
 }
 
-// Custom markers using Lucide icons rendered to HTML
 const createCustomIcon = (color: string, label?: string, isDepot = false) => {
   const iconHtml = renderToString(
     <div className="relative flex items-center justify-center" style={{ width: 32, height: 32 }}>
@@ -52,9 +52,33 @@ const createCustomIcon = (color: string, label?: string, isDepot = false) => {
   });
 };
 
+const createVehicleIcon = (heading: number, vehicleType: string) => {
+  const color = vehicleType === "electric" ? "#10B981" : "#F59E0B";
+  const html = renderToString(
+    <div style={{ width: 40, height: 40, transform: `rotate(${heading}deg)` }} className="flex items-center justify-center">
+      <div className="relative">
+        <div className="absolute inset-0 rounded-full animate-ping opacity-30" style={{ backgroundColor: color }} />
+        <div className="w-10 h-10 rounded-full flex items-center justify-center border-2 shadow-lg" style={{ backgroundColor: `${color}20`, borderColor: color }}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+  );
+  return L.divIcon({
+    html,
+    className: "vehicle-marker-icon",
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
+    popupAnchor: [0, -20],
+  });
+};
+
 export function RouteMap({ 
   routes = [], 
   unassignedStops = [],
+  vehiclePositions = [],
   center = [DEPOT_LOCATION.lat, DEPOT_LOCATION.lng],
   zoom = 11,
   interactive = true
@@ -66,6 +90,10 @@ export function RouteMap({
   }, []);
 
   if (!mounted) return <div className="w-full h-full bg-muted/20 animate-pulse rounded-2xl" />;
+
+  const activeRouteStops = routes
+    .filter(r => r.status === "in_progress" || r.status === "optimized")
+    .flatMap(r => r.stopsList.filter(s => s.status === "pending" || s.status === "in_progress"));
 
   return (
     <MapContainer 
@@ -82,7 +110,6 @@ export function RouteMap({
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
       />
 
-      {/* Depot */}
       <Marker position={[DEPOT_LOCATION.lat, DEPOT_LOCATION.lng]} icon={createCustomIcon("#06B6D4", undefined, true)}>
         <Popup className="rounded-xl overflow-hidden shadow-2xl border-0">
           <div className="p-3">
@@ -92,14 +119,24 @@ export function RouteMap({
         </Popup>
       </Marker>
 
-      {/* Routes */}
+      {activeRouteStops.map((stop) => (
+        <Circle
+          key={`geofence-${stop.id}`}
+          center={[stop.latitude, stop.longitude]}
+          radius={500}
+          pathOptions={{
+            color: "#06B6D4",
+            fillColor: "#06B6D4",
+            fillOpacity: 0.06,
+            weight: 1,
+            dashArray: "6, 4",
+          }}
+        />
+      ))}
+
       {routes.map((route, rIndex) => {
         const color = ROUTE_COLORS[rIndex % ROUTE_COLORS.length];
-        
-        // Ensure stops are sorted by sequence order
         const sortedStops = [...route.stopsList].sort((a, b) => (a.sequenceOrder || 0) - (b.sequenceOrder || 0));
-        
-        // Build path: Depot -> Stop 1 -> Stop 2 -> ... -> Depot
         const path: [number, number][] = [
           [DEPOT_LOCATION.lat, DEPOT_LOCATION.lng],
           ...sortedStops.map(s => [s.latitude, s.longitude] as [number, number]),
@@ -137,8 +174,8 @@ export function RouteMap({
                         <span className="font-semibold">#{sIndex + 1}</span>
                       </div>
                       <div className="bg-muted p-1.5 rounded-md">
-                        <span className="block text-muted-foreground">Duration</span>
-                        <span className="font-semibold">{stop.serviceDurationMin}m</span>
+                        <span className="block text-muted-foreground">Status</span>
+                        <span className="font-semibold capitalize">{stop.status}</span>
                       </div>
                     </div>
                   </div>
@@ -149,12 +186,72 @@ export function RouteMap({
         );
       })}
 
-      {/* Unassigned Stops */}
+      {vehiclePositions.map((pos, idx) => (
+        <Marker
+          key={`vehicle-${pos.vehicleId}-${pos.routeId || idx}`}
+          position={[pos.latitude, pos.longitude]}
+          icon={createVehicleIcon(pos.heading, pos.vehicleType)}
+        >
+          <Popup>
+            <div className="p-3 min-w-[220px]">
+              <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border/50">
+                {pos.vehicleType === "electric" ? (
+                  <Zap className="h-4 w-4 text-emerald-500" />
+                ) : (
+                  <Fuel className="h-4 w-4 text-amber-500" />
+                )}
+                <span className="font-bold">{pos.vehicleName}</span>
+                <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded">{pos.licensePlate}</span>
+              </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Speed</span>
+                  <span className="font-semibold">{pos.speedKmh} km/h</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Travelled</span>
+                  <span className="font-semibold">{pos.distanceTravelledKm} km</span>
+                </div>
+                {pos.nextStopAddress && (
+                  <div className="bg-muted p-2 rounded-lg mt-2">
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
+                      <Navigation className="h-3 w-3" />
+                      Next Stop
+                    </div>
+                    <p className="text-xs font-medium truncate">{pos.nextStopAddress}</p>
+                    {pos.etaMinutes != null && (
+                      <div className="flex items-center gap-1 text-xs text-primary font-bold mt-1">
+                        <Clock className="h-3 w-3" />
+                        ETA: {pos.etaMinutes} min
+                      </div>
+                    )}
+                  </div>
+                )}
+                {pos.batteryPercent != null && (
+                  <div className="flex items-center gap-2 mt-2">
+                    <Battery className="h-3 w-3 text-emerald-500" />
+                    <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${
+                          pos.batteryPercent > 50 ? "bg-emerald-500" : pos.batteryPercent > 20 ? "bg-amber-500" : "bg-destructive"
+                        }`}
+                        style={{ width: `${pos.batteryPercent}%` }}
+                      />
+                    </div>
+                    <span className="text-xs font-semibold">{Math.round(pos.batteryPercent)}%</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </Popup>
+        </Marker>
+      ))}
+
       {unassignedStops.map((stop) => (
         <Marker 
           key={stop.id} 
           position={[stop.latitude, stop.longitude]}
-          icon={createCustomIcon("#64748B")} // Slate gray for unassigned
+          icon={createCustomIcon("#64748B")}
         >
           <Popup>
             <div className="p-2 min-w-[200px]">

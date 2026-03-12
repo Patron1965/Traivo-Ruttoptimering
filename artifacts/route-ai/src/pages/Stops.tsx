@@ -4,7 +4,7 @@ import { useRoutes } from "@/hooks/use-routes";
 import { useVehicles } from "@/hooks/use-vehicles";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2, Edit2, MapPin, Upload } from "lucide-react";
+import { Plus, Trash2, Edit2, MapPin, Upload, Copy, ExternalLink } from "lucide-react";
 import { useMemo, useState, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -91,6 +91,7 @@ export default function Stops() {
                   <th className="p-4 font-semibold text-muted-foreground text-sm">Time Window</th>
                   <th className="p-4 font-semibold text-muted-foreground text-sm">Requirements</th>
                   <th className="p-4 font-semibold text-muted-foreground text-sm">Assigned Vehicle</th>
+                  <th className="p-4 font-semibold text-muted-foreground text-sm">Tracking</th>
                   <th className="p-4 font-semibold text-muted-foreground text-sm text-right">Actions</th>
                 </tr>
               </thead>
@@ -133,6 +134,36 @@ export default function Stops() {
                         </span>
                       )}
                     </td>
+                    <td className="p-4">
+                      {(stop as any).trackingCode ? (
+                        <div className="flex items-center gap-1">
+                          <span className="font-mono text-xs bg-muted px-2 py-1 rounded font-bold">{(stop as any).trackingCode}</span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 hover:text-primary"
+                            onClick={() => {
+                              const url = `${window.location.origin}${import.meta.env.BASE_URL}track/${(stop as any).trackingCode}`;
+                              navigator.clipboard.writeText(url);
+                            }}
+                            title="Copy tracking link"
+                          >
+                            <Copy className="h-3 w-3" />
+                          </Button>
+                          <a
+                            href={`${import.meta.env.BASE_URL}track/${(stop as any).trackingCode}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center justify-center h-7 w-7 rounded-md hover:bg-primary/10 hover:text-primary transition-colors"
+                            title="Open tracking page"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-xs italic">-</span>
+                      )}
+                    </td>
                     <td className="p-4 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <Button 
@@ -159,7 +190,7 @@ export default function Stops() {
                 ))}
                 {(!stops || stops.length === 0) && (
                   <tr>
-                    <td colSpan={5} className="p-8 text-center text-muted-foreground">No stops found. Add some deliveries to route.</td>
+                    <td colSpan={6} className="p-8 text-center text-muted-foreground">No stops found. Add some deliveries to route.</td>
                   </tr>
                 )}
               </tbody>

@@ -11,6 +11,8 @@ import Planner from "@/pages/Planner";
 import Routes from "@/pages/Routes";
 import Sustainability from "@/pages/Sustainability";
 import RouteHistory from "@/pages/RouteHistory";
+import Drivers from "@/pages/Drivers";
+import TrackingPage from "@/pages/TrackingPage";
 import NotFound from "@/pages/not-found";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 
@@ -18,12 +20,12 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
-      staleTime: 1000 * 60 * 5, // 5 minutes
+      staleTime: 1000 * 60 * 5,
     }
   }
 });
 
-function Router() {
+function AppRouter() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
@@ -34,6 +36,10 @@ function Router() {
       <Route path="/routes" component={Routes} />
       <Route path="/sustainability" component={Sustainability} />
       <Route path="/history" component={RouteHistory} />
+      <Route path="/drivers" component={Drivers} />
+      <Route path="/track/:code">
+        {(params) => <TrackingPage code={params.code} />}
+      </Route>
       <Route component={NotFound} />
     </Switch>
   );
@@ -44,7 +50,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
+          <AppRouter />
         </WouterRouter>
         <ChatPanel />
         <Toaster />

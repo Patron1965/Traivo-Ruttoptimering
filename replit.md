@@ -59,6 +59,11 @@ The database uses PostgreSQL with Drizzle ORM. Schema files are in `lib/db/src/s
 - **stops** — individual delivery stops with coordinates, time windows, weight/volume, and sequence ordering
 - **routeHistory** — historical route records with snapshots
 
+- **drivers** — fleet drivers (name, phone, email, vehicleId assignment, isActive)
+- **geofenceEvents** — geofence entry/exit events (vehicleId, stopId, routeId, eventType, vehicleName, stopAddress, timestamp)
+- **notifications** — system notifications (type, title, message, relatedEntityId, isRead)
+- **stops.trackingCode** — customer-facing tracking code (format: `RT-XXXX`, generated during optimization)
+
 Key enums: `vehicle_type` (fossil, electric), `route_status`, `stop_status`
 
 ## API Endpoints
@@ -79,6 +84,14 @@ All endpoints under `/api`:
 - `GET /api/sustainability/stats` — CO₂ emissions breakdown (fossil vs EV, trees equivalent)
 - `POST /api/ai/chat` — AI chat assistant (SSE streaming), accepts `{ organizationId, messages }`, streams response chunks
 - `GET /api/insights` — Proactive AI fleet insights (query: organizationId, enhance=true/false). Returns deterministic fleet checks with optional AI-enhanced recommendations
+- `GET/POST /api/drivers` — list/create drivers (query: organizationId)
+- `GET/PUT/DELETE /api/drivers/:id` — get/update/delete driver
+- `GET /api/vehicles/positions` — simulated live vehicle positions along active/optimized routes (query: organizationId)
+- `GET /api/geofence/events` — recent geofence entry/exit events (query: organizationId, limit)
+- `GET /api/notifications` — notifications with unread count (query: organizationId, limit)
+- `PUT /api/notifications/:id/read` — mark notification as read
+- `PUT /api/notifications/read-all` — mark all notifications as read (query: organizationId)
+- `GET /api/track/:code` — public tracking page endpoint (no auth needed)
 
 ## Route Optimization
 
@@ -137,12 +150,12 @@ Generated React Query hooks and fetch client from the OpenAPI spec.
 
 React + Vite frontend for RouteAI. Dark-mode UI with sidebar navigation.
 
-- Pages: Dashboard (`/`), Live Map (`/map`), Route Planner (`/planner`), All Routes (`/routes`), Fleet (`/vehicles`), Stops (`/stops`), CO₂ Dashboard (`/sustainability`), Route History (`/history`)
+- Pages: Dashboard (`/`), Live Map (`/map`), Route Planner (`/planner`), All Routes (`/routes`), Fleet (`/vehicles`), Drivers (`/drivers`), Stops (`/stops`), CO₂ Dashboard (`/sustainability`), Route History (`/history`), Public Tracking (`/track/:code`)
 - Uses `@workspace/api-client-react` generated React Query hooks for all API calls
 - Leaflet map with OpenStreetMap tiles for route visualization
 - Hardcoded ORG_ID: `63e7175d-af1d-4dc3-be62-842a8b3dc9f8` (Stockholm Logistics AB)
 - Key deps: react-leaflet, leaflet, @hello-pangea/dnd, recharts, react-hook-form, lucide-react, date-fns
-- Features: EV battery bars on Fleet page, CSV import modal on Stops page, route CSV export on Routes page, CO₂ sustainability dashboard with Recharts charts, AI chat assistant (floating panel with SSE streaming), proactive AI insights on dashboard
+- Features: EV battery bars on Fleet page, CSV import modal on Stops page, route CSV export on Routes page, CO₂ sustainability dashboard with Recharts charts, AI chat assistant (floating panel with SSE streaming), proactive AI insights on dashboard, live vehicle tracking on map (3s polling), geofence circles around active stops, driver management with vehicle assignment, notification bell with dropdown, public delivery tracking page with status stepper + mini-map, tracking codes on stops
 - AI Chat: Floating button bottom-right opens slide-over panel. Uses `@workspace/integrations-openai-ai-server` (gpt-5-mini model). Sends fleet context + active insights with each request.
 - AI Insights: Dashboard shows collapsible panel with auto-generated fleet insights (late-risk stops, battery warnings, CO₂ suggestions, capacity utilization). Deterministic checks + AI-enhanced recommendations.
 - `pnpm --filter @workspace/route-ai run dev` — run the dev server

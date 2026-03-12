@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Map as MapIcon, Truck, MapPin, Route as RouteIcon, Command, Cpu, Leaf, Clock } from "lucide-react";
+import { LayoutDashboard, Map as MapIcon, Truck, MapPin, Route as RouteIcon, Command, Cpu, Leaf, Clock, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { href: "/planner", label: "Route Planner", icon: Cpu },
   { href: "/routes", label: "All Routes", icon: RouteIcon },
   { href: "/vehicles", label: "Fleet", icon: Truck },
+  { href: "/drivers", label: "Drivers", icon: Users },
   { href: "/stops", label: "Stops", icon: MapPin },
   { href: "/sustainability", label: "CO₂ Dashboard", icon: Leaf },
   { href: "/history", label: "Route History", icon: Clock },

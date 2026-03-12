@@ -26,6 +26,12 @@ tags:
     description: AI chat assistant
   - name: insights
     description: Proactive AI fleet insights
+  - name: drivers
+    description: Driver management
+  - name: tracking
+    description: Vehicle tracking and geofencing
+  - name: notifications
+    description: In-app notifications
 paths:
   /healthz:
     get:
@@ -527,6 +533,249 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /drivers:
+    get:
+      operationId: listDrivers
+      tags: [drivers]
+      summary: List all drivers
+      parameters:
+        - name: organizationId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: List of drivers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Driver"
+    post:
+      operationId: createDriver
+      tags: [drivers]
+      summary: Create a driver
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDriverBody"
+      responses:
+        "201":
+          description: Created driver
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Driver"
+
+  /drivers/{id}:
+    get:
+      operationId: getDriver
+      tags: [drivers]
+      summary: Get a driver by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Driver details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Driver"
+        "404":
+          description: Not found
+    put:
+      operationId: updateDriver
+      tags: [drivers]
+      summary: Update a driver
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDriverBody"
+      responses:
+        "200":
+          description: Updated driver
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Driver"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteDriver
+      tags: [drivers]
+      summary: Delete a driver
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted
+
+  /vehicles/positions:
+    get:
+      operationId: getVehiclePositions
+      tags: [tracking]
+      summary: Get simulated real-time vehicle positions
+      parameters:
+        - name: organizationId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: List of vehicle positions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VehiclePosition"
+
+  /geofence/events:
+    get:
+      operationId: getGeofenceEvents
+      tags: [tracking]
+      summary: Get recent geofence events
+      parameters:
+        - name: organizationId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: List of geofence events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GeofenceEvent"
+
+  /notifications:
+    get:
+      operationId: getNotifications
+      tags: [notifications]
+      summary: Get notifications with unread count
+      parameters:
+        - name: organizationId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: Notifications with unread count
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationsResponse"
+
+  /notifications/{id}/read:
+    put:
+      operationId: markNotificationRead
+      tags: [notifications]
+      summary: Mark a notification as read
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Updated notification
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Notification"
+        "404":
+          description: Not found
+
+  /notifications/read-all:
+    put:
+      operationId: markAllNotificationsRead
+      tags: [notifications]
+      summary: Mark all notifications as read
+      parameters:
+        - name: organizationId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+
+  /track/{code}:
+    get:
+      operationId: trackDelivery
+      tags: [tracking]
+      summary: Public delivery tracking by code
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Delivery tracking info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrackingInfo"
+        "404":
+          description: Tracking code not found
+
 components:
   schemas:
     Error:
@@ -696,6 +945,9 @@ components:
           type: integer
           nullable: true
         notes:
+          type: string
+          nullable: true
+        trackingCode:
           type: string
           nullable: true
         createdAt:
@@ -1064,6 +1316,8 @@ components:
           type: integer
         co2EmissionsKg:
           type: number
+        activeDrivers:
+          type: integer
       required:
         - totalRoutes
         - totalStops
@@ -1191,3 +1445,251 @@ components:
       required:
         - insights
         - generatedAt
+
+    Driver:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        vehicleId:
+          type: string
+          format: uuid
+          nullable: true
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - organizationId
+        - name
+        - isActive
+        - createdAt
+
+    CreateDriverBody:
+      type: object
+      properties:
+        organizationId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        vehicleId:
+          type: string
+          format: uuid
+          nullable: true
+      required:
+        - organizationId
+        - name
+
+    UpdateDriverBody:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        vehicleId:
+          type: string
+          format: uuid
+          nullable: true
+        isActive:
+          type: boolean
+
+    VehiclePosition:
+      type: object
+      properties:
+        vehicleId:
+          type: string
+          format: uuid
+        vehicleName:
+          type: string
+        vehicleType:
+          type: string
+          enum: [fossil, electric]
+        licensePlate:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+        heading:
+          type: number
+        speedKmh:
+          type: number
+        routeId:
+          type: string
+          format: uuid
+        routeName:
+          type: string
+        nextStopAddress:
+          type: string
+          nullable: true
+        etaMinutes:
+          type: number
+          nullable: true
+        batteryPercent:
+          type: number
+          nullable: true
+        distanceTravelledKm:
+          type: number
+      required:
+        - vehicleId
+        - vehicleName
+        - vehicleType
+        - licensePlate
+        - latitude
+        - longitude
+        - heading
+        - speedKmh
+        - routeId
+        - routeName
+        - distanceTravelledKm
+
+    GeofenceEvent:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        vehicleId:
+          type: string
+          format: uuid
+        stopId:
+          type: string
+          format: uuid
+        routeId:
+          type: string
+          format: uuid
+        eventType:
+          type: string
+          enum: [entered, exited]
+        vehicleName:
+          type: string
+        stopAddress:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - organizationId
+        - vehicleId
+        - stopId
+        - routeId
+        - eventType
+        - vehicleName
+        - stopAddress
+        - timestamp
+        - createdAt
+
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [route_started, stop_completed, stop_failed, route_completed, geofence_entry, geofence_exit]
+        title:
+          type: string
+        message:
+          type: string
+        relatedEntityId:
+          type: string
+          format: uuid
+          nullable: true
+        isRead:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - organizationId
+        - type
+        - title
+        - message
+        - isRead
+        - createdAt
+
+    NotificationsResponse:
+      type: object
+      properties:
+        unreadCount:
+          type: integer
+        notifications:
+          type: array
+          items:
+            $ref: "#/components/schemas/Notification"
+      required:
+        - unreadCount
+        - notifications
+
+    TrackingInfo:
+      type: object
+      properties:
+        trackingCode:
+          type: string
+        status:
+          type: string
+          enum: [scheduled, on_the_way, arriving_soon, delivered, failed]
+        address:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+        timeWindowStart:
+          type: string
+          format: date-time
+          nullable: true
+        timeWindowEnd:
+          type: string
+          format: date-time
+          nullable: true
+        vehicleType:
+          type: string
+          nullable: true
+        vehicleName:
+          type: string
+          nullable: true
+      required:
+        - trackingCode
+        - status
+        - address
+        - latitude
+        - longitude

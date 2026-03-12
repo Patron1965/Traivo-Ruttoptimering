@@ -18,30 +18,44 @@ import type {
 
 import type {
   AiChatRequest,
+  CreateDriverBody,
   CreateRouteBody,
   CreateStopBody,
   CreateVehicleBody,
   DashboardStats,
+  Driver,
   Error,
+  GeofenceEvent,
   GetDashboardStatsParams,
+  GetGeofenceEventsParams,
   GetInsightsParams,
+  GetNotificationsParams,
   GetSustainabilityStatsParams,
+  GetVehiclePositionsParams,
   HealthStatus,
   ImportStopsBody,
   ImportStopsResponse,
   InsightsResponse,
+  ListDriversParams,
   ListRoutesParams,
   ListStopsParams,
   ListVehiclesParams,
+  MarkAllNotificationsRead200,
+  MarkAllNotificationsReadParams,
+  Notification,
+  NotificationsResponse,
   OptimizeRequest,
   OptimizeResponse,
   Route,
   Stop,
   SustainabilityStats,
+  TrackingInfo,
+  UpdateDriverBody,
   UpdateRouteBody,
   UpdateStopBody,
   UpdateVehicleBody,
   Vehicle,
+  VehiclePosition,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -2155,3 +2169,1005 @@ export const useAiChat = <
 > => {
   return useMutation(getAiChatMutationOptions(options));
 };
+
+/**
+ * @summary List all drivers
+ */
+export const getListDriversUrl = (params: ListDriversParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/drivers?${stringifiedParams}`
+    : `/api/drivers`;
+};
+
+export const listDrivers = async (
+  params: ListDriversParams,
+  options?: RequestInit,
+): Promise<Driver[]> => {
+  return customFetch<Driver[]>(getListDriversUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListDriversQueryKey = (params?: ListDriversParams) => {
+  return [`/api/drivers`, ...(params ? [params] : [])] as const;
+};
+
+export const getListDriversQueryOptions = <
+  TData = Awaited<ReturnType<typeof listDrivers>>,
+  TError = ErrorType<unknown>,
+>(
+  params: ListDriversParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listDrivers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListDriversQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listDrivers>>> = ({
+    signal,
+  }) => listDrivers(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listDrivers>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListDriversQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listDrivers>>
+>;
+export type ListDriversQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all drivers
+ */
+
+export function useListDrivers<
+  TData = Awaited<ReturnType<typeof listDrivers>>,
+  TError = ErrorType<unknown>,
+>(
+  params: ListDriversParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listDrivers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListDriversQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a driver
+ */
+export const getCreateDriverUrl = () => {
+  return `/api/drivers`;
+};
+
+export const createDriver = async (
+  createDriverBody: CreateDriverBody,
+  options?: RequestInit,
+): Promise<Driver> => {
+  return customFetch<Driver>(getCreateDriverUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createDriverBody),
+  });
+};
+
+export const getCreateDriverMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createDriver>>,
+    TError,
+    { data: BodyType<CreateDriverBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createDriver>>,
+  TError,
+  { data: BodyType<CreateDriverBody> },
+  TContext
+> => {
+  const mutationKey = ["createDriver"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createDriver>>,
+    { data: BodyType<CreateDriverBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createDriver(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateDriverMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createDriver>>
+>;
+export type CreateDriverMutationBody = BodyType<CreateDriverBody>;
+export type CreateDriverMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a driver
+ */
+export const useCreateDriver = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createDriver>>,
+    TError,
+    { data: BodyType<CreateDriverBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createDriver>>,
+  TError,
+  { data: BodyType<CreateDriverBody> },
+  TContext
+> => {
+  return useMutation(getCreateDriverMutationOptions(options));
+};
+
+/**
+ * @summary Get a driver by ID
+ */
+export const getGetDriverUrl = (id: string) => {
+  return `/api/drivers/${id}`;
+};
+
+export const getDriver = async (
+  id: string,
+  options?: RequestInit,
+): Promise<Driver> => {
+  return customFetch<Driver>(getGetDriverUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetDriverQueryKey = (id: string) => {
+  return [`/api/drivers/${id}`] as const;
+};
+
+export const getGetDriverQueryOptions = <
+  TData = Awaited<ReturnType<typeof getDriver>>,
+  TError = ErrorType<void>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getDriver>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetDriverQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getDriver>>> = ({
+    signal,
+  }) => getDriver(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<Awaited<ReturnType<typeof getDriver>>, TError, TData> & {
+    queryKey: QueryKey;
+  };
+};
+
+export type GetDriverQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getDriver>>
+>;
+export type GetDriverQueryError = ErrorType<void>;
+
+/**
+ * @summary Get a driver by ID
+ */
+
+export function useGetDriver<
+  TData = Awaited<ReturnType<typeof getDriver>>,
+  TError = ErrorType<void>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getDriver>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetDriverQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update a driver
+ */
+export const getUpdateDriverUrl = (id: string) => {
+  return `/api/drivers/${id}`;
+};
+
+export const updateDriver = async (
+  id: string,
+  updateDriverBody: UpdateDriverBody,
+  options?: RequestInit,
+): Promise<Driver> => {
+  return customFetch<Driver>(getUpdateDriverUrl(id), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateDriverBody),
+  });
+};
+
+export const getUpdateDriverMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateDriver>>,
+    TError,
+    { id: string; data: BodyType<UpdateDriverBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateDriver>>,
+  TError,
+  { id: string; data: BodyType<UpdateDriverBody> },
+  TContext
+> => {
+  const mutationKey = ["updateDriver"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateDriver>>,
+    { id: string; data: BodyType<UpdateDriverBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return updateDriver(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateDriverMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateDriver>>
+>;
+export type UpdateDriverMutationBody = BodyType<UpdateDriverBody>;
+export type UpdateDriverMutationError = ErrorType<void>;
+
+/**
+ * @summary Update a driver
+ */
+export const useUpdateDriver = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateDriver>>,
+    TError,
+    { id: string; data: BodyType<UpdateDriverBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateDriver>>,
+  TError,
+  { id: string; data: BodyType<UpdateDriverBody> },
+  TContext
+> => {
+  return useMutation(getUpdateDriverMutationOptions(options));
+};
+
+/**
+ * @summary Delete a driver
+ */
+export const getDeleteDriverUrl = (id: string) => {
+  return `/api/drivers/${id}`;
+};
+
+export const deleteDriver = async (
+  id: string,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteDriverUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteDriverMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteDriver>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteDriver>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["deleteDriver"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteDriver>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteDriver(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteDriverMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteDriver>>
+>;
+
+export type DeleteDriverMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete a driver
+ */
+export const useDeleteDriver = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteDriver>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteDriver>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getDeleteDriverMutationOptions(options));
+};
+
+/**
+ * @summary Get simulated real-time vehicle positions
+ */
+export const getGetVehiclePositionsUrl = (
+  params: GetVehiclePositionsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/vehicles/positions?${stringifiedParams}`
+    : `/api/vehicles/positions`;
+};
+
+export const getVehiclePositions = async (
+  params: GetVehiclePositionsParams,
+  options?: RequestInit,
+): Promise<VehiclePosition[]> => {
+  return customFetch<VehiclePosition[]>(getGetVehiclePositionsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetVehiclePositionsQueryKey = (
+  params?: GetVehiclePositionsParams,
+) => {
+  return [`/api/vehicles/positions`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetVehiclePositionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getVehiclePositions>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetVehiclePositionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getVehiclePositions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetVehiclePositionsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getVehiclePositions>>
+  > = ({ signal }) =>
+    getVehiclePositions(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getVehiclePositions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetVehiclePositionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getVehiclePositions>>
+>;
+export type GetVehiclePositionsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get simulated real-time vehicle positions
+ */
+
+export function useGetVehiclePositions<
+  TData = Awaited<ReturnType<typeof getVehiclePositions>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetVehiclePositionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getVehiclePositions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetVehiclePositionsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get recent geofence events
+ */
+export const getGetGeofenceEventsUrl = (params: GetGeofenceEventsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/geofence/events?${stringifiedParams}`
+    : `/api/geofence/events`;
+};
+
+export const getGeofenceEvents = async (
+  params: GetGeofenceEventsParams,
+  options?: RequestInit,
+): Promise<GeofenceEvent[]> => {
+  return customFetch<GeofenceEvent[]>(getGetGeofenceEventsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetGeofenceEventsQueryKey = (
+  params?: GetGeofenceEventsParams,
+) => {
+  return [`/api/geofence/events`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetGeofenceEventsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getGeofenceEvents>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetGeofenceEventsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getGeofenceEvents>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetGeofenceEventsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getGeofenceEvents>>
+  > = ({ signal }) => getGeofenceEvents(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getGeofenceEvents>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetGeofenceEventsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getGeofenceEvents>>
+>;
+export type GetGeofenceEventsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get recent geofence events
+ */
+
+export function useGetGeofenceEvents<
+  TData = Awaited<ReturnType<typeof getGeofenceEvents>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetGeofenceEventsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getGeofenceEvents>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetGeofenceEventsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get notifications with unread count
+ */
+export const getGetNotificationsUrl = (params: GetNotificationsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/notifications?${stringifiedParams}`
+    : `/api/notifications`;
+};
+
+export const getNotifications = async (
+  params: GetNotificationsParams,
+  options?: RequestInit,
+): Promise<NotificationsResponse> => {
+  return customFetch<NotificationsResponse>(getGetNotificationsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetNotificationsQueryKey = (
+  params?: GetNotificationsParams,
+) => {
+  return [`/api/notifications`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetNotificationsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getNotifications>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetNotificationsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getNotifications>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetNotificationsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getNotifications>>
+  > = ({ signal }) => getNotifications(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getNotifications>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetNotificationsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getNotifications>>
+>;
+export type GetNotificationsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get notifications with unread count
+ */
+
+export function useGetNotifications<
+  TData = Awaited<ReturnType<typeof getNotifications>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetNotificationsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getNotifications>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetNotificationsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Mark a notification as read
+ */
+export const getMarkNotificationReadUrl = (id: string) => {
+  return `/api/notifications/${id}/read`;
+};
+
+export const markNotificationRead = async (
+  id: string,
+  options?: RequestInit,
+): Promise<Notification> => {
+  return customFetch<Notification>(getMarkNotificationReadUrl(id), {
+    ...options,
+    method: "PUT",
+  });
+};
+
+export const getMarkNotificationReadMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof markNotificationRead>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof markNotificationRead>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["markNotificationRead"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof markNotificationRead>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return markNotificationRead(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type MarkNotificationReadMutationResult = NonNullable<
+  Awaited<ReturnType<typeof markNotificationRead>>
+>;
+
+export type MarkNotificationReadMutationError = ErrorType<void>;
+
+/**
+ * @summary Mark a notification as read
+ */
+export const useMarkNotificationRead = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof markNotificationRead>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof markNotificationRead>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getMarkNotificationReadMutationOptions(options));
+};
+
+/**
+ * @summary Mark all notifications as read
+ */
+export const getMarkAllNotificationsReadUrl = (
+  params: MarkAllNotificationsReadParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/notifications/read-all?${stringifiedParams}`
+    : `/api/notifications/read-all`;
+};
+
+export const markAllNotificationsRead = async (
+  params: MarkAllNotificationsReadParams,
+  options?: RequestInit,
+): Promise<MarkAllNotificationsRead200> => {
+  return customFetch<MarkAllNotificationsRead200>(
+    getMarkAllNotificationsReadUrl(params),
+    {
+      ...options,
+      method: "PUT",
+    },
+  );
+};
+
+export const getMarkAllNotificationsReadMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof markAllNotificationsRead>>,
+    TError,
+    { params: MarkAllNotificationsReadParams },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof markAllNotificationsRead>>,
+  TError,
+  { params: MarkAllNotificationsReadParams },
+  TContext
+> => {
+  const mutationKey = ["markAllNotificationsRead"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof markAllNotificationsRead>>,
+    { params: MarkAllNotificationsReadParams }
+  > = (props) => {
+    const { params } = props ?? {};
+
+    return markAllNotificationsRead(params, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type MarkAllNotificationsReadMutationResult = NonNullable<
+  Awaited<ReturnType<typeof markAllNotificationsRead>>
+>;
+
+export type MarkAllNotificationsReadMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Mark all notifications as read
+ */
+export const useMarkAllNotificationsRead = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof markAllNotificationsRead>>,
+    TError,
+    { params: MarkAllNotificationsReadParams },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof markAllNotificationsRead>>,
+  TError,
+  { params: MarkAllNotificationsReadParams },
+  TContext
+> => {
+  return useMutation(getMarkAllNotificationsReadMutationOptions(options));
+};
+
+/**
+ * @summary Public delivery tracking by code
+ */
+export const getTrackDeliveryUrl = (code: string) => {
+  return `/api/track/${code}`;
+};
+
+export const trackDelivery = async (
+  code: string,
+  options?: RequestInit,
+): Promise<TrackingInfo> => {
+  return customFetch<TrackingInfo>(getTrackDeliveryUrl(code), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getTrackDeliveryQueryKey = (code: string) => {
+  return [`/api/track/${code}`] as const;
+};
+
+export const getTrackDeliveryQueryOptions = <
+  TData = Awaited<ReturnType<typeof trackDelivery>>,
+  TError = ErrorType<void>,
+>(
+  code: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof trackDelivery>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getTrackDeliveryQueryKey(code);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof trackDelivery>>> = ({
+    signal,
+  }) => trackDelivery(code, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!code,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof trackDelivery>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type TrackDeliveryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof trackDelivery>>
+>;
+export type TrackDeliveryQueryError = ErrorType<void>;
+
+/**
+ * @summary Public delivery tracking by code
+ */
+
+export function useTrackDelivery<
+  TData = Awaited<ReturnType<typeof trackDelivery>>,
+  TError = ErrorType<void>,
+>(
+  code: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof trackDelivery>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getTrackDeliveryQueryOptions(code, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}

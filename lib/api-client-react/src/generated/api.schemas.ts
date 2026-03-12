@@ -102,6 +102,7 @@ export interface Stop {
   status: StopStatus;
   sequenceOrder?: number | null;
   notes?: string | null;
+  trackingCode?: string | null;
   createdAt: string;
 }
 
@@ -264,6 +265,7 @@ export interface DashboardStats {
   completedRoutes: number;
   pendingStops: number;
   co2EmissionsKg: number;
+  activeDrivers?: number;
 }
 
 export type SustainabilityStatsRouteBreakdownItemVehicleType =
@@ -344,6 +346,130 @@ export interface InsightsResponse {
   generatedAt: string;
 }
 
+export interface Driver {
+  id: string;
+  organizationId: string;
+  name: string;
+  phone?: string | null;
+  email?: string | null;
+  vehicleId?: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface CreateDriverBody {
+  organizationId: string;
+  name: string;
+  phone?: string | null;
+  email?: string | null;
+  vehicleId?: string | null;
+}
+
+export interface UpdateDriverBody {
+  name?: string;
+  phone?: string | null;
+  email?: string | null;
+  vehicleId?: string | null;
+  isActive?: boolean;
+}
+
+export type VehiclePositionVehicleType =
+  (typeof VehiclePositionVehicleType)[keyof typeof VehiclePositionVehicleType];
+
+export const VehiclePositionVehicleType = {
+  fossil: "fossil",
+  electric: "electric",
+} as const;
+
+export interface VehiclePosition {
+  vehicleId: string;
+  vehicleName: string;
+  vehicleType: VehiclePositionVehicleType;
+  licensePlate: string;
+  latitude: number;
+  longitude: number;
+  heading: number;
+  speedKmh: number;
+  routeId: string;
+  routeName: string;
+  nextStopAddress?: string | null;
+  etaMinutes?: number | null;
+  batteryPercent?: number | null;
+  distanceTravelledKm: number;
+}
+
+export type GeofenceEventEventType =
+  (typeof GeofenceEventEventType)[keyof typeof GeofenceEventEventType];
+
+export const GeofenceEventEventType = {
+  entered: "entered",
+  exited: "exited",
+} as const;
+
+export interface GeofenceEvent {
+  id: string;
+  organizationId: string;
+  vehicleId: string;
+  stopId: string;
+  routeId: string;
+  eventType: GeofenceEventEventType;
+  vehicleName: string;
+  stopAddress: string;
+  timestamp: string;
+  createdAt: string;
+}
+
+export type NotificationType =
+  (typeof NotificationType)[keyof typeof NotificationType];
+
+export const NotificationType = {
+  route_started: "route_started",
+  stop_completed: "stop_completed",
+  stop_failed: "stop_failed",
+  route_completed: "route_completed",
+  geofence_entry: "geofence_entry",
+  geofence_exit: "geofence_exit",
+} as const;
+
+export interface Notification {
+  id: string;
+  organizationId: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  relatedEntityId?: string | null;
+  isRead: boolean;
+  createdAt: string;
+}
+
+export interface NotificationsResponse {
+  unreadCount: number;
+  notifications: Notification[];
+}
+
+export type TrackingInfoStatus =
+  (typeof TrackingInfoStatus)[keyof typeof TrackingInfoStatus];
+
+export const TrackingInfoStatus = {
+  scheduled: "scheduled",
+  on_the_way: "on_the_way",
+  arriving_soon: "arriving_soon",
+  delivered: "delivered",
+  failed: "failed",
+} as const;
+
+export interface TrackingInfo {
+  trackingCode: string;
+  status: TrackingInfoStatus;
+  address: string;
+  latitude: number;
+  longitude: number;
+  timeWindowStart?: string | null;
+  timeWindowEnd?: string | null;
+  vehicleType?: string | null;
+  vehicleName?: string | null;
+}
+
 export type ListVehiclesParams = {
   organizationId: string;
 };
@@ -389,3 +515,29 @@ export const GetInsightsEnhance = {
   true: "true",
   false: "false",
 } as const;
+
+export type ListDriversParams = {
+  organizationId: string;
+};
+
+export type GetVehiclePositionsParams = {
+  organizationId: string;
+};
+
+export type GetGeofenceEventsParams = {
+  organizationId: string;
+  limit?: number;
+};
+
+export type GetNotificationsParams = {
+  organizationId: string;
+  limit?: number;
+};
+
+export type MarkAllNotificationsReadParams = {
+  organizationId: string;
+};
+
+export type MarkAllNotificationsRead200 = {
+  success?: boolean;
+};

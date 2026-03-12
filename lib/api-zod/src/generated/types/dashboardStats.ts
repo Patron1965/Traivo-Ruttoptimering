@@ -15,4 +15,5 @@ export interface DashboardStats {
   completedRoutes: number;
   pendingStops: number;
   co2EmissionsKg: number;
+  activeDrivers?: number;
 }
