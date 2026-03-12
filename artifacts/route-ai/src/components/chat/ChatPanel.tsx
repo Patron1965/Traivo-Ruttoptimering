@@ -120,12 +120,19 @@ export function ChatPanel() {
 
   return (
     <>
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm transition-opacity"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
           "fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full shadow-2xl transition-all duration-300 flex items-center justify-center",
           isOpen
-            ? "bg-muted hover:bg-muted/80 text-muted-foreground rotate-90"
+            ? "bg-muted hover:bg-muted/80 text-muted-foreground"
             : "bg-gradient-to-br from-primary to-emerald-500 hover:shadow-primary/40 text-primary-foreground hover:scale-105"
         )}
       >
@@ -134,21 +141,27 @@ export function ChatPanel() {
 
       <div
         className={cn(
-          "fixed bottom-24 right-6 z-40 w-[400px] max-h-[600px] flex flex-col bg-card border border-card-border rounded-2xl shadow-2xl shadow-black/30 transition-all duration-300 origin-bottom-right",
-          isOpen ? "scale-100 opacity-100" : "scale-95 opacity-0 pointer-events-none"
+          "fixed top-0 right-0 z-40 h-full w-[420px] max-w-[90vw] flex flex-col bg-card border-l border-border shadow-2xl shadow-black/30 transition-transform duration-300 ease-in-out",
+          isOpen ? "translate-x-0" : "translate-x-full"
         )}
       >
-        <div className="flex items-center gap-3 p-4 border-b border-border rounded-t-2xl bg-gradient-to-r from-primary/10 to-emerald-500/10">
+        <div className="flex items-center gap-3 p-4 border-b border-border bg-gradient-to-r from-primary/10 to-emerald-500/10">
           <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-emerald-500 flex items-center justify-center">
             <Bot className="h-4 w-4 text-primary-foreground" />
           </div>
-          <div>
+          <div className="flex-1">
             <h3 className="font-bold text-sm">RouteAI Assistant</h3>
             <p className="text-xs text-muted-foreground">Ask about your fleet</p>
           </div>
+          <button
+            onClick={() => setIsOpen(false)}
+            className="h-8 w-8 rounded-lg hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-[300px] max-h-[440px]">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.map((msg, i) => (
             <div key={i} className={cn("flex gap-2", msg.role === "user" ? "justify-end" : "justify-start")}>
               {msg.role === "assistant" && (

@@ -286,6 +286,26 @@ export interface SustainabilityStats {
   routeBreakdown: SustainabilityStatsRouteBreakdownItem[];
 }
 
+export type AiChatMessageRole =
+  (typeof AiChatMessageRole)[keyof typeof AiChatMessageRole];
+
+export const AiChatMessageRole = {
+  user: "user",
+  assistant: "assistant",
+} as const;
+
+export interface AiChatMessage {
+  role: AiChatMessageRole;
+  /** @maxLength 4000 */
+  content: string;
+}
+
+export interface AiChatRequest {
+  organizationId: string;
+  /** @maxItems 30 */
+  messages: AiChatMessage[];
+}
+
 export type ListVehiclesParams = {
   organizationId: string;
 };

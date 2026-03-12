@@ -509,3 +509,22 @@ export const GetSustainabilityStatsResponse = zod.object({
     }),
   ),
 });
+
+/**
+ * @summary AI chat assistant with fleet context (SSE streaming)
+ */
+export const aiChatBodyMessagesItemContentMax = 4000;
+
+export const aiChatBodyMessagesMax = 30;
+
+export const AiChatBody = zod.object({
+  organizationId: zod.string().uuid(),
+  messages: zod
+    .array(
+      zod.object({
+        role: zod.enum(["user", "assistant"]),
+        content: zod.string().max(aiChatBodyMessagesItemContentMax),
+      }),
+    )
+    .max(aiChatBodyMessagesMax),
+});

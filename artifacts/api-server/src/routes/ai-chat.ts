@@ -1,17 +1,37 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
+import { eq, and, gte, lt, sql } from "drizzle-orm";
 import { db, routesTable, vehiclesTable, stopsTable } from "@workspace/db";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { handleError } from "../lib/errors";
 
 const router: IRouter = Router();
 
+function todayRange() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const end = new Date(start.getTime() + 86400000);
+  return { start, end };
+}
+
 async function buildFleetContext(organizationId: string): Promise<string> {
-  const [vehicles, routes, stops] = await Promise.all([
+  const { start: todayStart, end: todayEnd } = todayRange();
+
+  const [vehicles, allRoutes, allStops] = await Promise.all([
     db.select().from(vehiclesTable).where(eq(vehiclesTable.organizationId, organizationId)),
     db.select().from(routesTable).where(eq(routesTable.organizationId, organizationId)),
     db.select().from(stopsTable).where(eq(stopsTable.organizationId, organizationId)),
   ]);
+
+  const todayRoutes = allRoutes.filter(r =>
+    r.date && r.date >= todayStart && r.date < todayEnd
+  );
+  const otherRoutes = allRoutes.filter(r =>
+    !r.date || r.date < todayStart || r.date >= todayEnd
+  );
+
+  const todayRouteIds = new Set(todayRoutes.map(r => r.id));
+  const todayStops = allStops.filter(s => s.routeId && todayRouteIds.has(s.routeId));
+  const unassignedStops = allStops.filter(s => !s.routeId);
 
   const vehicleSummary = vehicles.map(v =>
     `- ${v.name} (${v.licensePlate}): ${v.vehicleType}, capacity ${v.capacityKg}kg/${v.capacityVolume}m³${
@@ -19,42 +39,57 @@ async function buildFleetContext(organizationId: string): Promise<string> {
     }, active: ${v.isActive}`
   ).join('\n');
 
-  const routeSummary = routes.map(r =>
-    `- "${r.name}" (${r.status}): ${r.totalStops} stops, ${r.totalDistanceKm ?? 0}km, ${r.totalDurationMin ?? 0}min, CO₂: ${r.co2EmissionsKg ?? 0}kg, date: ${r.date?.toISOString().split('T')[0] ?? 'unset'}, vehicleId: ${r.vehicleId ?? 'none'}`
-  ).join('\n');
-
-  const unassignedStops = stops.filter(s => !s.routeId);
-  const assignedStops = stops.filter(s => s.routeId);
-
-  const stopSummary = [
-    `Total stops: ${stops.length} (${assignedStops.length} assigned, ${unassignedStops.length} unassigned)`,
-    ...stops.slice(0, 20).map(s =>
-      `- "${s.notes || s.address}" at (${s.latitude}, ${s.longitude}), service: ${s.serviceDurationMin}min, status: ${s.status}, weight: ${s.weightKg ?? 0}kg${
-        s.timeWindowStart ? `, window: ${s.timeWindowStart.toISOString().slice(11,16)}-${s.timeWindowEnd?.toISOString().slice(11,16) ?? '?'}` : ''
-      }${s.routeId ? `, route: ${routes.find(r => r.id === s.routeId)?.name ?? s.routeId}` : ', UNASSIGNED'}`
-    ),
-    stops.length > 20 ? `... and ${stops.length - 20} more stops` : ''
-  ].filter(Boolean).join('\n');
-
   const vehicleById = new Map(vehicles.map(v => [v.id, v.name]));
-  const routeDetails = routes.map(r => {
-    const routeStops = stops.filter(s => s.routeId === r.id);
-    return `Route "${r.name}" (vehicle: ${r.vehicleId ? vehicleById.get(r.vehicleId) ?? 'unknown' : 'none'}): ${routeStops.length} stops`;
-  }).join('\n');
 
-  return `## Fleet Overview (${new Date().toISOString().split('T')[0]})
+  const formatRoute = (r: typeof allRoutes[0]) => {
+    const routeStops = allStops.filter(s => s.routeId === r.id);
+    const lateStops = routeStops.filter(s => {
+      if (!s.timeWindowEnd || s.status === 'completed') return false;
+      return s.status === 'pending' && new Date() > s.timeWindowEnd;
+    });
+    return `- "${r.name}" (${r.status}): ${r.totalStops} stops, ${r.totalDistanceKm ?? 0}km, ${r.totalDurationMin ?? 0}min, CO₂: ${r.co2EmissionsKg ?? 0}kg, vehicle: ${r.vehicleId ? vehicleById.get(r.vehicleId) ?? 'unknown' : 'none'}, date: ${r.date?.toISOString().split('T')[0] ?? 'unset'}${
+      lateStops.length > 0 ? `, ⚠ ${lateStops.length} stop(s) past time window` : ''
+    }`;
+  };
+
+  const todayRouteSummary = todayRoutes.map(formatRoute).join('\n');
+  const otherRouteSummary = otherRoutes.length > 0
+    ? `\n\n### Other Routes (${otherRoutes.length})\n${otherRoutes.slice(0, 10).map(formatRoute).join('\n')}${otherRoutes.length > 10 ? `\n... and ${otherRoutes.length - 10} more` : ''}`
+    : '';
+
+  const formatStop = (s: typeof allStops[0]) =>
+    `- "${s.notes || s.address}" at (${s.latitude}, ${s.longitude}), service: ${s.serviceDurationMin}min, status: ${s.status}, weight: ${s.weightKg ?? 0}kg${
+      s.timeWindowStart ? `, window: ${s.timeWindowStart.toISOString().slice(11,16)}-${s.timeWindowEnd?.toISOString().slice(11,16) ?? '?'}` : ''
+    }${s.routeId ? `, route: ${allRoutes.find(r => r.id === s.routeId)?.name ?? s.routeId}` : ', UNASSIGNED'}${
+      s.timeWindowEnd && s.status === 'pending' && new Date() > s.timeWindowEnd ? ' ⚠ LATE' : ''
+    }`;
+
+  const todayStopSummary = todayStops.length > 0
+    ? todayStops.slice(0, 30).map(formatStop).join('\n') + (todayStops.length > 30 ? `\n... and ${todayStops.length - 30} more stops` : '')
+    : 'No stops scheduled for today';
+
+  const unassignedSummary = unassignedStops.length > 0
+    ? unassignedStops.slice(0, 10).map(formatStop).join('\n') + (unassignedStops.length > 10 ? `\n... and ${unassignedStops.length - 10} more unassigned` : '')
+    : 'No unassigned stops';
+
+  const today = new Date().toISOString().split('T')[0];
+  return `## Fleet Overview — Today (${today})
 
 ### Vehicles (${vehicles.length})
 ${vehicleSummary || 'No vehicles'}
 
-### Routes (${routes.length})
-${routeSummary || 'No routes'}
+### Today's Routes (${todayRoutes.length})
+${todayRouteSummary || 'No routes scheduled for today'}
 
-### Route Assignments
-${routeDetails || 'No route assignments'}
+### Today's Stops (${todayStops.length})
+${todayStopSummary}
 
-### Stops
-${stopSummary || 'No stops'}`;
+### Unassigned Stops (${unassignedStops.length})
+${unassignedSummary}${otherRouteSummary}
+
+### Overall Stats
+- Total routes: ${allRoutes.length}, Total stops: ${allStops.length}
+- Total CO₂: ${allRoutes.reduce((sum, r) => sum + (Number(r.co2EmissionsKg) || 0), 0).toFixed(1)}kg`;
 }
 
 const SYSTEM_PROMPT = `You are RouteAI Assistant, an intelligent fleet management and route optimization assistant for Stockholm Logistics AB. You help operators understand their fleet status, route performance, and delivery operations.

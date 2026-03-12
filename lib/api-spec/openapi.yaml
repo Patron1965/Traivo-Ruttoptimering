@@ -22,6 +22,8 @@ tags:
     description: Route optimization
   - name: sustainability
     description: CO2 and sustainability
+  - name: ai
+    description: AI chat assistant
 paths:
   /healthz:
     get:
@@ -470,6 +472,31 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SustainabilityStats"
+
+  /ai/chat:
+    post:
+      operationId: aiChat
+      tags: [ai]
+      summary: AI chat assistant with fleet context (SSE streaming)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiChatRequest"
+      responses:
+        "200":
+          description: SSE stream of AI response chunks
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
 components:
   schemas:
@@ -1055,3 +1082,31 @@ components:
         - co2SavedKg
         - treesEquivalent
         - routeBreakdown
+
+    AiChatMessage:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [user, assistant]
+        content:
+          type: string
+          maxLength: 4000
+      required:
+        - role
+        - content
+
+    AiChatRequest:
+      type: object
+      properties:
+        organizationId:
+          type: string
+          format: uuid
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/AiChatMessage"
+          maxItems: 30
+      required:
+        - organizationId
+        - messages
