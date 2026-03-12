@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, gte, lt, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db, routesTable, vehiclesTable, stopsTable } from "@workspace/db";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { handleError } from "../lib/errors";
