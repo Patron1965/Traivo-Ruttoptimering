@@ -598,6 +598,10 @@ export const GetDriverParams = zod.object({
   id: zod.coerce.string().uuid(),
 });
 
+export const GetDriverQueryParams = zod.object({
+  organizationId: zod.coerce.string().uuid(),
+});
+
 export const GetDriverResponse = zod.object({
   id: zod.string().uuid(),
   organizationId: zod.string().uuid(),
@@ -614,6 +618,10 @@ export const GetDriverResponse = zod.object({
  */
 export const UpdateDriverParams = zod.object({
   id: zod.coerce.string().uuid(),
+});
+
+export const UpdateDriverQueryParams = zod.object({
+  organizationId: zod.coerce.string().uuid(),
 });
 
 export const UpdateDriverBody = zod.object({
@@ -640,6 +648,10 @@ export const UpdateDriverResponse = zod.object({
  */
 export const DeleteDriverParams = zod.object({
   id: zod.coerce.string().uuid(),
+});
+
+export const DeleteDriverQueryParams = zod.object({
+  organizationId: zod.coerce.string().uuid(),
 });
 
 /**

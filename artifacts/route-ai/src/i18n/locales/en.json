@@ -91,7 +91,10 @@
     "email": "Email",
     "selectVehicle": "Select vehicle",
     "noVehicle": "No vehicle",
-    "saveDriver": "Save Driver"
+    "saveDriver": "Save Driver",
+    "statusDescription": "Active drivers can be assigned to routes",
+    "assignDriver": "Assign driver",
+    "noDriver": "No driver"
   },
   "planner": {
     "title": "AI Optimizer",

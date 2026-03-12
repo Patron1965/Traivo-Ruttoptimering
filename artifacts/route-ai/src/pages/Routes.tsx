@@ -1,5 +1,5 @@
 import { useRoutes, useDeleteRoute } from "@/hooks/use-routes";
-import { useDrivers } from "@/hooks/use-drivers";
+import { useDrivers, useUpdateDriver } from "@/hooks/use-drivers";
 import { useVehicles } from "@/hooks/use-vehicles";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { LoadingState } from "@/components/ui/LoadingState";
@@ -11,6 +11,7 @@ import { type Route, getExportRouteUrl } from "@workspace/api-client-react";
 import { ORG_ID } from "@/lib/constants";
 import { useTranslation } from "react-i18next";
 import { useMemo } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
   draft: { bg: "bg-muted/50", text: "text-muted-foreground" },
@@ -25,22 +26,36 @@ export default function Routes() {
   const { data: drivers } = useDrivers();
   const { data: vehicles } = useVehicles();
   const deleteRoute = useDeleteRoute();
+  const updateDriver = useUpdateDriver();
   const { t, i18n } = useTranslation();
   const dateLocale = i18n.language === "sv" ? sv : enUS;
 
+  const activeDrivers = useMemo(() => drivers?.filter((d) => d.isActive) || [], [drivers]);
+
   const driverByVehicleId = useMemo(() => {
-    const map = new Map<string, string>();
-    drivers?.forEach((d) => {
-      if (d.vehicleId && d.isActive) map.set(d.vehicleId, d.name);
+    const map = new Map<string, { id: string; name: string }>();
+    activeDrivers.forEach((d) => {
+      if (d.vehicleId) map.set(d.vehicleId, { id: d.id, name: d.name });
     });
     return map;
-  }, [drivers]);
+  }, [activeDrivers]);
 
   const vehicleNameById = useMemo(() => {
     const map = new Map<string, string>();
     vehicles?.forEach((v) => map.set(v.id, v.name));
     return map;
   }, [vehicles]);
+
+  const handleAssignDriver = (vehicleId: string, driverId: string) => {
+    if (driverId === "__none__") {
+      const current = driverByVehicleId.get(vehicleId);
+      if (current) {
+        updateDriver.mutate({ id: current.id, data: { vehicleId: null }, params: { organizationId: ORG_ID } });
+      }
+    } else {
+      updateDriver.mutate({ id: driverId, data: { vehicleId }, params: { organizationId: ORG_ID } });
+    }
+  };
 
   return (
     <AppLayout>
@@ -89,7 +104,7 @@ export default function Routes() {
                                   <span className="text-border">•</span>
                                   <span className="inline-flex items-center gap-1">
                                     <User className="h-3 w-3" />
-                                    {driverByVehicleId.get(route.vehicleId)}
+                                    {driverByVehicleId.get(route.vehicleId)!.name}
                                   </span>
                                 </>
                               )}
@@ -117,6 +132,26 @@ export default function Routes() {
                           <Clock className="h-4 w-4" />
                           <span>{Math.floor(route.totalDurationMin / 60)}h {Math.round(route.totalDurationMin % 60)}m</span>
                         </div>
+                      )}
+
+                      {route.vehicleId && route.status !== "completed" && route.status !== "cancelled" && (
+                        <Select
+                          value={driverByVehicleId.get(route.vehicleId)?.id || "__none__"}
+                          onValueChange={(val) => handleAssignDriver(route.vehicleId!, val)}
+                        >
+                          <SelectTrigger className="w-[160px] h-8 text-xs">
+                            <User className="h-3 w-3 mr-1 shrink-0" />
+                            <SelectValue placeholder={t("drivers.assignDriver")} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">{t("drivers.noDriver")}</SelectItem>
+                            {activeDrivers.map((d) => (
+                              <SelectItem key={d.id} value={d.id}>
+                                {d.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       )}
 
                       <span className={cn("px-3 py-1 rounded-full text-xs font-medium uppercase tracking-wide", style.bg, style.text)}>

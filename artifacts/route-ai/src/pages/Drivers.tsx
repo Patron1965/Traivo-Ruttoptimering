@@ -3,12 +3,13 @@ import { useDrivers, useCreateDriver, useUpdateDriver, useDeleteDriver } from "@
 import { useVehicles } from "@/hooks/use-vehicles";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2, Edit2, User, Phone, Mail, Truck } from "lucide-react";
+import { Plus, Trash2, Edit2, User, Phone, Mail, Truck, ToggleLeft } from "lucide-react";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -21,6 +22,7 @@ const driverSchema = z.object({
   phone: z.string().optional().nullable(),
   email: z.string().email().optional().or(z.literal("")).nullable(),
   vehicleId: z.string().optional().nullable(),
+  isActive: z.boolean().optional(),
 });
 
 type DriverFormValues = z.infer<typeof driverSchema>;
@@ -141,7 +143,7 @@ export default function Drivers() {
                           size="icon"
                           className="hover:text-destructive hover:bg-destructive/10"
                           onClick={() => {
-                            if (confirm(t("drivers.deleteConfirm"))) deleteMutation.mutate({ id: d.id });
+                            if (confirm(t("drivers.deleteConfirm"))) deleteMutation.mutate({ id: d.id, params: { organizationId: ORG_ID } });
                           }}
                         >
                           <Trash2 className="h-4 w-4" />
@@ -201,9 +203,10 @@ function DriverForm({ initialData, vehicles, onSuccess }: {
       vehicleId: data.vehicleId === "__none__" ? null : (data.vehicleId || null),
       email: data.email || null,
       phone: data.phone || null,
+      isActive: data.isActive ?? true,
     };
     if (initialData) {
-      updateMutation.mutate({ id: initialData.id, data: payload }, { onSuccess });
+      updateMutation.mutate({ id: initialData.id, data: payload, params: { organizationId: ORG_ID } }, { onSuccess });
     } else {
       createMutation.mutate({ data: { ...payload, organizationId: ORG_ID } }, { onSuccess });
     }
@@ -250,6 +253,25 @@ function DriverForm({ initialData, vehicles, onSuccess }: {
           )}
         />
       </div>
+
+      {initialData && (
+        <div className="flex items-center justify-between p-3 rounded-lg border border-border">
+          <div>
+            <Label>{t("common.status")}</Label>
+            <p className="text-xs text-muted-foreground">{t("drivers.statusDescription")}</p>
+          </div>
+          <Controller
+            name="isActive"
+            control={control}
+            render={({ field }) => (
+              <Checkbox
+                checked={field.value ?? true}
+                onCheckedChange={field.onChange}
+              />
+            )}
+          />
+        </div>
+      )}
 
       <div className="pt-4 flex justify-end gap-2">
         <Button type="button" variant="outline" onClick={onSuccess}>{t("common.cancel")}</Button>

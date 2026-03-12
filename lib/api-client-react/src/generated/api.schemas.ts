@@ -520,6 +520,18 @@ export type ListDriversParams = {
   organizationId: string;
 };
 
+export type GetDriverParams = {
+  organizationId: string;
+};
+
+export type UpdateDriverParams = {
+  organizationId: string;
+};
+
+export type DeleteDriverParams = {
+  organizationId: string;
+};
+
 export type GetVehiclePositionsParams = {
   organizationId: string;
 };

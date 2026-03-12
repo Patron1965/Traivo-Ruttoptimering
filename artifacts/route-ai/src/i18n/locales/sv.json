@@ -91,7 +91,10 @@
     "email": "E-post",
     "selectVehicle": "Välj fordon",
     "noVehicle": "Inget fordon",
-    "saveDriver": "Spara förare"
+    "saveDriver": "Spara förare",
+    "statusDescription": "Aktiva förare kan tilldelas rutter",
+    "assignDriver": "Tilldela förare",
+    "noDriver": "Ingen förare"
   },
   "planner": {
     "title": "AI-optimerare",
