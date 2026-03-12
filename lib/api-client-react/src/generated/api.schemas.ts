@@ -143,6 +143,26 @@ export interface UpdateStopBody {
   notes?: string | null;
 }
 
+export type ImportStopsBodyStopsItem = {
+  address: string;
+  latitude: number;
+  longitude: number;
+  timeWindowStart?: string | null;
+  timeWindowEnd?: string | null;
+  serviceDurationMin?: number;
+  notes?: string | null;
+};
+
+export interface ImportStopsBody {
+  organizationId: string;
+  stops: ImportStopsBodyStopsItem[];
+}
+
+export interface ImportStopsResponse {
+  imported: number;
+  stops: Stop[];
+}
+
 export type RouteStatus = (typeof RouteStatus)[keyof typeof RouteStatus];
 
 export const RouteStatus = {
@@ -239,6 +259,33 @@ export interface DashboardStats {
   co2EmissionsKg: number;
 }
 
+export type SustainabilityStatsRouteBreakdownItemVehicleType =
+  (typeof SustainabilityStatsRouteBreakdownItemVehicleType)[keyof typeof SustainabilityStatsRouteBreakdownItemVehicleType];
+
+export const SustainabilityStatsRouteBreakdownItemVehicleType = {
+  fossil: "fossil",
+  electric: "electric",
+} as const;
+
+export type SustainabilityStatsRouteBreakdownItem = {
+  routeId: string;
+  routeName: string;
+  vehicleName: string;
+  vehicleType: SustainabilityStatsRouteBreakdownItemVehicleType;
+  distanceKm: number;
+  co2Kg: number;
+  date: string;
+};
+
+export interface SustainabilityStats {
+  totalCo2Kg: number;
+  fossilCo2Kg: number;
+  evCo2Kg: number;
+  co2SavedKg: number;
+  treesEquivalent: number;
+  routeBreakdown: SustainabilityStatsRouteBreakdownItem[];
+}
+
 export type ListVehiclesParams = {
   organizationId: string;
 };
@@ -250,8 +297,24 @@ export type ListStopsParams = {
 
 export type ListRoutesParams = {
   organizationId: string;
+  status?: ListRoutesStatus;
 };
 
+export type ListRoutesStatus =
+  (typeof ListRoutesStatus)[keyof typeof ListRoutesStatus];
+
+export const ListRoutesStatus = {
+  draft: "draft",
+  optimized: "optimized",
+  in_progress: "in_progress",
+  completed: "completed",
+  cancelled: "cancelled",
+} as const;
+
 export type GetDashboardStatsParams = {
+  organizationId: string;
+};
+
+export type GetSustainabilityStatsParams = {
   organizationId: string;
 };

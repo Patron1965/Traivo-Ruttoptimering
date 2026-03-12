@@ -22,7 +22,10 @@ import type {
   CreateVehicleBody,
   DashboardStats,
   GetDashboardStatsParams,
+  GetSustainabilityStatsParams,
   HealthStatus,
+  ImportStopsBody,
+  ImportStopsResponse,
   ListRoutesParams,
   ListStopsParams,
   ListVehiclesParams,
@@ -30,6 +33,7 @@ import type {
   OptimizeResponse,
   Route,
   Stop,
+  SustainabilityStats,
   UpdateRouteBody,
   UpdateStopBody,
   UpdateVehicleBody,
@@ -736,6 +740,92 @@ export const useCreateStop = <
   TContext
 > => {
   return useMutation(getCreateStopMutationOptions(options));
+};
+
+/**
+ * @summary Bulk import stops from CSV data
+ */
+export const getImportStopsUrl = () => {
+  return `/api/stops/import`;
+};
+
+export const importStops = async (
+  importStopsBody: ImportStopsBody,
+  options?: RequestInit,
+): Promise<ImportStopsResponse> => {
+  return customFetch<ImportStopsResponse>(getImportStopsUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(importStopsBody),
+  });
+};
+
+export const getImportStopsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof importStops>>,
+    TError,
+    { data: BodyType<ImportStopsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof importStops>>,
+  TError,
+  { data: BodyType<ImportStopsBody> },
+  TContext
+> => {
+  const mutationKey = ["importStops"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof importStops>>,
+    { data: BodyType<ImportStopsBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return importStops(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ImportStopsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof importStops>>
+>;
+export type ImportStopsMutationBody = BodyType<ImportStopsBody>;
+export type ImportStopsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Bulk import stops from CSV data
+ */
+export const useImportStops = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof importStops>>,
+    TError,
+    { data: BodyType<ImportStopsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof importStops>>,
+  TError,
+  { data: BodyType<ImportStopsBody> },
+  TContext
+> => {
+  return useMutation(getImportStopsMutationOptions(options));
 };
 
 /**
@@ -1510,6 +1600,93 @@ export function useGetRouteStops<
 }
 
 /**
+ * @summary Export route as CSV
+ */
+export const getExportRouteUrl = (id: string) => {
+  return `/api/routes/${id}/export`;
+};
+
+export const exportRoute = async (
+  id: string,
+  options?: RequestInit,
+): Promise<string> => {
+  return customFetch<string>(getExportRouteUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getExportRouteQueryKey = (id: string) => {
+  return [`/api/routes/${id}/export`] as const;
+};
+
+export const getExportRouteQueryOptions = <
+  TData = Awaited<ReturnType<typeof exportRoute>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof exportRoute>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getExportRouteQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof exportRoute>>> = ({
+    signal,
+  }) => exportRoute(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof exportRoute>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ExportRouteQueryResult = NonNullable<
+  Awaited<ReturnType<typeof exportRoute>>
+>;
+export type ExportRouteQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Export route as CSV
+ */
+
+export function useExportRoute<
+  TData = Awaited<ReturnType<typeof exportRoute>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof exportRoute>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getExportRouteQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * @summary Optimize route assignments and ordering
  */
 export const getOptimizeRoutesUrl = () => {
@@ -1684,6 +1861,109 @@ export function useGetDashboardStats<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetDashboardStatsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get CO2 and sustainability statistics
+ */
+export const getGetSustainabilityStatsUrl = (
+  params: GetSustainabilityStatsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/sustainability/stats?${stringifiedParams}`
+    : `/api/sustainability/stats`;
+};
+
+export const getSustainabilityStats = async (
+  params: GetSustainabilityStatsParams,
+  options?: RequestInit,
+): Promise<SustainabilityStats> => {
+  return customFetch<SustainabilityStats>(
+    getGetSustainabilityStatsUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetSustainabilityStatsQueryKey = (
+  params?: GetSustainabilityStatsParams,
+) => {
+  return [`/api/sustainability/stats`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetSustainabilityStatsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSustainabilityStats>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetSustainabilityStatsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSustainabilityStats>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetSustainabilityStatsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getSustainabilityStats>>
+  > = ({ signal }) =>
+    getSustainabilityStats(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSustainabilityStats>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSustainabilityStatsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSustainabilityStats>>
+>;
+export type GetSustainabilityStatsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get CO2 and sustainability statistics
+ */
+
+export function useGetSustainabilityStats<
+  TData = Awaited<ReturnType<typeof getSustainabilityStats>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetSustainabilityStatsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSustainabilityStats>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSustainabilityStatsQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

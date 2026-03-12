@@ -5,6 +5,7 @@ import {
   CreateStopBody,
   UpdateStopBody,
   ListStopsQueryParams,
+  ImportStopsBody,
 } from "@workspace/api-zod";
 import { handleError, parseUuidParam } from "../lib/errors";
 
@@ -22,6 +23,33 @@ router.get("/stops", async (req, res) => {
       .from(stopsTable)
       .where(and(...conditions));
     res.json(stops);
+  } catch (err) {
+    handleError(res, err);
+  }
+});
+
+router.post("/stops/import", async (req, res) => {
+  try {
+    const data = ImportStopsBody.parse(req.body);
+    const { organizationId, stops: stopRows } = data;
+    const created = [];
+    for (const row of stopRows) {
+      const [stop] = await db
+        .insert(stopsTable)
+        .values({
+          organizationId,
+          address: row.address,
+          latitude: row.latitude,
+          longitude: row.longitude,
+          timeWindowStart: row.timeWindowStart ? new Date(row.timeWindowStart) : null,
+          timeWindowEnd: row.timeWindowEnd ? new Date(row.timeWindowEnd) : null,
+          serviceDurationMin: row.serviceDurationMin ?? 15,
+          notes: row.notes ?? null,
+        })
+        .returning();
+      created.push(stop);
+    }
+    res.status(201).json({ imported: created.length, stops: created });
   } catch (err) {
     handleError(res, err);
   }

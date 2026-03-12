@@ -20,6 +20,8 @@ tags:
     description: Dashboard statistics
   - name: optimize
     description: Route optimization
+  - name: sustainability
+    description: CO2 and sustainability
 paths:
   /healthz:
     get:
@@ -180,6 +182,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/Stop"
 
+  /stops/import:
+    post:
+      operationId: importStops
+      tags: [stops]
+      summary: Bulk import stops from CSV data
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportStopsBody"
+      responses:
+        "201":
+          description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportStopsResponse"
+
   /stops/{id}:
     get:
       operationId: getStop
@@ -254,6 +275,12 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [draft, optimized, in_progress, completed, cancelled]
       responses:
         "200":
           description: List of routes
@@ -365,6 +392,26 @@ paths:
                 items:
                   $ref: "#/components/schemas/Stop"
 
+  /routes/{id}/export:
+    get:
+      operationId: exportRoute
+      tags: [routes]
+      summary: Export route as CSV
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: CSV file download
+          content:
+            text/csv:
+              schema:
+                type: string
+
   /optimize:
     post:
       operationId: optimizeRoutes
@@ -403,6 +450,26 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DashboardStats"
+
+  /sustainability/stats:
+    get:
+      operationId: getSustainabilityStats
+      tags: [sustainability]
+      summary: Get CO2 and sustainability statistics
+      parameters:
+        - name: organizationId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Sustainability statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SustainabilityStats"
 
 components:
   schemas:
@@ -668,6 +735,57 @@ components:
           type: string
           nullable: true
 
+    ImportStopsBody:
+      type: object
+      properties:
+        organizationId:
+          type: string
+          format: uuid
+        stops:
+          type: array
+          items:
+            type: object
+            properties:
+              address:
+                type: string
+              latitude:
+                type: number
+              longitude:
+                type: number
+              timeWindowStart:
+                type: string
+                format: date-time
+                nullable: true
+              timeWindowEnd:
+                type: string
+                format: date-time
+                nullable: true
+              serviceDurationMin:
+                type: integer
+              notes:
+                type: string
+                nullable: true
+            required:
+              - address
+              - latitude
+              - longitude
+      required:
+        - organizationId
+        - stops
+
+    ImportStopsResponse:
+      type: object
+      properties:
+        imported:
+          type: integer
+        stops:
+          type: array
+          items:
+            $ref: "#/components/schemas/Stop"
+      required:
+        - imported
+        - stops
+
     Route:
       type: object
       properties:
@@ -886,3 +1004,54 @@ components:
         - completedRoutes
         - pendingStops
         - co2EmissionsKg
+
+    SustainabilityStats:
+      type: object
+      properties:
+        totalCo2Kg:
+          type: number
+        fossilCo2Kg:
+          type: number
+        evCo2Kg:
+          type: number
+        co2SavedKg:
+          type: number
+        treesEquivalent:
+          type: number
+        routeBreakdown:
+          type: array
+          items:
+            type: object
+            properties:
+              routeId:
+                type: string
+                format: uuid
+              routeName:
+                type: string
+              vehicleName:
+                type: string
+              vehicleType:
+                type: string
+                enum: [fossil, electric]
+              distanceKm:
+                type: number
+              co2Kg:
+                type: number
+              date:
+                type: string
+                format: date-time
+            required:
+              - routeId
+              - routeName
+              - vehicleName
+              - vehicleType
+              - distanceKm
+              - co2Kg
+              - date
+      required:
+        - totalCo2Kg
+        - fossilCo2Kg
+        - evCo2Kg
+        - co2SavedKg
+        - treesEquivalent
+        - routeBreakdown

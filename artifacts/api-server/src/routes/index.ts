@@ -5,6 +5,7 @@ import stopsRouter from "./stops";
 import routesRouter from "./routes";
 import dashboardRouter from "./dashboard";
 import optimizeRouter from "./optimize";
+import sustainabilityRouter from "./sustainability";
 
 const router: IRouter = Router();
 
@@ -14,5 +15,6 @@ router.use(stopsRouter);
 router.use(routesRouter);
 router.use(dashboardRouter);
 router.use(optimizeRouter);
+router.use(sustainabilityRouter);
 
 export default router;

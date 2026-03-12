@@ -4,8 +4,8 @@ import { useRoutes } from "@/hooks/use-routes";
 import { useVehicles } from "@/hooks/use-vehicles";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2, Edit2, MapPin } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Plus, Trash2, Edit2, MapPin, Upload } from "lucide-react";
+import { useMemo, useState, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,7 +13,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { ORG_ID } from "@/lib/constants";
-import { type Stop } from "@workspace/api-client-react";
+import { type Stop, useImportStops } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 
 const stopSchema = z.object({
   address: z.string().min(1, "Address is required"),
@@ -36,6 +37,7 @@ export default function Stops() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingStop, setEditingStop] = useState<Stop | null>(null);
 
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const deleteMutation = useDeleteStop();
 
   const vehicleByRouteId = useMemo(() => {
@@ -60,19 +62,24 @@ export default function Stops() {
             <p className="text-muted-foreground mt-1">Manage unassigned and pending deliveries</p>
           </div>
           
-          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-primary/25">
-                <Plus className="h-4 w-4" /> Add Stop
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
-              <DialogHeader>
-                <DialogTitle>Add New Stop</DialogTitle>
-              </DialogHeader>
-              <StopForm onSuccess={() => setIsCreateOpen(false)} />
-            </DialogContent>
-          </Dialog>
+          <div className="flex gap-2">
+            <Button variant="outline" className="gap-2" onClick={() => setIsImportOpen(true)}>
+              <Upload className="h-4 w-4" /> Import CSV
+            </Button>
+            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+              <DialogTrigger asChild>
+                <Button className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-primary/25">
+                  <Plus className="h-4 w-4" /> Add Stop
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[500px]">
+                <DialogHeader>
+                  <DialogTitle>Add New Stop</DialogTitle>
+                </DialogHeader>
+                <StopForm onSuccess={() => setIsCreateOpen(false)} />
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         <div className="bg-card rounded-2xl border border-card-border overflow-hidden shadow-xl shadow-black/5">
@@ -174,6 +181,16 @@ export default function Stops() {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* CSV Import Modal */}
+        <Dialog open={isImportOpen} onOpenChange={setIsImportOpen}>
+          <DialogContent className="sm:max-w-[550px]">
+            <DialogHeader>
+              <DialogTitle>Import Stops from CSV</DialogTitle>
+            </DialogHeader>
+            <CsvImportForm onSuccess={() => setIsImportOpen(false)} />
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   );
@@ -265,5 +282,142 @@ function StopForm({ initialData, onSuccess }: { initialData?: Stop, onSuccess: (
         </Button>
       </div>
     </form>
+  );
+}
+
+function CsvImportForm({ onSuccess }: { onSuccess: () => void }) {
+  const importMutation = useImportStops();
+  const queryClient = useQueryClient();
+  const [preview, setPreview] = useState<Array<{ address: string; latitude: number; longitude: number; notes?: string }>>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setError(null);
+    setPreview([]);
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const text = ev.target?.result as string;
+        const lines = text.trim().split("\n");
+        if (lines.length < 2) {
+          setError("CSV must have a header row and at least one data row.");
+          return;
+        }
+        const header = lines[0].split(",").map(h => h.trim().toLowerCase());
+        const addrIdx = header.indexOf("address");
+        const latIdx = header.indexOf("latitude");
+        const lngIdx = header.indexOf("longitude");
+
+        if (addrIdx === -1 || latIdx === -1 || lngIdx === -1) {
+          setError("CSV must have columns: address, latitude, longitude");
+          return;
+        }
+
+        const notesIdx = header.indexOf("notes");
+        const twsIdx = header.indexOf("time_window_start");
+        const tweIdx = header.indexOf("time_window_end");
+        const sdIdx = header.indexOf("service_duration_min");
+
+        const parsed = lines.slice(1).filter(l => l.trim()).map(line => {
+          const cols = line.split(",").map(c => c.trim());
+          return {
+            address: cols[addrIdx],
+            latitude: parseFloat(cols[latIdx]),
+            longitude: parseFloat(cols[lngIdx]),
+            notes: notesIdx >= 0 ? cols[notesIdx] || undefined : undefined,
+            timeWindowStart: twsIdx >= 0 && cols[twsIdx] ? cols[twsIdx] : undefined,
+            timeWindowEnd: tweIdx >= 0 && cols[tweIdx] ? cols[tweIdx] : undefined,
+            serviceDurationMin: sdIdx >= 0 ? parseInt(cols[sdIdx]) || undefined : undefined,
+          };
+        });
+
+        const invalid = parsed.filter(p => !p.address || isNaN(p.latitude) || isNaN(p.longitude));
+        if (invalid.length > 0) {
+          setError(`${invalid.length} row(s) have invalid address/lat/lng values.`);
+          return;
+        }
+
+        setPreview(parsed);
+      } catch {
+        setError("Failed to parse CSV file.");
+      }
+    };
+    reader.readAsText(file);
+  }, []);
+
+  const handleImport = () => {
+    importMutation.mutate(
+      { data: { organizationId: ORG_ID, stops: preview } },
+      {
+        onSuccess: (result) => {
+          queryClient.invalidateQueries({ queryKey: ["/api/stops"] });
+          onSuccess();
+        },
+        onError: () => setError("Import failed. Please check your data and try again."),
+      }
+    );
+  };
+
+  return (
+    <div className="space-y-4 pt-2">
+      <div className="space-y-2">
+        <Label>CSV File</Label>
+        <Input type="file" accept=".csv" onChange={handleFileChange} />
+        <p className="text-xs text-muted-foreground">
+          Required columns: <code>address</code>, <code>latitude</code>, <code>longitude</code>.
+          Optional: <code>notes</code>, <code>time_window_start</code>, <code>time_window_end</code>, <code>service_duration_min</code>.
+        </p>
+      </div>
+
+      {error && (
+        <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm">{error}</div>
+      )}
+
+      {preview.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-sm font-medium">{preview.length} stop(s) ready to import</p>
+          <div className="max-h-48 overflow-auto rounded-lg border border-border">
+            <table className="w-full text-xs">
+              <thead className="bg-muted/50 sticky top-0">
+                <tr>
+                  <th className="p-2 text-left">#</th>
+                  <th className="p-2 text-left">Address</th>
+                  <th className="p-2 text-left">Lat</th>
+                  <th className="p-2 text-left">Lng</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {preview.slice(0, 20).map((row, i) => (
+                  <tr key={i} className="hover:bg-muted/30">
+                    <td className="p-2 text-muted-foreground">{i + 1}</td>
+                    <td className="p-2 truncate max-w-[200px]">{row.address}</td>
+                    <td className="p-2">{row.latitude.toFixed(4)}</td>
+                    <td className="p-2">{row.longitude.toFixed(4)}</td>
+                  </tr>
+                ))}
+                {preview.length > 20 && (
+                  <tr><td colSpan={4} className="p-2 text-center text-muted-foreground">...and {preview.length - 20} more</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      <div className="flex justify-end gap-2 pt-2">
+        <Button type="button" variant="outline" onClick={onSuccess}>Cancel</Button>
+        <Button
+          onClick={handleImport}
+          disabled={preview.length === 0 || importMutation.isPending}
+          className="gap-2 bg-primary text-primary-foreground"
+        >
+          <Upload className="h-4 w-4" />
+          {importMutation.isPending ? "Importing..." : `Import ${preview.length} Stop${preview.length !== 1 ? 's' : ''}`}
+        </Button>
+      </div>
+    </div>
   );
 }

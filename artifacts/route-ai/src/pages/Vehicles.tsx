@@ -94,9 +94,25 @@ export default function Vehicles() {
                     </td>
                     <td className="p-4 text-sm">
                       {v.vehicleType === 'electric' ? (
-                         <div className="space-y-1">
-                           <p><span className="text-muted-foreground">Range:</span> {v.rangeKm} km</p>
-                           <p><span className="text-muted-foreground">Battery:</span> {v.batteryCapacityKwh} kWh</p>
+                         <div className="space-y-2">
+                           <div className="flex items-center gap-2">
+                             <div className="w-24 h-3 bg-muted rounded-full overflow-hidden">
+                               <div
+                                 className={`h-full rounded-full transition-all ${
+                                   (v.currentBatteryPercent ?? 0) > 50
+                                     ? 'bg-emerald-500'
+                                     : (v.currentBatteryPercent ?? 0) > 20
+                                       ? 'bg-amber-500'
+                                       : 'bg-destructive'
+                                 }`}
+                                 style={{ width: `${v.currentBatteryPercent ?? 0}%` }}
+                               />
+                             </div>
+                             <span className="text-xs font-semibold">{v.currentBatteryPercent ?? 0}%</span>
+                           </div>
+                           <p className="text-xs text-muted-foreground">
+                             {v.rangeKm ? `${Math.round((v.rangeKm * (v.currentBatteryPercent ?? 100)) / 100)} km remaining` : ''} · {v.batteryCapacityKwh} kWh
+                           </p>
                          </div>
                       ) : <span className="text-muted-foreground italic">N/A</span>}
                     </td>

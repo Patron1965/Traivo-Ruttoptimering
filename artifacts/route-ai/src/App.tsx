@@ -9,6 +9,8 @@ import Vehicles from "@/pages/Vehicles";
 import Stops from "@/pages/Stops";
 import Planner from "@/pages/Planner";
 import Routes from "@/pages/Routes";
+import Sustainability from "@/pages/Sustainability";
+import RouteHistory from "@/pages/RouteHistory";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -29,6 +31,8 @@ function Router() {
       <Route path="/stops" component={Stops} />
       <Route path="/planner" component={Planner} />
       <Route path="/routes" component={Routes} />
+      <Route path="/sustainability" component={Sustainability} />
+      <Route path="/history" component={RouteHistory} />
       <Route component={NotFound} />
     </Switch>
   );

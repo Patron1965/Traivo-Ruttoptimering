@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, isNull } from "drizzle-orm";
-import { db, routesTable, stopsTable } from "@workspace/db";
+import { db, routesTable, stopsTable, vehiclesTable } from "@workspace/db";
 import {
   CreateRouteBody,
   UpdateRouteBody,
@@ -12,11 +12,15 @@ const router: IRouter = Router();
 
 router.get("/routes", async (req, res) => {
   try {
-    const { organizationId } = ListRoutesQueryParams.parse(req.query);
+    const { organizationId, status } = ListRoutesQueryParams.parse(req.query);
+    const conditions = [eq(routesTable.organizationId, organizationId)];
+    if (status) {
+      conditions.push(eq(routesTable.status, status));
+    }
     const routes = await db
       .select()
       .from(routesTable)
-      .where(eq(routesTable.organizationId, organizationId));
+      .where(and(...conditions));
     res.json(routes);
   } catch (err) {
     handleError(res, err);
@@ -110,6 +114,66 @@ router.get("/routes/:id/stops", async (req, res) => {
       .where(eq(stopsTable.routeId, id))
       .orderBy(stopsTable.sequenceOrder);
     res.json(stops);
+  } catch (err) {
+    handleError(res, err);
+  }
+});
+
+router.get("/routes/:id/export", async (req, res) => {
+  try {
+    const { id } = parseUuidParam(req.params);
+    const [route] = await db
+      .select()
+      .from(routesTable)
+      .where(eq(routesTable.id, id));
+    if (!route) {
+      res.status(404).json({ error: "Route not found" });
+      return;
+    }
+
+    let vehicleName = "Unassigned";
+    if (route.vehicleId) {
+      const [vehicle] = await db
+        .select()
+        .from(vehiclesTable)
+        .where(eq(vehiclesTable.id, route.vehicleId));
+      if (vehicle) vehicleName = vehicle.name;
+    }
+
+    const stops = await db
+      .select()
+      .from(stopsTable)
+      .where(eq(stopsTable.routeId, id))
+      .orderBy(stopsTable.sequenceOrder);
+
+    const lines = [
+      "Sequence,Address,Latitude,Longitude,Time Window Start,Time Window End,Service Duration (min),Weight (kg),Notes",
+    ];
+    for (const stop of stops) {
+      lines.push(
+        [
+          stop.sequenceOrder ?? "",
+          `"${(stop.address || "").replace(/"/g, '""')}"`,
+          stop.latitude,
+          stop.longitude,
+          stop.timeWindowStart ? stop.timeWindowStart.toISOString() : "",
+          stop.timeWindowEnd ? stop.timeWindowEnd.toISOString() : "",
+          stop.serviceDurationMin,
+          stop.weightKg ?? "",
+          `"${(stop.notes || "").replace(/"/g, '""')}"`,
+        ].join(",")
+      );
+    }
+
+    const header = `# Route: ${route.name}\n# Vehicle: ${vehicleName}\n# Distance: ${route.totalDistanceKm ?? 0} km\n# Duration: ${route.totalDurationMin ?? 0} min\n# CO2: ${route.co2EmissionsKg ?? 0} kg\n# Stops: ${route.totalStops}\n`;
+
+    const csv = header + lines.join("\n");
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="route-${route.name.replace(/[^a-zA-Z0-9]/g, "-")}.csv"`
+    );
+    res.send(csv);
   } catch (err) {
     handleError(res, err);
   }

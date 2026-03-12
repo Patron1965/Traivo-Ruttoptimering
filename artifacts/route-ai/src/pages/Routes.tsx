@@ -1,10 +1,10 @@
 import { useRoutes, useDeleteRoute } from "@/hooks/use-routes";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { LoadingState } from "@/components/ui/LoadingState";
-import { Route as RouteIcon, Trash2, MapPin, Clock, Gauge } from "lucide-react";
+import { Route as RouteIcon, Trash2, MapPin, Clock, Gauge, Download } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { type Route } from "@workspace/api-client-react";
+import { type Route, getExportRouteUrl } from "@workspace/api-client-react";
 
 const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
   draft: { bg: "bg-muted/50", text: "text-muted-foreground" },
@@ -83,6 +83,15 @@ export default function Routes() {
                       <span className={cn("px-3 py-1 rounded-full text-xs font-medium uppercase tracking-wide", style.bg, style.text)}>
                         {route.status}
                       </span>
+
+                      <a
+                        href={getExportRouteUrl(route.id)}
+                        download={`${route.name}.csv`}
+                        className="p-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                        title="Export CSV"
+                      >
+                        <Download className="h-4 w-4" />
+                      </a>
 
                       <button
                         onClick={() => deleteRoute.mutate({ id: route.id })}

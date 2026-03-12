@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Map as MapIcon, Truck, MapPin, Route as RouteIcon, Command, Cpu } from "lucide-react";
+import { LayoutDashboard, Map as MapIcon, Truck, MapPin, Route as RouteIcon, Command, Cpu, Leaf, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
@@ -9,6 +9,8 @@ const NAV_ITEMS = [
   { href: "/routes", label: "All Routes", icon: RouteIcon },
   { href: "/vehicles", label: "Fleet", icon: Truck },
   { href: "/stops", label: "Stops", icon: MapPin },
+  { href: "/sustainability", label: "CO₂ Dashboard", icon: Leaf },
+  { href: "/history", label: "Route History", icon: Clock },
 ];
 
 export function Sidebar({ className }: { className?: string }) {

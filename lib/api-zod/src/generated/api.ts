@@ -168,6 +168,24 @@ export const CreateStopBody = zod.object({
 });
 
 /**
+ * @summary Bulk import stops from CSV data
+ */
+export const ImportStopsBody = zod.object({
+  organizationId: zod.string().uuid(),
+  stops: zod.array(
+    zod.object({
+      address: zod.string(),
+      latitude: zod.number(),
+      longitude: zod.number(),
+      timeWindowStart: zod.coerce.date().nullish(),
+      timeWindowEnd: zod.coerce.date().nullish(),
+      serviceDurationMin: zod.number().optional(),
+      notes: zod.string().nullish(),
+    }),
+  ),
+});
+
+/**
  * @summary Get a stop by ID
  */
 export const GetStopParams = zod.object({
@@ -261,6 +279,9 @@ export const DeleteStopParams = zod.object({
  */
 export const ListRoutesQueryParams = zod.object({
   organizationId: zod.coerce.string().uuid(),
+  status: zod
+    .enum(["draft", "optimized", "in_progress", "completed", "cancelled"])
+    .optional(),
 });
 
 export const ListRoutesResponseItem = zod.object({
@@ -405,6 +426,13 @@ export const GetRouteStopsResponseItem = zod.object({
 export const GetRouteStopsResponse = zod.array(GetRouteStopsResponseItem);
 
 /**
+ * @summary Export route as CSV
+ */
+export const ExportRouteParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+/**
  * @summary Optimize route assignments and ordering
  */
 export const OptimizeRoutesBody = zod.object({
@@ -454,4 +482,30 @@ export const GetDashboardStatsResponse = zod.object({
   completedRoutes: zod.number(),
   pendingStops: zod.number(),
   co2EmissionsKg: zod.number(),
+});
+
+/**
+ * @summary Get CO2 and sustainability statistics
+ */
+export const GetSustainabilityStatsQueryParams = zod.object({
+  organizationId: zod.coerce.string().uuid(),
+});
+
+export const GetSustainabilityStatsResponse = zod.object({
+  totalCo2Kg: zod.number(),
+  fossilCo2Kg: zod.number(),
+  evCo2Kg: zod.number(),
+  co2SavedKg: zod.number(),
+  treesEquivalent: zod.number(),
+  routeBreakdown: zod.array(
+    zod.object({
+      routeId: zod.string().uuid(),
+      routeName: zod.string(),
+      vehicleName: zod.string(),
+      vehicleType: zod.enum(["fossil", "electric"]),
+      distanceKm: zod.number(),
+      co2Kg: zod.number(),
+      date: zod.date(),
+    }),
+  ),
 });

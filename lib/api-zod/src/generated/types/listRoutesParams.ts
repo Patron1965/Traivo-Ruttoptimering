@@ -5,7 +5,9 @@
  * RouteAI API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { ListRoutesStatus } from "./listRoutesStatus";
 
 export type ListRoutesParams = {
   organizationId: string;
+  status?: ListRoutesStatus;
 };
