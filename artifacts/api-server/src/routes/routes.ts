@@ -122,10 +122,13 @@ router.get("/routes/:id/stops", async (req, res) => {
 router.get("/routes/:id/export", async (req, res) => {
   try {
     const { id } = parseUuidParam(req.params);
+    const orgId = req.query.organizationId as string | undefined;
+    const exportConditions = [eq(routesTable.id, id)];
+    if (orgId) exportConditions.push(eq(routesTable.organizationId, orgId));
     const [route] = await db
       .select()
       .from(routesTable)
-      .where(eq(routesTable.id, id));
+      .where(and(...exportConditions));
     if (!route) {
       res.status(404).json({ error: "Route not found" });
       return;

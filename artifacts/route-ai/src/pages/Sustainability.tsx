@@ -2,6 +2,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { useSustainabilityStats } from "@/hooks/use-sustainability";
 import { LoadingState, ErrorState } from "@/components/ui/LoadingState";
 import { Leaf, TreePine, TrendingDown, Zap, Fuel } from "lucide-react";
+import { useMemo } from "react";
 import {
   BarChart,
   Bar,
@@ -14,10 +15,37 @@ import {
   Pie,
   Cell,
   Legend,
+  LineChart,
+  Line,
+  Area,
+  AreaChart,
 } from "recharts";
 
 export default function Sustainability() {
   const { data: stats, isLoading, error } = useSustainabilityStats();
+
+  const dailyTrend = useMemo(() => {
+    if (!stats) return [];
+    const byDay = new Map<string, { fossil: number; ev: number }>();
+    stats.routeBreakdown.forEach((r) => {
+      const day = new Date(r.date).toLocaleDateString("en-CA");
+      const prev = byDay.get(day) || { fossil: 0, ev: 0 };
+      if (r.vehicleType === "electric") {
+        prev.ev += r.co2Kg;
+      } else {
+        prev.fossil += r.co2Kg;
+      }
+      byDay.set(day, prev);
+    });
+    return Array.from(byDay.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([day, vals]) => ({
+        date: new Date(day).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+        fossil: Math.round(vals.fossil * 100) / 100,
+        ev: Math.round(vals.ev * 100) / 100,
+        total: Math.round((vals.fossil + vals.ev) * 100) / 100,
+      }));
+  }, [stats]);
 
   if (isLoading) return <AppLayout><LoadingState message="Loading sustainability data..." /></AppLayout>;
   if (error || !stats) return <AppLayout><ErrorState error={error} /></AppLayout>;
@@ -130,6 +158,42 @@ export default function Sustainability() {
               <p className="text-muted-foreground text-center py-12 italic">No route data yet</p>
             )}
           </div>
+        </div>
+
+        <div className="bg-card rounded-2xl border border-card-border p-6 shadow-xl shadow-black/5">
+          <h2 className="text-lg font-bold mb-4">Daily Emissions Trend</h2>
+          {dailyTrend.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <AreaChart data={dailyTrend} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                <defs>
+                  <linearGradient id="fossilGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#F59E0B" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="evGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10B981" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="date" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
+                <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "12px",
+                  }}
+                  formatter={(value: number) => `${value.toFixed(2)} kg`}
+                />
+                <Legend />
+                <Area type="monotone" dataKey="fossil" stroke="#F59E0B" fill="url(#fossilGrad)" name="Fossil CO₂ (kg)" />
+                <Area type="monotone" dataKey="ev" stroke="#10B981" fill="url(#evGrad)" name="EV CO₂ (kg)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="text-muted-foreground text-center py-12 italic">No daily data yet</p>
+          )}
         </div>
 
         <div className="bg-card rounded-2xl border border-card-border shadow-xl shadow-black/5 overflow-hidden">
