@@ -165,29 +165,81 @@ router.get("/vehicles/positions", async (req, res) => {
       for (const stop of stops) {
         if (stop.status === "completed" || stop.status === "failed") continue;
         const distToStop = haversineDistance(pos.latitude, pos.longitude, stop.latitude, stop.longitude);
+
         if (distToStop <= GEOFENCE_RADIUS_KM && stop.status === "pending") {
-          await db
-            .update(stopsTable)
-            .set({ status: "in_progress" })
-            .where(eq(stopsTable.id, stop.id));
+          const existingEntry = await db
+            .select()
+            .from(geofenceEventsTable)
+            .where(
+              and(
+                eq(geofenceEventsTable.stopId, stop.id),
+                eq(geofenceEventsTable.vehicleId, vehicle.id),
+                eq(geofenceEventsTable.eventType, "entered")
+              )
+            )
+            .limit(1);
 
-          await db.insert(geofenceEventsTable).values({
-            organizationId,
-            vehicleId: vehicle.id,
-            stopId: stop.id,
-            routeId: route.id,
-            eventType: "entered",
-            vehicleName: vehicle.name,
-            stopAddress: stop.address,
-          });
+          if (existingEntry.length === 0) {
+            await db
+              .update(stopsTable)
+              .set({ status: "in_progress" })
+              .where(eq(stopsTable.id, stop.id));
 
-          await db.insert(notificationsTable).values({
-            organizationId,
-            type: "geofence_entry",
-            title: `${vehicle.name} arriving`,
-            message: `${vehicle.name} has arrived at ${stop.address}`,
-            relatedEntityId: stop.id,
-          });
+            await db.insert(geofenceEventsTable).values({
+              organizationId,
+              vehicleId: vehicle.id,
+              stopId: stop.id,
+              routeId: route.id,
+              eventType: "entered",
+              vehicleName: vehicle.name,
+              stopAddress: stop.address,
+            });
+
+            await db.insert(notificationsTable).values({
+              organizationId,
+              type: "geofence_entry",
+              title: `${vehicle.name} arriving`,
+              message: `${vehicle.name} has arrived at ${stop.address}`,
+              relatedEntityId: stop.id,
+            });
+          }
+        } else if (distToStop > GEOFENCE_RADIUS_KM && stop.status === "in_progress") {
+          const existingExit = await db
+            .select()
+            .from(geofenceEventsTable)
+            .where(
+              and(
+                eq(geofenceEventsTable.stopId, stop.id),
+                eq(geofenceEventsTable.vehicleId, vehicle.id),
+                eq(geofenceEventsTable.eventType, "exited")
+              )
+            )
+            .limit(1);
+
+          if (existingExit.length === 0) {
+            await db
+              .update(stopsTable)
+              .set({ status: "completed" })
+              .where(eq(stopsTable.id, stop.id));
+
+            await db.insert(geofenceEventsTable).values({
+              organizationId,
+              vehicleId: vehicle.id,
+              stopId: stop.id,
+              routeId: route.id,
+              eventType: "exited",
+              vehicleName: vehicle.name,
+              stopAddress: stop.address,
+            });
+
+            await db.insert(notificationsTable).values({
+              organizationId,
+              type: "geofence_exit",
+              title: `${vehicle.name} departed`,
+              message: `${vehicle.name} has departed from ${stop.address}`,
+              relatedEntityId: stop.id,
+            });
+          }
         }
       }
     }
