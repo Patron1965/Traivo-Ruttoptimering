@@ -3,20 +3,29 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: RouteAI API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: vehicles
+    description: Vehicle management
+  - name: stops
+    description: Stop management
+  - name: routes
+    description: Route management
+  - name: dashboard
+    description: Dashboard statistics
+  - name: optimize
+    description: Route optimization
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +33,377 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /vehicles:
+    get:
+      operationId: listVehicles
+      tags: [vehicles]
+      summary: List all vehicles
+      parameters:
+        - name: organizationId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: List of vehicles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Vehicle"
+    post:
+      operationId: createVehicle
+      tags: [vehicles]
+      summary: Create a vehicle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateVehicleBody"
+      responses:
+        "201":
+          description: Created vehicle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vehicle"
+
+  /vehicles/{id}:
+    get:
+      operationId: getVehicle
+      tags: [vehicles]
+      summary: Get a vehicle by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Vehicle details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vehicle"
+        "404":
+          description: Not found
+    put:
+      operationId: updateVehicle
+      tags: [vehicles]
+      summary: Update a vehicle
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateVehicleBody"
+      responses:
+        "200":
+          description: Updated vehicle
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vehicle"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteVehicle
+      tags: [vehicles]
+      summary: Delete a vehicle
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted
+
+  /stops:
+    get:
+      operationId: listStops
+      tags: [stops]
+      summary: List all stops
+      parameters:
+        - name: organizationId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: routeId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: List of stops
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Stop"
+    post:
+      operationId: createStop
+      tags: [stops]
+      summary: Create a stop
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateStopBody"
+      responses:
+        "201":
+          description: Created stop
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Stop"
+
+  /stops/{id}:
+    get:
+      operationId: getStop
+      tags: [stops]
+      summary: Get a stop by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Stop details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Stop"
+        "404":
+          description: Not found
+    put:
+      operationId: updateStop
+      tags: [stops]
+      summary: Update a stop
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateStopBody"
+      responses:
+        "200":
+          description: Updated stop
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Stop"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteStop
+      tags: [stops]
+      summary: Delete a stop
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted
+
+  /routes:
+    get:
+      operationId: listRoutes
+      tags: [routes]
+      summary: List all routes
+      parameters:
+        - name: organizationId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: List of routes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Route"
+    post:
+      operationId: createRoute
+      tags: [routes]
+      summary: Create a route
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRouteBody"
+      responses:
+        "201":
+          description: Created route
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Route"
+
+  /routes/{id}:
+    get:
+      operationId: getRoute
+      tags: [routes]
+      summary: Get a route by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Route details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Route"
+        "404":
+          description: Not found
+    put:
+      operationId: updateRoute
+      tags: [routes]
+      summary: Update a route
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRouteBody"
+      responses:
+        "200":
+          description: Updated route
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Route"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteRoute
+      tags: [routes]
+      summary: Delete a route
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Deleted
+
+  /routes/{id}/stops:
+    get:
+      operationId: getRouteStops
+      tags: [routes]
+      summary: Get stops for a route
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: List of stops for the route
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Stop"
+
+  /optimize:
+    post:
+      operationId: optimizeRoutes
+      tags: [optimize]
+      summary: Optimize route assignments and ordering
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OptimizeRequest"
+      responses:
+        "200":
+          description: Optimized routes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OptimizeResponse"
+
+  /dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      tags: [dashboard]
+      summary: Get dashboard statistics
+      parameters:
+        - name: organizationId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Dashboard statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +414,475 @@ components:
       required:
         - status
 
+    Vehicle:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        licensePlate:
+          type: string
+        vehicleType:
+          type: string
+          enum: [fossil, electric]
+        capacityKg:
+          type: number
+        capacityVolume:
+          type: number
+        batteryCapacityKwh:
+          type: number
+          nullable: true
+        currentBatteryPercent:
+          type: number
+          nullable: true
+        rangeKm:
+          type: number
+          nullable: true
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - organizationId
+        - name
+        - licensePlate
+        - vehicleType
+        - capacityKg
+        - capacityVolume
+        - isActive
+        - createdAt
+
+    CreateVehicleBody:
+      type: object
+      properties:
+        organizationId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        licensePlate:
+          type: string
+        vehicleType:
+          type: string
+          enum: [fossil, electric]
+        capacityKg:
+          type: number
+        capacityVolume:
+          type: number
+        batteryCapacityKwh:
+          type: number
+          nullable: true
+        currentBatteryPercent:
+          type: number
+          nullable: true
+        rangeKm:
+          type: number
+          nullable: true
+      required:
+        - organizationId
+        - name
+        - licensePlate
+        - vehicleType
+        - capacityKg
+        - capacityVolume
+
+    UpdateVehicleBody:
+      type: object
+      properties:
+        name:
+          type: string
+        licensePlate:
+          type: string
+        vehicleType:
+          type: string
+          enum: [fossil, electric]
+        capacityKg:
+          type: number
+        capacityVolume:
+          type: number
+        batteryCapacityKwh:
+          type: number
+          nullable: true
+        currentBatteryPercent:
+          type: number
+          nullable: true
+        rangeKm:
+          type: number
+          nullable: true
+        isActive:
+          type: boolean
+
+    Stop:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        routeId:
+          type: string
+          format: uuid
+          nullable: true
+        customerId:
+          type: string
+          format: uuid
+          nullable: true
+        address:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+        timeWindowStart:
+          type: string
+          format: date-time
+          nullable: true
+        timeWindowEnd:
+          type: string
+          format: date-time
+          nullable: true
+        serviceDurationMin:
+          type: integer
+        weightKg:
+          type: number
+          nullable: true
+        volumeM3:
+          type: number
+          nullable: true
+        status:
+          type: string
+          enum: [pending, in_progress, completed, failed, skipped]
+        sequenceOrder:
+          type: integer
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - organizationId
+        - address
+        - latitude
+        - longitude
+        - serviceDurationMin
+        - status
+        - createdAt
+
+    CreateStopBody:
+      type: object
+      properties:
+        organizationId:
+          type: string
+          format: uuid
+        routeId:
+          type: string
+          format: uuid
+          nullable: true
+        customerId:
+          type: string
+          format: uuid
+          nullable: true
+        address:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+        timeWindowStart:
+          type: string
+          format: date-time
+          nullable: true
+        timeWindowEnd:
+          type: string
+          format: date-time
+          nullable: true
+        serviceDurationMin:
+          type: integer
+        weightKg:
+          type: number
+          nullable: true
+        volumeM3:
+          type: number
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+      required:
+        - organizationId
+        - address
+        - latitude
+        - longitude
+
+    UpdateStopBody:
+      type: object
+      properties:
+        routeId:
+          type: string
+          format: uuid
+          nullable: true
+        customerId:
+          type: string
+          format: uuid
+          nullable: true
+        address:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+        timeWindowStart:
+          type: string
+          format: date-time
+          nullable: true
+        timeWindowEnd:
+          type: string
+          format: date-time
+          nullable: true
+        serviceDurationMin:
+          type: integer
+        weightKg:
+          type: number
+          nullable: true
+        volumeM3:
+          type: number
+          nullable: true
+        status:
+          type: string
+          enum: [pending, in_progress, completed, failed, skipped]
+        sequenceOrder:
+          type: integer
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    Route:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        vehicleId:
+          type: string
+          format: uuid
+          nullable: true
+        name:
+          type: string
+        status:
+          type: string
+          enum: [draft, optimized, in_progress, completed, cancelled]
+        date:
+          type: string
+          format: date-time
+        totalDistanceKm:
+          type: number
+          nullable: true
+        totalDurationMin:
+          type: number
+          nullable: true
+        totalStops:
+          type: integer
+        co2EmissionsKg:
+          type: number
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - organizationId
+        - name
+        - status
+        - date
+        - totalStops
+        - createdAt
+        - updatedAt
+
+    CreateRouteBody:
+      type: object
+      properties:
+        organizationId:
+          type: string
+          format: uuid
+        vehicleId:
+          type: string
+          format: uuid
+          nullable: true
+        name:
+          type: string
+        date:
+          type: string
+          format: date-time
+      required:
+        - organizationId
+        - name
+        - date
+
+    UpdateRouteBody:
+      type: object
+      properties:
+        vehicleId:
+          type: string
+          format: uuid
+          nullable: true
+        name:
+          type: string
+        status:
+          type: string
+          enum: [draft, optimized, in_progress, completed, cancelled]
+        date:
+          type: string
+          format: date-time
+        totalDistanceKm:
+          type: number
+          nullable: true
+        totalDurationMin:
+          type: number
+          nullable: true
+        totalStops:
+          type: integer
+        co2EmissionsKg:
+          type: number
+          nullable: true
+
+    OptimizeRequest:
+      type: object
+      properties:
+        organizationId:
+          type: string
+          format: uuid
+        vehicleIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        stopIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        depotLatitude:
+          type: number
+        depotLongitude:
+          type: number
+      required:
+        - organizationId
+        - vehicleIds
+        - stopIds
+        - depotLatitude
+        - depotLongitude
+
+    OptimizeResponse:
+      type: object
+      properties:
+        routes:
+          type: array
+          items:
+            $ref: "#/components/schemas/OptimizedRoute"
+        totalDistanceKm:
+          type: number
+        totalDurationMin:
+          type: number
+        unassignedStopIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+        - routes
+        - totalDistanceKm
+        - totalDurationMin
+        - unassignedStopIds
+
+    OptimizedRoute:
+      type: object
+      properties:
+        vehicleId:
+          type: string
+          format: uuid
+        routeId:
+          type: string
+          format: uuid
+        stops:
+          type: array
+          items:
+            $ref: "#/components/schemas/OptimizedStop"
+        distanceKm:
+          type: number
+        durationMin:
+          type: number
+        co2EmissionsKg:
+          type: number
+      required:
+        - vehicleId
+        - routeId
+        - stops
+        - distanceKm
+        - durationMin
+        - co2EmissionsKg
+
+    OptimizedStop:
+      type: object
+      properties:
+        stopId:
+          type: string
+          format: uuid
+        sequenceOrder:
+          type: integer
+        estimatedArrival:
+          type: string
+          format: date-time
+        distanceFromPreviousKm:
+          type: number
+      required:
+        - stopId
+        - sequenceOrder
+        - estimatedArrival
+        - distanceFromPreviousKm
+
+    DashboardStats:
+      type: object
+      properties:
+        totalRoutes:
+          type: integer
+        totalStops:
+          type: integer
+        totalDistanceKm:
+          type: number
+        totalDurationMin:
+          type: number
+        activeVehicles:
+          type: integer
+        completedRoutes:
+          type: integer
+        pendingStops:
+          type: integer
+        co2EmissionsKg:
+          type: number
+      required:
+        - totalRoutes
+        - totalStops
+        - totalDistanceKm
+        - totalDurationMin
+        - activeVehicles
+        - completedRoutes
+        - pendingStops
+        - co2EmissionsKg

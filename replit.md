@@ -1,8 +1,8 @@
-# Workspace
+# RouteAI
 
 ## Overview
 
-pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
+AI-driven route optimization and fleet management system. Built as a pnpm workspace monorepo using TypeScript.
 
 ## Stack
 
@@ -48,6 +48,42 @@ Every package extends `tsconfig.base.json` which sets `composite: true`. The roo
 - `pnpm run build` — runs `typecheck` first, then recursively runs `build` in all packages that define it
 - `pnpm run typecheck` — runs `tsc --build --emitDeclarationOnly` using project references
 
+## Database Schema
+
+The database uses PostgreSQL with Drizzle ORM. Schema files are in `lib/db/src/schema/`:
+
+- **organizations** — multi-tenant organizations (id, name, email)
+- **vehicles** — fleet vehicles with support for fossil + electric types (capacity, battery, range)
+- **customers** — delivery customers (name, address, contact info)
+- **routes** — delivery routes with status tracking (draft, optimized, in_progress, completed, cancelled)
+- **stops** — individual delivery stops with coordinates, time windows, weight/volume, and sequence ordering
+- **routeHistory** — historical route records with snapshots
+
+Key enums: `vehicle_type` (fossil, electric), `route_status`, `stop_status`
+
+## API Endpoints
+
+All endpoints under `/api`:
+- `GET /api/healthz` — health check
+- `GET/POST /api/vehicles` — list/create vehicles (query: organizationId)
+- `GET/PUT/DELETE /api/vehicles/:id` — get/update/delete vehicle
+- `GET/POST /api/stops` — list/create stops (query: organizationId, optional routeId)
+- `GET/PUT/DELETE /api/stops/:id` — get/update/delete stop
+- `GET/POST /api/routes` — list/create routes (query: organizationId)
+- `GET/PUT/DELETE /api/routes/:id` — get/update/delete route
+- `GET /api/routes/:id/stops` — get stops for a route (ordered by sequenceOrder)
+- `POST /api/optimize` — optimize route assignments using nearest-neighbor heuristic
+- `GET /api/dashboard/stats` — aggregated dashboard statistics
+
+## Route Optimization
+
+The optimize endpoint uses a nearest-neighbor heuristic with:
+- Time-window-aware stop sorting
+- Vehicle capacity constraints (weight + volume)
+- EV range constraints (90% threshold)
+- Haversine distance calculations
+- CO2 emission estimates (0.21 kg/km fossil, 0.02 kg/km electric)
+
 ## Packages
 
 ### `artifacts/api-server` (`@workspace/api-server`)
@@ -56,11 +92,10 @@ Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` 
 
 - Entry: `src/index.ts` — reads `PORT`, starts Express
 - App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`
-- Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health` (full path: `/api/health`)
+- Routes: `src/routes/index.ts` mounts sub-routers (health, vehicles, stops, routes, dashboard, optimize)
 - Depends on: `@workspace/db`, `@workspace/api-zod`
 - `pnpm --filter @workspace/api-server run dev` — run the dev server
 - `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)
-- Build bundles an allowlist of deps (express, cors, pg, drizzle-orm, zod, etc.) and externalizes the rest
 
 ### `lib/db` (`@workspace/db`)
 
@@ -68,7 +103,7 @@ Database layer using Drizzle ORM with PostgreSQL. Exports a Drizzle client insta
 
 - `src/index.ts` — creates a `Pool` + Drizzle instance, exports schema
 - `src/schema/index.ts` — barrel re-export of all models
-- `src/schema/<modelname>.ts` — table definitions with `drizzle-zod` insert schemas (no models definitions exist right now)
+- `src/schema/<modelname>.ts` — table definitions with `drizzle-zod` insert schemas
 - `drizzle.config.ts` — Drizzle Kit config (requires `DATABASE_URL`, automatically provided by Replit)
 - Exports: `.` (pool, db, schema), `./schema` (schema only)
 
@@ -85,12 +120,24 @@ Run codegen: `pnpm --filter @workspace/api-spec run codegen`
 
 ### `lib/api-zod` (`@workspace/api-zod`)
 
-Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used by `api-server` for response validation.
+Generated Zod schemas from the OpenAPI spec. Used by `api-server` for response validation.
 
 ### `lib/api-client-react` (`@workspace/api-client-react`)
 
-Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHealthCheck`, `healthCheck`).
+Generated React Query hooks and fetch client from the OpenAPI spec.
 
 ### `scripts` (`@workspace/scripts`)
 
-Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.
+Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`.
+
+Available scripts:
+- `seed` — Seeds the database with sample Stockholm-area data (organization, 4 vehicles, 12 customers, 12 stops, 2 routes)
+
+## Seed Data
+
+The seed creates:
+- 1 organization: "Stockholm Logistics AB"
+- 4 vehicles: 2 fossil (Volvo FH16, Scania R500), 2 electric (Tesla Semi, Volvo FE Electric)
+- 12 customers across Stockholm
+- 12 delivery stops with real Stockholm coordinates
+- 2 pre-assigned routes: "Northern Stockholm Route" (fossil) and "Central Stockholm EV Route" (electric)
