@@ -11,7 +11,7 @@ import { Cpu, CheckCircle2, AlertCircle, Truck, MapPin, GripVertical } from "luc
 import { RouteMap } from "@/components/map/RouteMap";
 import { formatDistance } from "@/lib/utils";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
-import { type Stop, type Vehicle } from "@workspace/api-client-react";
+import { type Stop, type Vehicle, type Route } from "@workspace/api-client-react";
 
 interface OptimizedRouteResult {
   vehicleId: string;
@@ -45,6 +45,34 @@ export default function Planner() {
     vehicles?.forEach(v => map.set(v.id, v));
     return map;
   }, [vehicles]);
+
+  const mapRoutes = useMemo(() => {
+    const source = dndRoutes || (optimizeMutation.data?.routes as OptimizedRouteResult[] | undefined);
+    if (!source) return undefined;
+    return source.map((r) => {
+      const vehicle = vehiclesById.get(r.vehicleId);
+      const stopsList = r.stops
+        .sort((a, b) => a.sequenceOrder - b.sequenceOrder)
+        .map((ref) => stopsById.get(ref.stopId))
+        .filter((s): s is Stop => !!s)
+        .map((s, idx) => ({ ...s, sequenceOrder: idx + 1 }));
+      return {
+        id: r.routeId,
+        name: vehicle?.name ? `${vehicle.name} Route` : `Route`,
+        status: "optimized" as const,
+        organizationId: ORG_ID,
+        vehicleId: r.vehicleId,
+        date: new Date().toISOString(),
+        totalDistanceKm: r.distanceKm,
+        totalDurationMin: r.durationMin,
+        co2EmissionsKg: r.co2EmissionsKg,
+        totalStops: stopsList.length,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        stopsList,
+      } satisfies Route & { stopsList: Stop[] };
+    });
+  }, [dndRoutes, optimizeMutation.data, vehiclesById, stopsById]);
 
   const toggleVehicle = (id: string) => {
     const next = new Set(selectedVehicleIds);
@@ -290,7 +318,8 @@ export default function Planner() {
           <div className="flex-1 p-4 pb-4">
             <div className="w-full h-full rounded-2xl overflow-hidden shadow-inner border border-border/50 relative">
                <RouteMap 
-                 unassignedStops={unassignedStops} 
+                 routes={mapRoutes}
+                 unassignedStops={mapRoutes ? [] : unassignedStops} 
                  interactive={true}
                />
                {!dndRoutes && !optimizeMutation.isSuccess && (

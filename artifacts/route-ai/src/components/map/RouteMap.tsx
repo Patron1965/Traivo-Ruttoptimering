@@ -161,7 +161,7 @@ export function RouteMap({
               <div className="flex items-center gap-2 mb-2 pb-2 border-b border-border/50">
                 <span className="px-2 py-0.5 rounded-md bg-destructive/10 text-destructive text-xs font-bold uppercase tracking-wider">Unassigned</span>
               </div>
-              <h4 className="font-bold">{stop.customerName || "Customer Stop"}</h4>
+              <h4 className="font-bold">{stop.notes || "Delivery Stop"}</h4>
               <p className="text-sm text-muted-foreground mt-1">{stop.address}</p>
             </div>
           </Popup>
