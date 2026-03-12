@@ -1,9 +1,11 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useStops, useCreateStop, useUpdateStop, useDeleteStop } from "@/hooks/use-stops";
+import { useRoutes } from "@/hooks/use-routes";
+import { useVehicles } from "@/hooks/use-vehicles";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2, Edit2, MapPin } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,10 +31,23 @@ type StopFormValues = z.infer<typeof stopSchema>;
 
 export default function Stops() {
   const { data: stops, isLoading } = useStops();
+  const { data: routes } = useRoutes();
+  const { data: vehicles } = useVehicles();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingStop, setEditingStop] = useState<Stop | null>(null);
 
   const deleteMutation = useDeleteStop();
+
+  const vehicleByRouteId = useMemo(() => {
+    const map = new Map<string, string>();
+    if (routes && vehicles) {
+      const vMap = new Map(vehicles.map(v => [v.id, v.name]));
+      routes.forEach(r => {
+        if (r.vehicleId) map.set(r.id, vMap.get(r.vehicleId) || "Unknown");
+      });
+    }
+    return map;
+  }, [routes, vehicles]);
 
   if (isLoading) return <AppLayout><LoadingState message="Loading stops..." /></AppLayout>;
 
@@ -65,11 +80,10 @@ export default function Stops() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-muted/50 border-b border-border">
-                  <th className="p-4 font-semibold text-muted-foreground text-sm">Address</th>
-                  <th className="p-4 font-semibold text-muted-foreground text-sm">Coordinates</th>
+                  <th className="p-4 font-semibold text-muted-foreground text-sm">Customer / Address</th>
                   <th className="p-4 font-semibold text-muted-foreground text-sm">Time Window</th>
                   <th className="p-4 font-semibold text-muted-foreground text-sm">Requirements</th>
-                  <th className="p-4 font-semibold text-muted-foreground text-sm">Status</th>
+                  <th className="p-4 font-semibold text-muted-foreground text-sm">Assigned Vehicle</th>
                   <th className="p-4 font-semibold text-muted-foreground text-sm text-right">Actions</th>
                 </tr>
               </thead>
@@ -87,10 +101,6 @@ export default function Stops() {
                         </div>
                       </div>
                     </td>
-                    <td className="p-4 text-xs font-mono text-muted-foreground space-y-1">
-                      <p>Lat: {stop.latitude.toFixed(4)}</p>
-                      <p>Lng: {stop.longitude.toFixed(4)}</p>
-                    </td>
                     <td className="p-4 text-xs text-muted-foreground space-y-1">
                       {stop.timeWindowStart ? (
                         <p>{new Date(stop.timeWindowStart).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}</p>
@@ -106,11 +116,15 @@ export default function Stops() {
                       )}
                     </td>
                     <td className="p-4">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-wider ${
-                        stop.routeId ? 'bg-primary/10 text-primary' : 'bg-amber-500/10 text-amber-500'
-                      }`}>
-                        {stop.routeId ? 'Assigned' : 'Unassigned'}
-                      </span>
+                      {stop.routeId ? (
+                        <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary">
+                          {vehicleByRouteId.get(stop.routeId) || "Assigned"}
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-500 uppercase tracking-wider">
+                          Unassigned
+                        </span>
+                      )}
                     </td>
                     <td className="p-4 text-right">
                       <div className="flex items-center justify-end gap-2">
@@ -138,7 +152,7 @@ export default function Stops() {
                 ))}
                 {(!stops || stops.length === 0) && (
                   <tr>
-                    <td colSpan={6} className="p-8 text-center text-muted-foreground">No stops found. Add some deliveries to route.</td>
+                    <td colSpan={5} className="p-8 text-center text-muted-foreground">No stops found. Add some deliveries to route.</td>
                   </tr>
                 )}
               </tbody>
