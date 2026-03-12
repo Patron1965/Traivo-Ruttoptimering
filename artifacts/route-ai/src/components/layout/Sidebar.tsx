@@ -1,21 +1,24 @@
 import { Link, useLocation } from "wouter";
 import { LayoutDashboard, Map as MapIcon, Truck, MapPin, Route as RouteIcon, Command, Cpu, Leaf, Clock, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
+import { LanguageSwitcher } from "./LanguageSwitcher";
 
 const NAV_ITEMS = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/map", label: "Live Map", icon: MapIcon },
-  { href: "/planner", label: "Route Planner", icon: Cpu },
-  { href: "/routes", label: "All Routes", icon: RouteIcon },
-  { href: "/vehicles", label: "Fleet", icon: Truck },
-  { href: "/drivers", label: "Drivers", icon: Users },
-  { href: "/stops", label: "Stops", icon: MapPin },
-  { href: "/sustainability", label: "CO₂ Dashboard", icon: Leaf },
-  { href: "/history", label: "Route History", icon: Clock },
+  { href: "/", labelKey: "sidebar.dashboard", icon: LayoutDashboard },
+  { href: "/map", labelKey: "sidebar.liveMap", icon: MapIcon },
+  { href: "/planner", labelKey: "sidebar.routePlanner", icon: Cpu },
+  { href: "/routes", labelKey: "sidebar.allRoutes", icon: RouteIcon },
+  { href: "/vehicles", labelKey: "sidebar.fleet", icon: Truck },
+  { href: "/drivers", labelKey: "sidebar.drivers", icon: Users },
+  { href: "/stops", labelKey: "sidebar.stops", icon: MapPin },
+  { href: "/sustainability", labelKey: "sidebar.co2Dashboard", icon: Leaf },
+  { href: "/history", labelKey: "sidebar.routeHistory", icon: Clock },
 ];
 
 export function Sidebar({ className }: { className?: string }) {
   const [location] = useLocation();
+  const { t } = useTranslation();
 
   return (
     <aside className={cn("flex h-full flex-col bg-sidebar border-r border-sidebar-border shadow-2xl shadow-black/50 z-20", className)}>
@@ -44,15 +47,16 @@ export function Sidebar({ className }: { className?: string }) {
                 <div className="absolute inset-y-0 left-0 w-1 bg-primary rounded-r-full" />
               )}
               <item.icon className={cn("h-5 w-5", isActive ? "text-primary" : "text-sidebar-foreground/50 group-hover:text-sidebar-foreground/80")} />
-              {item.label}
+              {t(item.labelKey)}
             </Link>
           );
         })}
       </nav>
 
-      <div className="p-4 mt-auto">
+      <div className="p-4 mt-auto space-y-3">
+        <LanguageSwitcher />
         <div className="p-4 rounded-xl bg-gradient-to-br from-sidebar-accent/50 to-sidebar-accent border border-sidebar-border">
-          <p className="text-xs font-medium text-sidebar-foreground">Stockholm Logistics AB</p>
+          <p className="text-xs font-medium text-sidebar-foreground">{t("sidebar.orgName")}</p>
           <p className="text-[10px] text-sidebar-foreground/50 mt-1 truncate">ID: 63e7175d...</p>
         </div>
       </div>

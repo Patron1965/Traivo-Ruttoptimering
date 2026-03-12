@@ -3,6 +3,7 @@ import { useSustainabilityStats } from "@/hooks/use-sustainability";
 import { LoadingState, ErrorState } from "@/components/ui/LoadingState";
 import { Leaf, TreePine, TrendingDown, Zap, Fuel } from "lucide-react";
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import {
   BarChart,
   Bar,
@@ -23,6 +24,7 @@ import {
 
 export default function Sustainability() {
   const { data: stats, isLoading, error } = useSustainabilityStats();
+  const { t, i18n } = useTranslation();
 
   const dailyTrend = useMemo(() => {
     if (!stats) return [];
@@ -40,19 +42,19 @@ export default function Sustainability() {
     return Array.from(byDay.entries())
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([day, vals]) => ({
-        date: new Date(day).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+        date: new Date(day).toLocaleDateString(i18n.language === "sv" ? "sv-SE" : "en-US", { month: "short", day: "numeric" }),
         fossil: Math.round(vals.fossil * 100) / 100,
         ev: Math.round(vals.ev * 100) / 100,
         total: Math.round((vals.fossil + vals.ev) * 100) / 100,
       }));
-  }, [stats]);
+  }, [stats, i18n.language]);
 
-  if (isLoading) return <AppLayout><LoadingState message="Loading sustainability data..." /></AppLayout>;
+  if (isLoading) return <AppLayout><LoadingState message={t("sustainability.loadingSustainability")} /></AppLayout>;
   if (error || !stats) return <AppLayout><ErrorState error={error} /></AppLayout>;
 
   const pieData = [
-    { name: "Fossil CO₂", value: stats.fossilCo2Kg, color: "#F59E0B" },
-    { name: "EV CO₂", value: stats.evCo2Kg, color: "#10B981" },
+    { name: t("sustainability.fossilCo2"), value: stats.fossilCo2Kg, color: "#F59E0B" },
+    { name: t("sustainability.evCo2"), value: stats.evCo2Kg, color: "#10B981" },
   ].filter(d => d.value > 0);
 
   const barData = stats.routeBreakdown.map((r) => ({
@@ -70,23 +72,23 @@ export default function Sustainability() {
       <div className="p-6 md:p-8 lg:p-10 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
         <div>
           <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground flex items-center gap-3">
-            <Leaf className="h-8 w-8 text-emerald-500" /> Sustainability
+            <Leaf className="h-8 w-8 text-emerald-500" /> {t("sustainability.title")}
           </h1>
-          <p className="text-muted-foreground mt-2 text-lg">CO₂ emissions tracking and environmental impact</p>
+          <p className="text-muted-foreground mt-2 text-lg">{t("sustainability.subtitle")}</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-          <KpiCard title="Total CO₂" value={`${stats.totalCo2Kg.toFixed(1)} kg`} icon={<Leaf className="h-5 w-5 text-emerald-500" />} />
-          <KpiCard title="CO₂ Saved" value={`${stats.co2SavedKg.toFixed(1)} kg`} icon={<TrendingDown className="h-5 w-5 text-primary" />} />
-          <KpiCard title="Fossil Emissions" value={`${stats.fossilCo2Kg.toFixed(1)} kg`} icon={<Fuel className="h-5 w-5 text-amber-500" />} />
-          <KpiCard title="EV Emissions" value={`${stats.evCo2Kg.toFixed(1)} kg`} icon={<Zap className="h-5 w-5 text-violet-500" />} />
+          <KpiCard title={t("sustainability.totalCo2")} value={`${stats.totalCo2Kg.toFixed(1)} kg`} icon={<Leaf className="h-5 w-5 text-emerald-500" />} />
+          <KpiCard title={t("sustainability.co2Saved")} value={`${stats.co2SavedKg.toFixed(1)} kg`} icon={<TrendingDown className="h-5 w-5 text-primary" />} />
+          <KpiCard title={t("sustainability.fossilEmissions")} value={`${stats.fossilCo2Kg.toFixed(1)} kg`} icon={<Fuel className="h-5 w-5 text-amber-500" />} />
+          <KpiCard title={t("sustainability.evEmissions")} value={`${stats.evCo2Kg.toFixed(1)} kg`} icon={<Zap className="h-5 w-5 text-violet-500" />} />
         </div>
 
         <div className="bg-card rounded-2xl border border-card-border p-6 shadow-xl shadow-black/5">
-          <h2 className="text-lg font-bold mb-1">Trees Equivalent</h2>
-          <p className="text-sm text-muted-foreground mb-4">
-            Your EV fleet has saved <span className="text-emerald-500 font-semibold">{stats.co2SavedKg.toFixed(1)} kg</span> of CO₂ — equivalent to planting <span className="text-emerald-500 font-semibold">{stats.treesEquivalent}</span> trees per year.
-          </p>
+          <h2 className="text-lg font-bold mb-1">{t("sustainability.treesEquivalent")}</h2>
+          <p className="text-sm text-muted-foreground mb-4" dangerouslySetInnerHTML={{
+            __html: t("sustainability.treesDescription", { saved: stats.co2SavedKg.toFixed(1), trees: stats.treesEquivalent })
+          }} />
           <div className="flex flex-wrap gap-2 items-end">
             {treesArr.map((i) => (
               <TreePine
@@ -96,14 +98,14 @@ export default function Sustainability() {
               />
             ))}
             {treeCount > 50 && (
-              <span className="text-emerald-500 font-bold text-lg ml-2">+{treeCount - 50} more</span>
+              <span className="text-emerald-500 font-bold text-lg ml-2">+{treeCount - 50} {t("common.more")}</span>
             )}
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-card rounded-2xl border border-card-border p-6 shadow-xl shadow-black/5">
-            <h2 className="text-lg font-bold mb-4">Fossil vs EV Emissions</h2>
+            <h2 className="text-lg font-bold mb-4">{t("sustainability.fossilVsEv")}</h2>
             {pieData.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
@@ -126,12 +128,12 @@ export default function Sustainability() {
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <p className="text-muted-foreground text-center py-12 italic">No route data yet</p>
+              <p className="text-muted-foreground text-center py-12 italic">{t("sustainability.noRouteDataYet")}</p>
             )}
           </div>
 
           <div className="bg-card rounded-2xl border border-card-border p-6 shadow-xl shadow-black/5">
-            <h2 className="text-lg font-bold mb-4">CO₂ by Route</h2>
+            <h2 className="text-lg font-bold mb-4">{t("sustainability.co2ByRoute")}</h2>
             {barData.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={barData} margin={{ top: 5, right: 20, bottom: 40, left: 0 }}>
@@ -155,13 +157,13 @@ export default function Sustainability() {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <p className="text-muted-foreground text-center py-12 italic">No route data yet</p>
+              <p className="text-muted-foreground text-center py-12 italic">{t("sustainability.noRouteDataYet")}</p>
             )}
           </div>
         </div>
 
         <div className="bg-card rounded-2xl border border-card-border p-6 shadow-xl shadow-black/5">
-          <h2 className="text-lg font-bold mb-4">Daily Emissions Trend</h2>
+          <h2 className="text-lg font-bold mb-4">{t("sustainability.dailyEmissionsTrend")}</h2>
           {dailyTrend.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
               <AreaChart data={dailyTrend} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
@@ -187,29 +189,29 @@ export default function Sustainability() {
                   formatter={(value: number) => `${value.toFixed(2)} kg`}
                 />
                 <Legend />
-                <Area type="monotone" dataKey="fossil" stroke="#F59E0B" fill="url(#fossilGrad)" name="Fossil CO₂ (kg)" />
-                <Area type="monotone" dataKey="ev" stroke="#10B981" fill="url(#evGrad)" name="EV CO₂ (kg)" />
+                <Area type="monotone" dataKey="fossil" stroke="#F59E0B" fill="url(#fossilGrad)" name={`${t("sustainability.fossilCo2")} (kg)`} />
+                <Area type="monotone" dataKey="ev" stroke="#10B981" fill="url(#evGrad)" name={`${t("sustainability.evCo2")} (kg)`} />
               </AreaChart>
             </ResponsiveContainer>
           ) : (
-            <p className="text-muted-foreground text-center py-12 italic">No daily data yet</p>
+            <p className="text-muted-foreground text-center py-12 italic">{t("sustainability.noDailyDataYet")}</p>
           )}
         </div>
 
         <div className="bg-card rounded-2xl border border-card-border shadow-xl shadow-black/5 overflow-hidden">
           <div className="p-6 border-b border-border">
-            <h2 className="text-lg font-bold">Route Emissions Breakdown</h2>
+            <h2 className="text-lg font-bold">{t("sustainability.routeEmissionsBreakdown")}</h2>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-muted/50 border-b border-border">
-                  <th className="p-4 font-semibold text-muted-foreground text-sm">Route</th>
-                  <th className="p-4 font-semibold text-muted-foreground text-sm">Vehicle</th>
-                  <th className="p-4 font-semibold text-muted-foreground text-sm">Type</th>
-                  <th className="p-4 font-semibold text-muted-foreground text-sm">Distance</th>
-                  <th className="p-4 font-semibold text-muted-foreground text-sm">CO₂</th>
-                  <th className="p-4 font-semibold text-muted-foreground text-sm">Date</th>
+                  <th className="p-4 font-semibold text-muted-foreground text-sm">{t("common.route")}</th>
+                  <th className="p-4 font-semibold text-muted-foreground text-sm">{t("common.vehicle")}</th>
+                  <th className="p-4 font-semibold text-muted-foreground text-sm">{t("common.type")}</th>
+                  <th className="p-4 font-semibold text-muted-foreground text-sm">{t("common.distance")}</th>
+                  <th className="p-4 font-semibold text-muted-foreground text-sm">{t("common.co2")}</th>
+                  <th className="p-4 font-semibold text-muted-foreground text-sm">{t("common.date")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -220,17 +222,17 @@ export default function Sustainability() {
                     <td className="p-4">
                       <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${r.vehicleType === 'electric' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'}`}>
                         {r.vehicleType === 'electric' ? <Zap className="h-3 w-3" /> : <Fuel className="h-3 w-3" />}
-                        {r.vehicleType === 'electric' ? 'EV' : 'Fossil'}
+                        {r.vehicleType === 'electric' ? t("common.ev") : t("common.fossil")}
                       </span>
                     </td>
                     <td className="p-4 text-muted-foreground">{r.distanceKm.toFixed(1)} km</td>
                     <td className="p-4 font-medium">{r.co2Kg.toFixed(2)} kg</td>
-                    <td className="p-4 text-muted-foreground text-sm">{new Date(r.date).toLocaleDateString()}</td>
+                    <td className="p-4 text-muted-foreground text-sm">{new Date(r.date).toLocaleDateString(i18n.language === "sv" ? "sv-SE" : "en-US")}</td>
                   </tr>
                 ))}
                 {stats.routeBreakdown.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="p-8 text-center text-muted-foreground">No routes yet</td>
+                    <td colSpan={6} className="p-8 text-center text-muted-foreground">{t("sustainability.noRoutesYet")}</td>
                   </tr>
                 )}
               </tbody>

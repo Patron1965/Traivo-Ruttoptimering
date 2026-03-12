@@ -15,9 +15,10 @@ import * as z from "zod";
 import { ORG_ID } from "@/lib/constants";
 import { type Stop, useImportStops } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 
-const stopSchema = z.object({
-  address: z.string().min(1, "Address is required"),
+const createStopSchema = (t: (key: string) => string) => z.object({
+  address: z.string().min(1, t("stops.addressRequired")),
   notes: z.string().optional(),
   latitude: z.coerce.number().min(-90).max(90),
   longitude: z.coerce.number().min(-180).max(180),
@@ -28,7 +29,7 @@ const stopSchema = z.object({
   timeWindowEnd: z.string().optional().nullable(),
 });
 
-type StopFormValues = z.infer<typeof stopSchema>;
+type StopFormValues = z.infer<ReturnType<typeof createStopSchema>>;
 
 export default function Stops() {
   const { data: stops, isLoading } = useStops();
@@ -36,6 +37,7 @@ export default function Stops() {
   const { data: vehicles } = useVehicles();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingStop, setEditingStop] = useState<Stop | null>(null);
+  const { t } = useTranslation();
 
   const [isImportOpen, setIsImportOpen] = useState(false);
   const deleteMutation = useDeleteStop();
@@ -45,36 +47,36 @@ export default function Stops() {
     if (routes && vehicles) {
       const vMap = new Map(vehicles.map(v => [v.id, v.name]));
       routes.forEach(r => {
-        if (r.vehicleId) map.set(r.id, vMap.get(r.vehicleId) || "Unknown");
+        if (r.vehicleId) map.set(r.id, vMap.get(r.vehicleId) || t("common.unknown"));
       });
     }
     return map;
-  }, [routes, vehicles]);
+  }, [routes, vehicles, t]);
 
-  if (isLoading) return <AppLayout><LoadingState message="Loading stops..." /></AppLayout>;
+  if (isLoading) return <AppLayout><LoadingState message={t("stops.loadingStops")} /></AppLayout>;
 
   return (
     <AppLayout>
       <div className="p-6 md:p-8 max-w-7xl mx-auto animate-in fade-in">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Delivery Stops</h1>
-            <p className="text-muted-foreground mt-1">Manage unassigned and pending deliveries</p>
+            <h1 className="text-3xl font-bold text-foreground">{t("stops.title")}</h1>
+            <p className="text-muted-foreground mt-1">{t("stops.subtitle")}</p>
           </div>
           
           <div className="flex gap-2">
             <Button variant="outline" className="gap-2" onClick={() => setIsImportOpen(true)}>
-              <Upload className="h-4 w-4" /> Import CSV
+              <Upload className="h-4 w-4" /> {t("stops.importCsv")}
             </Button>
             <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
               <DialogTrigger asChild>
                 <Button className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-primary/25">
-                  <Plus className="h-4 w-4" /> Add Stop
+                  <Plus className="h-4 w-4" /> {t("stops.addStop")}
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
-                  <DialogTitle>Add New Stop</DialogTitle>
+                  <DialogTitle>{t("stops.addNewStop")}</DialogTitle>
                 </DialogHeader>
                 <StopForm onSuccess={() => setIsCreateOpen(false)} />
               </DialogContent>
@@ -87,12 +89,12 @@ export default function Stops() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-muted/50 border-b border-border">
-                  <th className="p-4 font-semibold text-muted-foreground text-sm">Customer / Address</th>
-                  <th className="p-4 font-semibold text-muted-foreground text-sm">Time Window</th>
-                  <th className="p-4 font-semibold text-muted-foreground text-sm">Requirements</th>
-                  <th className="p-4 font-semibold text-muted-foreground text-sm">Assigned Vehicle</th>
-                  <th className="p-4 font-semibold text-muted-foreground text-sm">Tracking</th>
-                  <th className="p-4 font-semibold text-muted-foreground text-sm text-right">Actions</th>
+                  <th className="p-4 font-semibold text-muted-foreground text-sm">{t("stops.customerAddress")}</th>
+                  <th className="p-4 font-semibold text-muted-foreground text-sm">{t("stops.timeWindow")}</th>
+                  <th className="p-4 font-semibold text-muted-foreground text-sm">{t("stops.requirements")}</th>
+                  <th className="p-4 font-semibold text-muted-foreground text-sm">{t("stops.assignedVehicle")}</th>
+                  <th className="p-4 font-semibold text-muted-foreground text-sm">{t("stops.tracking")}</th>
+                  <th className="p-4 font-semibold text-muted-foreground text-sm text-right">{t("common.actions")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -104,7 +106,7 @@ export default function Stops() {
                           <MapPin className="h-5 w-5 text-primary/70" />
                         </div>
                         <div>
-                          <p className="font-bold text-foreground">{stop.notes || "Delivery Stop"}</p>
+                          <p className="font-bold text-foreground">{stop.notes || t("common.deliveryStop")}</p>
                           <p className="text-sm text-muted-foreground mt-0.5 max-w-xs truncate" title={stop.address}>{stop.address}</p>
                         </div>
                       </div>
@@ -114,11 +116,11 @@ export default function Stops() {
                         <p>{new Date(stop.timeWindowStart).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}</p>
                       ) : <p>-</p>}
                       {stop.timeWindowEnd ? (
-                        <p>to {new Date(stop.timeWindowEnd).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}</p>
+                        <p>{t("common.to")} {new Date(stop.timeWindowEnd).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}</p>
                       ) : null}
                     </td>
                     <td className="p-4 text-sm space-y-1 text-muted-foreground">
-                      <p>{stop.serviceDurationMin} mins</p>
+                      <p>{stop.serviceDurationMin} {t("common.mins")}</p>
                       {(stop.weightKg || stop.volumeM3) && (
                         <p>{stop.weightKg || 0}kg / {stop.volumeM3 || 0}m³</p>
                       )}
@@ -126,11 +128,11 @@ export default function Stops() {
                     <td className="p-4">
                       {stop.routeId ? (
                         <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary">
-                          {vehicleByRouteId.get(stop.routeId) || "Assigned"}
+                          {vehicleByRouteId.get(stop.routeId) || t("common.assigned")}
                         </span>
                       ) : (
                         <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-500 uppercase tracking-wider">
-                          Unassigned
+                          {t("common.unassigned")}
                         </span>
                       )}
                     </td>
@@ -179,7 +181,7 @@ export default function Stops() {
                           size="icon" 
                           className="hover:text-destructive hover:bg-destructive/10"
                           onClick={() => {
-                            if(confirm("Delete this stop?")) deleteMutation.mutate({ id: stop.id });
+                            if(confirm(t("stops.deleteConfirm"))) deleteMutation.mutate({ id: stop.id });
                           }}
                         >
                           <Trash2 className="h-4 w-4" />
@@ -190,7 +192,7 @@ export default function Stops() {
                 ))}
                 {(!stops || stops.length === 0) && (
                   <tr>
-                    <td colSpan={6} className="p-8 text-center text-muted-foreground">No stops found. Add some deliveries to route.</td>
+                    <td colSpan={6} className="p-8 text-center text-muted-foreground">{t("stops.noStops")}</td>
                   </tr>
                 )}
               </tbody>
@@ -198,11 +200,10 @@ export default function Stops() {
           </div>
         </div>
 
-        {/* Edit Modal */}
         <Dialog open={!!editingStop} onOpenChange={(open) => !open && setEditingStop(null)}>
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
-              <DialogTitle>Edit Stop</DialogTitle>
+              <DialogTitle>{t("stops.editStop")}</DialogTitle>
             </DialogHeader>
             {editingStop && (
               <StopForm 
@@ -213,11 +214,10 @@ export default function Stops() {
           </DialogContent>
         </Dialog>
 
-        {/* CSV Import Modal */}
         <Dialog open={isImportOpen} onOpenChange={setIsImportOpen}>
           <DialogContent className="sm:max-w-[550px]">
             <DialogHeader>
-              <DialogTitle>Import Stops from CSV</DialogTitle>
+              <DialogTitle>{t("stops.importStopsFromCsv")}</DialogTitle>
             </DialogHeader>
             <CsvImportForm onSuccess={() => setIsImportOpen(false)} />
           </DialogContent>
@@ -230,9 +230,10 @@ export default function Stops() {
 function StopForm({ initialData, onSuccess }: { initialData?: Stop, onSuccess: () => void }) {
   const createMutation = useCreateStop();
   const updateMutation = useUpdateStop();
+  const { t } = useTranslation();
   
   const { register, handleSubmit, formState: { errors } } = useForm<StopFormValues>({
-    resolver: zodResolver(stopSchema),
+    resolver: zodResolver(createStopSchema(t)),
     defaultValues: initialData ? {
       ...initialData,
       notes: initialData.notes || "",
@@ -258,58 +259,58 @@ function StopForm({ initialData, onSuccess }: { initialData?: Stop, onSuccess: (
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-4">
       <div className="space-y-2">
-        <Label>Notes</Label>
-        <Input {...register("notes")} placeholder="Optional customer/delivery notes" />
+        <Label>{t("stops.notes")}</Label>
+        <Input {...register("notes")} placeholder={t("stops.notesPlaceholder")} />
       </div>
 
       <div className="space-y-2">
-        <Label>Address</Label>
-        <Input {...register("address")} placeholder="Full address" />
+        <Label>{t("stops.address")}</Label>
+        <Input {...register("address")} placeholder={t("stops.addressPlaceholder")} />
         {errors.address && <span className="text-xs text-destructive">{errors.address.message}</span>}
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>Latitude</Label>
+          <Label>{t("stops.latitude")}</Label>
           <Input type="number" step="any" {...register("latitude")} />
         </div>
         <div className="space-y-2">
-          <Label>Longitude</Label>
+          <Label>{t("stops.longitude")}</Label>
           <Input type="number" step="any" {...register("longitude")} />
         </div>
       </div>
 
       <div className="space-y-2">
-        <Label>Service Duration (mins)</Label>
+        <Label>{t("stops.serviceDuration")}</Label>
         <Input type="number" {...register("serviceDurationMin")} />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>Time Window Start</Label>
+          <Label>{t("stops.timeWindowStart")}</Label>
           <Input type="datetime-local" {...register("timeWindowStart")} />
         </div>
         <div className="space-y-2">
-          <Label>Time Window End</Label>
+          <Label>{t("stops.timeWindowEnd")}</Label>
           <Input type="datetime-local" {...register("timeWindowEnd")} />
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>Weight (kg)</Label>
-          <Input type="number" {...register("weightKg")} placeholder="Optional" />
+          <Label>{t("stops.weightKg")}</Label>
+          <Input type="number" {...register("weightKg")} placeholder={t("stops.weightPlaceholder")} />
         </div>
         <div className="space-y-2">
-          <Label>Volume (m³)</Label>
-          <Input type="number" {...register("volumeM3")} placeholder="Optional" />
+          <Label>{t("stops.volumeM3")}</Label>
+          <Input type="number" {...register("volumeM3")} placeholder={t("stops.volumePlaceholder")} />
         </div>
       </div>
 
       <div className="pt-4 flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={onSuccess}>Cancel</Button>
+        <Button type="button" variant="outline" onClick={onSuccess}>{t("common.cancel")}</Button>
         <Button type="submit" disabled={isPending} className="bg-primary text-primary-foreground">
-          {isPending ? "Saving..." : "Save Stop"}
+          {isPending ? t("common.saving") : t("stops.saveStop")}
         </Button>
       </div>
     </form>
@@ -319,6 +320,7 @@ function StopForm({ initialData, onSuccess }: { initialData?: Stop, onSuccess: (
 function CsvImportForm({ onSuccess }: { onSuccess: () => void }) {
   const importMutation = useImportStops();
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
   const [preview, setPreview] = useState<Array<{ address: string; latitude: number; longitude: number; notes?: string }>>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -334,7 +336,7 @@ function CsvImportForm({ onSuccess }: { onSuccess: () => void }) {
         const text = ev.target?.result as string;
         const lines = text.trim().split("\n");
         if (lines.length < 2) {
-          setError("CSV must have a header row and at least one data row.");
+          setError(t("stops.csvNeedHeaderAndData"));
           return;
         }
         const header = lines[0].split(",").map(h => h.trim().toLowerCase());
@@ -343,7 +345,7 @@ function CsvImportForm({ onSuccess }: { onSuccess: () => void }) {
         const lngIdx = header.indexOf("longitude");
 
         if (addrIdx === -1 || latIdx === -1 || lngIdx === -1) {
-          setError("CSV must have columns: address, latitude, longitude");
+          setError(t("stops.csvMissingColumns"));
           return;
         }
 
@@ -367,17 +369,17 @@ function CsvImportForm({ onSuccess }: { onSuccess: () => void }) {
 
         const invalid = parsed.filter(p => !p.address || isNaN(p.latitude) || isNaN(p.longitude));
         if (invalid.length > 0) {
-          setError(`${invalid.length} row(s) have invalid address/lat/lng values.`);
+          setError(t("stops.csvInvalidRows", { count: invalid.length }));
           return;
         }
 
         setPreview(parsed);
       } catch {
-        setError("Failed to parse CSV file.");
+        setError(t("stops.csvParseFailed"));
       }
     };
     reader.readAsText(file);
-  }, []);
+  }, [t]);
 
   const handleImport = () => {
     importMutation.mutate(
@@ -387,7 +389,7 @@ function CsvImportForm({ onSuccess }: { onSuccess: () => void }) {
           queryClient.invalidateQueries({ queryKey: ["/api/stops"] });
           onSuccess();
         },
-        onError: () => setError("Import failed. Please check your data and try again."),
+        onError: () => setError(t("stops.importFailed")),
       }
     );
   };
@@ -395,11 +397,10 @@ function CsvImportForm({ onSuccess }: { onSuccess: () => void }) {
   return (
     <div className="space-y-4 pt-2">
       <div className="space-y-2">
-        <Label>CSV File</Label>
+        <Label>{t("stops.csvFile")}</Label>
         <Input type="file" accept=".csv" onChange={handleFileChange} />
         <p className="text-xs text-muted-foreground">
-          Required columns: <code>address</code>, <code>latitude</code>, <code>longitude</code>.
-          Optional: <code>notes</code>, <code>time_window_start</code>, <code>time_window_end</code>, <code>service_duration_min</code>.
+          {t("stops.csvColumnsRequired")}
         </p>
       </div>
 
@@ -409,15 +410,15 @@ function CsvImportForm({ onSuccess }: { onSuccess: () => void }) {
 
       {preview.length > 0 && (
         <div className="space-y-2">
-          <p className="text-sm font-medium">{preview.length} stop(s) ready to import</p>
+          <p className="text-sm font-medium">{t("stops.stopsReadyToImport", { count: preview.length })}</p>
           <div className="max-h-48 overflow-auto rounded-lg border border-border">
             <table className="w-full text-xs">
               <thead className="bg-muted/50 sticky top-0">
                 <tr>
                   <th className="p-2 text-left">#</th>
-                  <th className="p-2 text-left">Address</th>
-                  <th className="p-2 text-left">Lat</th>
-                  <th className="p-2 text-left">Lng</th>
+                  <th className="p-2 text-left">{t("stops.address")}</th>
+                  <th className="p-2 text-left">{t("common.lat")}</th>
+                  <th className="p-2 text-left">{t("common.lng")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -430,7 +431,7 @@ function CsvImportForm({ onSuccess }: { onSuccess: () => void }) {
                   </tr>
                 ))}
                 {preview.length > 20 && (
-                  <tr><td colSpan={4} className="p-2 text-center text-muted-foreground">...and {preview.length - 20} more</td></tr>
+                  <tr><td colSpan={4} className="p-2 text-center text-muted-foreground">{t("common.andMore", { count: preview.length - 20 })}</td></tr>
                 )}
               </tbody>
             </table>
@@ -439,14 +440,14 @@ function CsvImportForm({ onSuccess }: { onSuccess: () => void }) {
       )}
 
       <div className="flex justify-end gap-2 pt-2">
-        <Button type="button" variant="outline" onClick={onSuccess}>Cancel</Button>
+        <Button type="button" variant="outline" onClick={onSuccess}>{t("common.cancel")}</Button>
         <Button
           onClick={handleImport}
           disabled={preview.length === 0 || importMutation.isPending}
           className="gap-2 bg-primary text-primary-foreground"
         >
           <Upload className="h-4 w-4" />
-          {importMutation.isPending ? "Importing..." : `Import ${preview.length} Stop${preview.length !== 1 ? 's' : ''}`}
+          {importMutation.isPending ? t("stops.importing") : (preview.length !== 1 ? t("stops.importStopsPlural", { count: preview.length }) : t("stops.importStops", { count: preview.length }))}
         </Button>
       </div>
     </div>

@@ -7,6 +7,7 @@ import { ROUTE_COLORS, DEPOT_LOCATION } from "@/lib/constants";
 import { formatDistance } from "@/lib/utils";
 import { MapPin, Truck, Warehouse, Battery, Navigation, Clock, Zap, Fuel } from "lucide-react";
 import { renderToString } from "react-dom/server";
+import { useTranslation } from "react-i18next";
 
 interface RouteData extends Route {
   stopsList: Stop[];
@@ -84,6 +85,7 @@ export function RouteMap({
   interactive = true
 }: RouteMapProps) {
   const [mounted, setMounted] = useState(false);
+  const { t } = useTranslation();
 
   useEffect(() => {
     setMounted(true);
@@ -113,8 +115,8 @@ export function RouteMap({
       <Marker position={[DEPOT_LOCATION.lat, DEPOT_LOCATION.lng]} icon={createCustomIcon("#06B6D4", undefined, true)}>
         <Popup className="rounded-xl overflow-hidden shadow-2xl border-0">
           <div className="p-3">
-            <h3 className="font-bold text-lg">Central Depot</h3>
-            <p className="text-sm text-muted-foreground mt-1">Stockholm Logistics Hub</p>
+            <h3 className="font-bold text-lg">{t("map.centralDepot")}</h3>
+            <p className="text-sm text-muted-foreground mt-1">{t("map.stockholmHub")}</p>
           </div>
         </Popup>
       </Marker>
@@ -166,16 +168,16 @@ export function RouteMap({
                       <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
                       <span className="font-bold text-sm">{route.name}</span>
                     </div>
-                    <h4 className="font-bold">{stop.notes || "Delivery Stop"}</h4>
+                    <h4 className="font-bold">{stop.notes || t("common.deliveryStop")}</h4>
                     <p className="text-sm text-muted-foreground mt-1 truncate max-w-[200px]" title={stop.address}>{stop.address}</p>
                     <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
                       <div className="bg-muted p-1.5 rounded-md">
-                        <span className="block text-muted-foreground">Sequence</span>
+                        <span className="block text-muted-foreground">{t("map.sequence")}</span>
                         <span className="font-semibold">#{sIndex + 1}</span>
                       </div>
                       <div className="bg-muted p-1.5 rounded-md">
-                        <span className="block text-muted-foreground">Status</span>
-                        <span className="font-semibold capitalize">{stop.status}</span>
+                        <span className="block text-muted-foreground">{t("common.status")}</span>
+                        <span className="font-semibold capitalize">{t(`common.${stop.status}`)}</span>
                       </div>
                     </div>
                   </div>
@@ -205,24 +207,24 @@ export function RouteMap({
               </div>
               <div className="space-y-2 text-sm">
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Speed</span>
+                  <span className="text-muted-foreground">{t("map.speed")}</span>
                   <span className="font-semibold">{pos.speedKmh} km/h</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Travelled</span>
+                  <span className="text-muted-foreground">{t("map.travelled")}</span>
                   <span className="font-semibold">{pos.distanceTravelledKm} km</span>
                 </div>
                 {pos.nextStopAddress && (
                   <div className="bg-muted p-2 rounded-lg mt-2">
                     <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
                       <Navigation className="h-3 w-3" />
-                      Next Stop
+                      {t("map.nextStop")}
                     </div>
                     <p className="text-xs font-medium truncate">{pos.nextStopAddress}</p>
                     {pos.etaMinutes != null && (
                       <div className="flex items-center gap-1 text-xs text-primary font-bold mt-1">
                         <Clock className="h-3 w-3" />
-                        ETA: {pos.etaMinutes} min
+                        {t("map.eta")}: {pos.etaMinutes} min
                       </div>
                     )}
                   </div>
@@ -246,7 +248,6 @@ export function RouteMap({
           </Popup>
         </Marker>
       ))}
-
       {unassignedStops.map((stop) => (
         <Marker 
           key={stop.id} 
@@ -256,9 +257,9 @@ export function RouteMap({
           <Popup>
             <div className="p-2 min-w-[200px]">
               <div className="flex items-center gap-2 mb-2 pb-2 border-b border-border/50">
-                <span className="px-2 py-0.5 rounded-md bg-destructive/10 text-destructive text-xs font-bold uppercase tracking-wider">Unassigned</span>
+                <span className="px-2 py-0.5 rounded-md bg-destructive/10 text-destructive text-xs font-bold uppercase tracking-wider">{t("common.unassigned")}</span>
               </div>
-              <h4 className="font-bold">{stop.notes || "Delivery Stop"}</h4>
+              <h4 className="font-bold">{stop.notes || t("common.deliveryStop")}</h4>
               <p className="text-sm text-muted-foreground mt-1">{stop.address}</p>
             </div>
           </Popup>

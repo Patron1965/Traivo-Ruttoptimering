@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useInsights } from "@/hooks/use-insights";
+import { useTranslation } from "react-i18next";
 
 const typeConfig = {
   warning: {
@@ -54,6 +55,7 @@ const categoryIcons: Record<string, typeof Zap> = {
 export function InsightsPanel({ dashboardUpdatedAt }: { dashboardUpdatedAt?: number }) {
   const [isExpanded, setIsExpanded] = useState(true);
   const { data, isLoading, error, refetch, isFetching } = useInsights(dashboardUpdatedAt);
+  const { t } = useTranslation();
 
   const insights = data?.insights ?? [];
   const hasInsights = insights.length > 0;
@@ -75,21 +77,21 @@ export function InsightsPanel({ dashboardUpdatedAt }: { dashboardUpdatedAt?: num
             <Sparkles className="h-5 w-5 text-violet-400" />
           </div>
           <div className="text-left">
-            <h3 className="font-bold text-sm text-foreground">AI Insights</h3>
+            <h3 className="font-bold text-sm text-foreground">{t("insights.title")}</h3>
             <p className="text-xs text-muted-foreground mt-0.5">
               {isLoading
-                ? "Analyzing fleet data..."
+                ? t("insights.analyzing")
                 : hasInsights
-                  ? `${insights.length} insight${insights.length !== 1 ? "s" : ""}`
-                  : "All clear"}
+                  ? t("insights.insightCount", { count: insights.length })
+                  : t("insights.allClear")}
               {warningCount > 0 && (
                 <span className="text-red-400 ml-1">
-                  ({warningCount} warning{warningCount !== 1 ? "s" : ""})
+                  {t("insights.warningCount", { count: warningCount })}
                 </span>
               )}
               {suggestionCount > 0 && (
                 <span className="text-amber-400 ml-1">
-                  ({suggestionCount} suggestion{suggestionCount !== 1 ? "s" : ""})
+                  {t("insights.suggestionCount", { count: suggestionCount })}
                 </span>
               )}
             </p>
@@ -121,13 +123,13 @@ export function InsightsPanel({ dashboardUpdatedAt }: { dashboardUpdatedAt?: num
           {isLoading && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground py-4 justify-center">
               <RefreshCw className="h-4 w-4 animate-spin" />
-              Analyzing fleet data...
+              {t("insights.analyzing")}
             </div>
           )}
 
           {error && (
             <div className="text-sm text-red-400 bg-red-500/10 rounded-xl p-3 border border-red-500/20">
-              Failed to load insights. Try refreshing.
+              {t("insights.failedToLoad")}
             </div>
           )}
 
@@ -136,8 +138,8 @@ export function InsightsPanel({ dashboardUpdatedAt }: { dashboardUpdatedAt?: num
               <div className="h-12 w-12 rounded-full bg-emerald-500/10 flex items-center justify-center">
                 <Sparkles className="h-6 w-6 text-emerald-500" />
               </div>
-              <p className="text-sm font-medium text-foreground">Everything looks good!</p>
-              <p className="text-xs text-muted-foreground">No issues or recommendations right now.</p>
+              <p className="text-sm font-medium text-foreground">{t("insights.allGood")}</p>
+              <p className="text-xs text-muted-foreground">{t("insights.noIssues")}</p>
             </div>
           )}
 

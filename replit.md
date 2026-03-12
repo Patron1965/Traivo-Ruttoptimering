@@ -154,8 +154,9 @@ React + Vite frontend for RouteAI. Dark-mode UI with sidebar navigation.
 - Uses `@workspace/api-client-react` generated React Query hooks for all API calls
 - Leaflet map with OpenStreetMap tiles for route visualization
 - Hardcoded ORG_ID: `63e7175d-af1d-4dc3-be62-842a8b3dc9f8` (Stockholm Logistics AB)
-- Key deps: react-leaflet, leaflet, @hello-pangea/dnd, recharts, react-hook-form, lucide-react, date-fns
+- Key deps: react-leaflet, leaflet, @hello-pangea/dnd, recharts, react-hook-form, lucide-react, date-fns, i18next, react-i18next
 - Features: EV battery bars on Fleet page, CSV import modal on Stops page, route CSV export on Routes page, CO₂ sustainability dashboard with Recharts charts, AI chat assistant (floating panel with SSE streaming), proactive AI insights on dashboard, live vehicle tracking on map (3s polling), geofence circles around active stops, driver management with vehicle assignment, notification bell with dropdown, public delivery tracking page with status stepper + mini-map, tracking codes on stops
+- i18n: Swedish (default) and English via react-i18next. Translation files in `src/i18n/locales/`. Language persists via localStorage key `routeai-lang`. Language switcher (SV/EN toggle) in sidebar bottom. Config in `src/i18n/index.ts`.
 - AI Chat: Floating button bottom-right opens slide-over panel. Uses `@workspace/integrations-openai-ai-server` (gpt-5-mini model). Sends fleet context + active insights with each request.
 - AI Insights: Dashboard shows collapsible panel with auto-generated fleet insights (late-risk stops, battery warnings, CO₂ suggestions, capacity utilization). Deterministic checks + AI-enhanced recommendations.
 - `pnpm --filter @workspace/route-ai run dev` — run the dev server

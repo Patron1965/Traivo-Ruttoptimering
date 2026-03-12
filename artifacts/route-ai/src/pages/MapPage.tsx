@@ -9,13 +9,15 @@ import { getGetRouteStopsQueryOptions } from "@workspace/api-client-react";
 import { useMemo } from "react";
 import { Truck, MapPin, Radio, Battery, Navigation, Clock } from "lucide-react";
 import { ROUTE_COLORS } from "@/lib/constants";
-import { formatDistance } from "@/lib/utils";
+import { formatDistance, formatDuration } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 export default function MapPage() {
   const { data: routes, isLoading: loadingRoutes } = useRoutes();
   const { data: allStops, isLoading: loadingStops } = useStops();
   const { data: positions } = useVehiclePositions();
   const { data: geofenceEvents } = useGeofenceEvents(20);
+  const { t } = useTranslation();
 
   const routeQueries = useQueries({
     queries: (routes || []).map(route => getGetRouteStopsQueryOptions(route.id))
@@ -36,7 +38,7 @@ export default function MapPage() {
     return allStops.filter(s => !s.routeId);
   }, [allStops]);
 
-  if (isLoading) return <AppLayout><LoadingState message="Initializing live map..." /></AppLayout>;
+  if (isLoading) return <AppLayout><LoadingState message={t("map.initializingMap")} /></AppLayout>;
 
   return (
     <AppLayout>
@@ -45,7 +47,7 @@ export default function MapPage() {
           <div className="p-4 border-b border-border">
             <h2 className="font-bold text-lg flex items-center gap-2">
               <MapPin className="h-5 w-5 text-primary" />
-              Live Routes
+              {t("map.liveRoutes")}
             </h2>
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -57,17 +59,17 @@ export default function MapPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-sm mb-3">
                   <div className="bg-muted px-2 py-1.5 rounded text-center">
-                    <p className="text-muted-foreground text-xs uppercase tracking-wider">Stops</p>
+                    <p className="text-muted-foreground text-xs uppercase tracking-wider">{t("common.stops")}</p>
                     <p className="font-semibold">{route.totalStops}</p>
                   </div>
                   <div className="bg-muted px-2 py-1.5 rounded text-center">
-                    <p className="text-muted-foreground text-xs uppercase tracking-wider">Distance</p>
+                    <p className="text-muted-foreground text-xs uppercase tracking-wider">{t("common.distance")}</p>
                     <p className="font-semibold">{route.totalDistanceKm ? formatDistance(route.totalDistanceKm) : '--'}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Truck className="h-3 w-3" />
-                  <span>{route.status.toUpperCase()}</span>
+                  <span>{t(`map.status${route.status.charAt(0).toUpperCase()}${route.status.slice(1).replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())}`)}</span>
                 </div>
               </div>
             ))}
@@ -75,7 +77,7 @@ export default function MapPage() {
             {fullRoutesData.length === 0 && (
               <div className="text-center p-8 text-muted-foreground">
                 <MapPin className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p>No active routes found.</p>
+                <p>{t("map.noActiveRoutes")}</p>
               </div>
             )}
 
@@ -84,7 +86,7 @@ export default function MapPage() {
                 <div className="border-t border-border pt-4 mt-4">
                   <h3 className="font-bold text-sm flex items-center gap-2 mb-3 text-emerald-500">
                     <Radio className="h-4 w-4 animate-pulse" />
-                    Live Vehicles ({positions.length})
+                    {t("map.liveVehicles")} ({positions.length})
                   </h3>
                   {positions.map((pos, idx) => (
                     <div key={`${pos.vehicleId}-${pos.routeId || idx}`} className="bg-background rounded-xl p-3 border border-border shadow-sm mb-2">
@@ -138,7 +140,7 @@ export default function MapPage() {
               <div className="border-t border-border pt-4 mt-4">
                 <h3 className="font-bold text-sm flex items-center gap-2 mb-3 text-violet-500">
                   <Radio className="h-4 w-4" />
-                  Activity Feed
+                  {t("map.activityFeed")}
                 </h3>
                 <div className="space-y-2 max-h-64 overflow-y-auto">
                   {geofenceEvents.map((event) => (
@@ -150,7 +152,7 @@ export default function MapPage() {
                         <p className="font-medium">
                           {event.vehicleName}{" "}
                           <span className="text-muted-foreground">
-                            {event.eventType === "entered" ? "arrived at" : "departed from"}
+                            {event.eventType === "entered" ? t("map.arrivedAt") : t("map.departedFrom")}
                           </span>
                         </p>
                         <p className="text-muted-foreground truncate max-w-[200px]">{event.stopAddress}</p>

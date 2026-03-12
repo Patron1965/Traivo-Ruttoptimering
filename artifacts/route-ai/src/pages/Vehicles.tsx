@@ -13,10 +13,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { ORG_ID } from "@/lib/constants";
 import { type Vehicle } from "@workspace/api-client-react";
+import { useTranslation } from "react-i18next";
 
-const vehicleSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  licensePlate: z.string().min(1, "License plate is required"),
+const createVehicleSchema = (t: (key: string) => string) => z.object({
+  name: z.string().min(1, t("vehicles.nameRequired")),
+  licensePlate: z.string().min(1, t("vehicles.licensePlateRequired")),
   vehicleType: z.enum(["fossil", "electric"]),
   capacityKg: z.coerce.number().min(0),
   capacityVolume: z.coerce.number().min(0),
@@ -24,35 +25,36 @@ const vehicleSchema = z.object({
   rangeKm: z.coerce.number().optional().nullable(),
 });
 
-type VehicleFormValues = z.infer<typeof vehicleSchema>;
+type VehicleFormValues = z.infer<ReturnType<typeof createVehicleSchema>>;
 
 export default function Vehicles() {
   const { data: vehicles, isLoading } = useVehicles();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
+  const { t } = useTranslation();
 
   const deleteMutation = useDeleteVehicle();
 
-  if (isLoading) return <AppLayout><LoadingState message="Loading fleet data..." /></AppLayout>;
+  if (isLoading) return <AppLayout><LoadingState message={t("vehicles.loadingFleet")} /></AppLayout>;
 
   return (
     <AppLayout>
       <div className="p-6 md:p-8 max-w-7xl mx-auto animate-in fade-in">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Fleet Management</h1>
-            <p className="text-muted-foreground mt-1">Manage your vehicles and capacities</p>
+            <h1 className="text-3xl font-bold text-foreground">{t("vehicles.title")}</h1>
+            <p className="text-muted-foreground mt-1">{t("vehicles.subtitle")}</p>
           </div>
           
           <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-primary/25">
-                <Plus className="h-4 w-4" /> Add Vehicle
+                <Plus className="h-4 w-4" /> {t("vehicles.addVehicle")}
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[500px]">
               <DialogHeader>
-                <DialogTitle>Add New Vehicle</DialogTitle>
+                <DialogTitle>{t("vehicles.addNewVehicle")}</DialogTitle>
               </DialogHeader>
               <VehicleForm onSuccess={() => setIsCreateOpen(false)} />
             </DialogContent>
@@ -64,11 +66,11 @@ export default function Vehicles() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-muted/50 border-b border-border">
-                  <th className="p-4 font-semibold text-muted-foreground text-sm">Vehicle</th>
-                  <th className="p-4 font-semibold text-muted-foreground text-sm">Type</th>
-                  <th className="p-4 font-semibold text-muted-foreground text-sm">Capacity</th>
-                  <th className="p-4 font-semibold text-muted-foreground text-sm">Range/Battery</th>
-                  <th className="p-4 font-semibold text-muted-foreground text-sm text-right">Actions</th>
+                  <th className="p-4 font-semibold text-muted-foreground text-sm">{t("common.vehicle")}</th>
+                  <th className="p-4 font-semibold text-muted-foreground text-sm">{t("common.type")}</th>
+                  <th className="p-4 font-semibold text-muted-foreground text-sm">{t("vehicles.capacity")}</th>
+                  <th className="p-4 font-semibold text-muted-foreground text-sm">{t("vehicles.rangeBattery")}</th>
+                  <th className="p-4 font-semibold text-muted-foreground text-sm text-right">{t("common.actions")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -83,13 +85,13 @@ export default function Vehicles() {
                         v.vehicleType === 'electric' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'
                       }`}>
                         {v.vehicleType === 'electric' ? <Battery className="h-3 w-3" /> : <Fuel className="h-3 w-3" />}
-                        {v.vehicleType.charAt(0).toUpperCase() + v.vehicleType.slice(1)}
+                        {v.vehicleType === 'electric' ? t("common.electric") : t("common.fossil")}
                       </div>
                     </td>
                     <td className="p-4 text-sm">
                       <div className="space-y-1">
-                        <p><span className="text-muted-foreground">Weight:</span> {v.capacityKg} kg</p>
-                        <p><span className="text-muted-foreground">Volume:</span> {v.capacityVolume} m³</p>
+                        <p><span className="text-muted-foreground">{t("common.weight")}:</span> {v.capacityKg} kg</p>
+                        <p><span className="text-muted-foreground">{t("common.volume")}:</span> {v.capacityVolume} m³</p>
                       </div>
                     </td>
                     <td className="p-4 text-sm">
@@ -111,10 +113,10 @@ export default function Vehicles() {
                              <span className="text-xs font-semibold">{v.currentBatteryPercent ?? 0}%</span>
                            </div>
                            <p className="text-xs text-muted-foreground">
-                             {v.rangeKm ? `${Math.round((v.rangeKm * (v.currentBatteryPercent ?? 100)) / 100)} km remaining` : ''} · {v.batteryCapacityKwh} kWh
+                             {v.rangeKm ? `${Math.round((v.rangeKm * (v.currentBatteryPercent ?? 100)) / 100)} km ${t("common.remaining")}` : ''} · {v.batteryCapacityKwh} kWh
                            </p>
                          </div>
-                      ) : <span className="text-muted-foreground italic">N/A</span>}
+                      ) : <span className="text-muted-foreground italic">{t("common.na")}</span>}
                     </td>
                     <td className="p-4 text-right">
                       <div className="flex items-center justify-end gap-2">
@@ -131,7 +133,7 @@ export default function Vehicles() {
                           size="icon" 
                           className="hover:text-destructive hover:bg-destructive/10"
                           onClick={() => {
-                            if(confirm("Delete this vehicle?")) deleteMutation.mutate({ id: v.id });
+                            if(confirm(t("vehicles.deleteConfirm"))) deleteMutation.mutate({ id: v.id });
                           }}
                         >
                           <Trash2 className="h-4 w-4" />
@@ -142,7 +144,7 @@ export default function Vehicles() {
                 ))}
                 {(!vehicles || vehicles.length === 0) && (
                   <tr>
-                    <td colSpan={5} className="p-8 text-center text-muted-foreground">No vehicles found. Add one to get started.</td>
+                    <td colSpan={5} className="p-8 text-center text-muted-foreground">{t("vehicles.noVehicles")}</td>
                   </tr>
                 )}
               </tbody>
@@ -150,11 +152,10 @@ export default function Vehicles() {
           </div>
         </div>
 
-        {/* Edit Modal */}
         <Dialog open={!!editingVehicle} onOpenChange={(open) => !open && setEditingVehicle(null)}>
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
-              <DialogTitle>Edit Vehicle</DialogTitle>
+              <DialogTitle>{t("vehicles.editVehicle")}</DialogTitle>
             </DialogHeader>
             {editingVehicle && (
               <VehicleForm 
@@ -172,9 +173,10 @@ export default function Vehicles() {
 function VehicleForm({ initialData, onSuccess }: { initialData?: Vehicle, onSuccess: () => void }) {
   const createMutation = useCreateVehicle();
   const updateMutation = useUpdateVehicle();
+  const { t } = useTranslation();
   
   const { register, handleSubmit, watch, control, formState: { errors } } = useForm<VehicleFormValues>({
-    resolver: zodResolver(vehicleSchema),
+    resolver: zodResolver(createVehicleSchema(t)),
     defaultValues: initialData || {
       vehicleType: "fossil",
       capacityKg: 1000,
@@ -197,29 +199,29 @@ function VehicleForm({ initialData, onSuccess }: { initialData?: Vehicle, onSucc
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-4">
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>Vehicle Name</Label>
-          <Input {...register("name")} placeholder="e.g. Delivery Van 1" />
+          <Label>{t("vehicles.vehicleName")}</Label>
+          <Input {...register("name")} placeholder={t("vehicles.vehicleNamePlaceholder")} />
           {errors.name && <span className="text-xs text-destructive">{errors.name.message}</span>}
         </div>
         <div className="space-y-2">
-          <Label>License Plate</Label>
-          <Input {...register("licensePlate")} placeholder="ABC 123" />
+          <Label>{t("vehicles.licensePlate")}</Label>
+          <Input {...register("licensePlate")} placeholder={t("vehicles.licensePlatePlaceholder")} />
         </div>
       </div>
 
       <div className="space-y-2">
-        <Label>Vehicle Type</Label>
+        <Label>{t("vehicles.vehicleType")}</Label>
         <Controller
           name="vehicleType"
           control={control}
           render={({ field }) => (
             <Select onValueChange={field.onChange} defaultValue={field.value}>
               <SelectTrigger>
-                <SelectValue placeholder="Select type" />
+                <SelectValue placeholder={t("vehicles.selectType")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="fossil">Fossil Fuel (ICE)</SelectItem>
-                <SelectItem value="electric">Electric (EV)</SelectItem>
+                <SelectItem value="fossil">{t("vehicles.fossilFuel")}</SelectItem>
+                <SelectItem value="electric">{t("vehicles.electricEv")}</SelectItem>
               </SelectContent>
             </Select>
           )}
@@ -228,11 +230,11 @@ function VehicleForm({ initialData, onSuccess }: { initialData?: Vehicle, onSucc
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>Weight Capacity (kg)</Label>
+          <Label>{t("vehicles.weightCapacity")}</Label>
           <Input type="number" {...register("capacityKg")} />
         </div>
         <div className="space-y-2">
-          <Label>Volume Capacity (m³)</Label>
+          <Label>{t("vehicles.volumeCapacity")}</Label>
           <Input type="number" {...register("capacityVolume")} />
         </div>
       </div>
@@ -240,20 +242,20 @@ function VehicleForm({ initialData, onSuccess }: { initialData?: Vehicle, onSucc
       {isElectric && (
         <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
           <div className="space-y-2">
-            <Label>Battery Capacity (kWh)</Label>
+            <Label>{t("vehicles.batteryCapacity")}</Label>
             <Input type="number" {...register("batteryCapacityKwh")} />
           </div>
           <div className="space-y-2">
-            <Label>Max Range (km)</Label>
+            <Label>{t("vehicles.maxRange")}</Label>
             <Input type="number" {...register("rangeKm")} />
           </div>
         </div>
       )}
 
       <div className="pt-4 flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={onSuccess}>Cancel</Button>
+        <Button type="button" variant="outline" onClick={onSuccess}>{t("common.cancel")}</Button>
         <Button type="submit" disabled={isPending} className="bg-primary text-primary-foreground">
-          {isPending ? "Saving..." : "Save Vehicle"}
+          {isPending ? t("common.saving") : t("vehicles.saveVehicle")}
         </Button>
       </div>
     </form>

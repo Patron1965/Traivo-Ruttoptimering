@@ -12,6 +12,7 @@ import { RouteMap } from "@/components/map/RouteMap";
 import { formatDistance } from "@/lib/utils";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 import { type Stop, type Vehicle, type Route } from "@workspace/api-client-react";
+import { useTranslation } from "react-i18next";
 
 interface OptimizedStopRef {
   stopId: string;
@@ -36,6 +37,7 @@ export default function Planner() {
   const { data: vehicles, isLoading: loadingV } = useVehicles();
   const { data: stops, isLoading: loadingS } = useStops();
   const optimizeMutation = useOptimizeRoutes();
+  const { t } = useTranslation();
 
   const [selectedVehicleIds, setSelectedVehicleIds] = useState<Set<string>>(new Set());
   const [selectedStopIds, setSelectedStopIds] = useState<Set<string>>(new Set());
@@ -68,7 +70,7 @@ export default function Planner() {
         .map((s, idx) => ({ ...s, sequenceOrder: idx + 1 }));
       return {
         id: r.routeId,
-        name: vehicle?.name ? `${vehicle.name} Route` : `Route`,
+        name: vehicle?.name ? `${vehicle.name} ${t("common.route")}` : t("common.route"),
         status: "optimized" as const,
         organizationId: ORG_ID,
         vehicleId: r.vehicleId,
@@ -82,7 +84,7 @@ export default function Planner() {
         stopsList,
       } satisfies Route & { stopsList: Stop[] };
     });
-  }, [dndRoutes, optimizeMutation.data, vehiclesById, stopsById]);
+  }, [dndRoutes, optimizeMutation.data, vehiclesById, stopsById, t]);
 
   const toggleVehicle = (id: string) => {
     const next = new Set(selectedVehicleIds);
@@ -148,7 +150,7 @@ export default function Planner() {
     setDndRoutes(newRoutes);
   };
 
-  if (loadingV || loadingS) return <AppLayout><LoadingState message="Loading planner..." /></AppLayout>;
+  if (loadingV || loadingS) return <AppLayout><LoadingState message={t("planner.loadingPlanner")} /></AppLayout>;
 
   return (
     <AppLayout>
@@ -157,9 +159,9 @@ export default function Planner() {
         <div className="w-full lg:w-[450px] flex flex-col border-r border-border bg-card/30 z-10 shadow-2xl overflow-hidden shrink-0">
           <div className="p-6 border-b border-border bg-card/80 backdrop-blur-md">
             <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-              <Cpu className="text-primary h-6 w-6" /> AI Optimizer
+              <Cpu className="text-primary h-6 w-6" /> {t("planner.title")}
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">Select resources to generate optimal routes.</p>
+            <p className="text-sm text-muted-foreground mt-1">{t("planner.subtitle")}</p>
           </div>
 
           <div className="flex-1 overflow-y-auto p-6 space-y-8">
@@ -168,13 +170,13 @@ export default function Planner() {
                 <div className="space-y-6">
                   <div className="flex items-center justify-between">
                     <h3 className="font-bold text-lg flex items-center gap-2">
-                      <CheckCircle2 className="h-5 w-5 text-emerald-500" /> Route Assignments
+                      <CheckCircle2 className="h-5 w-5 text-emerald-500" /> {t("planner.routeAssignments")}
                     </h3>
                     <Button variant="outline" size="sm" onClick={() => setDndRoutes(null)}>
-                      Reset
+                      {t("common.reset")}
                     </Button>
                   </div>
-                  <p className="text-xs text-muted-foreground">Drag stops between drivers to reassign them.</p>
+                  <p className="text-xs text-muted-foreground">{t("planner.dragHint")}</p>
                   
                   {dndRoutes.map((route, routeIdx) => {
                     const vehicle = vehiclesById.get(route.vehicleId);
@@ -182,8 +184,8 @@ export default function Planner() {
                       <div key={route.routeId} className="rounded-xl border border-border bg-card/50 overflow-hidden">
                         <div className="p-3 bg-muted/30 border-b border-border flex items-center gap-2">
                           <Truck className="h-4 w-4 text-primary" />
-                          <span className="font-semibold text-sm">{vehicle?.name || "Vehicle"}</span>
-                          <span className="text-xs text-muted-foreground ml-auto">{route.stops.length} stops</span>
+                          <span className="font-semibold text-sm">{vehicle?.name || t("common.vehicle")}</span>
+                          <span className="text-xs text-muted-foreground ml-auto">{route.stops.length} {t("common.stops")}</span>
                         </div>
                         <Droppable droppableId={`driver-${routeIdx}`}>
                           {(provided, snapshot) => (
@@ -210,7 +212,7 @@ export default function Planner() {
                                             </span>
                                             <div className="flex-1 min-w-0">
                                               <p className="font-medium truncate text-emerald-500">{cs.chargingStationName}</p>
-                                              <p className="text-xs text-muted-foreground">Charging stop · 30 min</p>
+                                              <p className="text-xs text-muted-foreground">{t("planner.chargingStop")}</p>
                                             </div>
                                             <Zap className="h-4 w-4 text-emerald-500 shrink-0" />
                                           </div>
@@ -238,7 +240,7 @@ export default function Planner() {
                                                 {dragIdx + 1}
                                               </span>
                                               <div className="flex-1 min-w-0">
-                                                <p className="font-medium truncate">{stop?.notes || "Stop"}</p>
+                                                <p className="font-medium truncate">{stop?.notes || t("common.stop")}</p>
                                                 <p className="text-xs text-muted-foreground truncate">{stop?.address}</p>
                                               </div>
                                             </div>
@@ -251,7 +253,7 @@ export default function Planner() {
                               })()}
                               {provided.placeholder}
                               {route.stops.length === 0 && (
-                                <p className="text-xs text-muted-foreground text-center py-4 italic">Drop stops here</p>
+                                <p className="text-xs text-muted-foreground text-center py-4 italic">{t("planner.dropStopsHere")}</p>
                               )}
                             </div>
                           )}
@@ -266,10 +268,10 @@ export default function Planner() {
                 <section>
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="font-bold text-lg flex items-center gap-2">
-                      <Truck className="h-5 w-5" /> Available Fleet
+                      <Truck className="h-5 w-5" /> {t("planner.availableFleet")}
                     </h3>
                     <span className="text-xs bg-primary/20 text-primary px-2 py-1 rounded-md font-bold">
-                      {selectedVehicleIds.size} selected
+                      {selectedVehicleIds.size} {t("common.selected")}
                     </span>
                   </div>
                   <div className="space-y-2">
@@ -287,22 +289,22 @@ export default function Planner() {
                 <section>
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="font-bold text-lg flex items-center gap-2">
-                      <MapPin className="h-5 w-5" /> Unassigned Stops
+                      <MapPin className="h-5 w-5" /> {t("planner.unassignedStops")}
                     </h3>
                     <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setSelectedStopIds(new Set(unassignedStops.map(s=>s.id)))}>All</Button>
-                      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setSelectedStopIds(new Set())}>None</Button>
+                      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setSelectedStopIds(new Set(unassignedStops.map(s=>s.id)))}>{t("common.all")}</Button>
+                      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setSelectedStopIds(new Set())}>{t("common.none")}</Button>
                     </div>
                   </div>
                   <div className="space-y-2">
                     {unassignedStops.length === 0 ? (
-                      <p className="text-sm text-muted-foreground italic p-4 text-center border border-dashed rounded-xl">No unassigned stops.</p>
+                      <p className="text-sm text-muted-foreground italic p-4 text-center border border-dashed rounded-xl">{t("planner.noUnassignedStops")}</p>
                     ) : (
                       unassignedStops.map(s => (
                         <div key={s.id} className="flex items-start space-x-3 p-3 rounded-xl border border-border/50 hover:bg-muted/50 transition-colors">
                           <Checkbox id={`s-${s.id}`} checked={selectedStopIds.has(s.id)} onCheckedChange={() => toggleStop(s.id)} className="mt-1" />
                           <label htmlFor={`s-${s.id}`} className="flex-1 cursor-pointer">
-                            <p className="text-sm font-bold leading-none mb-1">{s.notes || "Delivery Stop"}</p>
+                            <p className="text-sm font-bold leading-none mb-1">{s.notes || t("common.deliveryStop")}</p>
                             <p className="text-xs text-muted-foreground line-clamp-1">{s.address}</p>
                           </label>
                         </div>
@@ -322,16 +324,16 @@ export default function Planner() {
                 disabled={selectedVehicleIds.size === 0 || selectedStopIds.size === 0 || optimizeMutation.isPending}
               >
                 {optimizeMutation.isPending ? (
-                  "Optimizing Routes..."
+                  t("planner.optimizingRoutes")
                 ) : (
                   <>
-                    Generate Routes <Cpu className="ml-2 h-5 w-5 group-hover:rotate-12 transition-transform" />
+                    {t("planner.generateRoutes")} <Cpu className="ml-2 h-5 w-5 group-hover:rotate-12 transition-transform" />
                   </>
                 )}
               </Button>
               {optimizeMutation.isError && (
                 <p className="text-sm text-destructive mt-3 flex items-center gap-1">
-                  <AlertCircle className="h-4 w-4" /> Optimization failed. Try again.
+                  <AlertCircle className="h-4 w-4" /> {t("planner.optimizationFailed")}
                 </p>
               )}
             </div>
@@ -347,9 +349,9 @@ export default function Planner() {
                     <CheckCircle2 className="h-6 w-6 text-emerald-500" />
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold">Optimization Complete</h3>
+                    <h3 className="text-xl font-bold">{t("planner.optimizationComplete")}</h3>
                     <p className="text-muted-foreground text-sm">
-                      Generated {optimizeMutation.data.routes.length} routes covering {formatDistance(optimizeMutation.data.totalDistanceKm)}
+                      {t("planner.generatedRoutes", { count: optimizeMutation.data.routes.length, distance: formatDistance(optimizeMutation.data.totalDistanceKm) })}
                     </p>
                   </div>
                 </div>
@@ -357,13 +359,13 @@ export default function Planner() {
                   {(optimizeMutation.data.routes as OptimizedRouteResult[]).some(r => (r.chargingStopsInserted ?? 0) > 0) && (
                     <div className="px-4 py-2 bg-emerald-500/10 text-emerald-500 rounded-lg text-sm font-medium flex items-center gap-2">
                       <BatteryCharging className="h-4 w-4" />
-                      {(optimizeMutation.data.routes as OptimizedRouteResult[]).reduce((sum, r) => sum + (r.chargingStopsInserted ?? 0), 0)} charging stop(s) inserted
+                      {t("planner.chargingStopsInserted", { count: (optimizeMutation.data.routes as OptimizedRouteResult[]).reduce((sum, r) => sum + (r.chargingStopsInserted ?? 0), 0) })}
                     </div>
                   )}
                   {optimizeMutation.data.unassignedStopIds.length > 0 && (
                     <div className="px-4 py-2 bg-amber-500/10 text-amber-500 rounded-lg text-sm font-medium flex items-center gap-2">
                       <AlertCircle className="h-4 w-4" />
-                      {optimizeMutation.data.unassignedStopIds.length} stops couldn't be assigned
+                      {t("planner.stopsCouldntBeAssigned", { count: optimizeMutation.data.unassignedStopIds.length })}
                     </div>
                   )}
                 </div>
@@ -381,7 +383,7 @@ export default function Planner() {
                {!dndRoutes && !optimizeMutation.isSuccess && (
                  <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000]">
                    <div className="bg-background/90 backdrop-blur-md px-6 py-3 rounded-full border border-border shadow-xl text-sm font-medium">
-                     Select stops and vehicles to preview optimization
+                     {t("planner.selectStopsAndVehicles")}
                    </div>
                  </div>
                )}

@@ -4,39 +4,41 @@ import { LoadingState, ErrorState } from "@/components/ui/LoadingState";
 import { InsightsPanel } from "@/components/insights/InsightsPanel";
 import { Truck, MapPin, Route, Clock, Leaf, Gauge, Users } from "lucide-react";
 import { formatDistance, formatDuration } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 export default function Dashboard() {
   const { data: stats, isLoading, error, dataUpdatedAt } = useDashboardStats();
+  const { t } = useTranslation();
 
-  if (isLoading) return <AppLayout><LoadingState message="Loading telemetry..." /></AppLayout>;
+  if (isLoading) return <AppLayout><LoadingState message={t("dashboard.loadingTelemetry")} /></AppLayout>;
   if (error || !stats) return <AppLayout><ErrorState error={error} /></AppLayout>;
 
   return (
     <AppLayout>
       <div className="p-6 md:p-8 lg:p-10 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
         <div>
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground">Fleet Overview</h1>
-          <p className="text-muted-foreground mt-2 text-lg">Real-time metrics and routing performance</p>
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground">{t("dashboard.title")}</h1>
+          <p className="text-muted-foreground mt-2 text-lg">{t("dashboard.subtitle")}</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
           <StatCard 
-            title="Active Routes" 
+            title={t("dashboard.activeRoutes")} 
             value={stats.totalRoutes} 
             icon={<Route className="h-5 w-5 text-primary" />} 
           />
           <StatCard 
-            title="Total Stops" 
+            title={t("dashboard.totalStops")} 
             value={stats.totalStops} 
             icon={<MapPin className="h-5 w-5 text-emerald-500" />} 
           />
           <StatCard 
-            title="Total Distance" 
+            title={t("dashboard.totalDistance")} 
             value={formatDistance(stats.totalDistanceKm)} 
             icon={<Gauge className="h-5 w-5 text-amber-500" />} 
           />
           <StatCard 
-            title="Estimated Time" 
+            title={t("dashboard.estimatedTime")} 
             value={formatDuration(stats.totalDurationMin)} 
             icon={<Clock className="h-5 w-5 text-violet-500" />} 
           />
@@ -44,7 +46,7 @@ export default function Dashboard() {
 
         <InsightsPanel dashboardUpdatedAt={dataUpdatedAt} />
 
-        <h2 className="text-2xl font-bold tracking-tight mt-12 mb-6">Fleet & Sustainability</h2>
+        <h2 className="text-2xl font-bold tracking-tight mt-12 mb-6">{t("dashboard.fleetAndSustainability")}</h2>
         
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6">
           <div className="bg-card rounded-2xl p-6 border border-card-border shadow-lg shadow-black/5 hover:-translate-y-1 transition-transform duration-300 relative overflow-hidden group">
@@ -54,7 +56,7 @@ export default function Dashboard() {
                 <Truck className="h-6 w-6 text-primary" />
               </div>
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Active Vehicles</p>
+                <p className="text-sm font-medium text-muted-foreground">{t("dashboard.activeVehicles")}</p>
                 <p className="text-3xl font-bold text-foreground mt-1">{stats.activeVehicles}</p>
               </div>
             </div>
@@ -67,7 +69,7 @@ export default function Dashboard() {
                 <MapPin className="h-6 w-6 text-amber-500" />
               </div>
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Pending Stops</p>
+                <p className="text-sm font-medium text-muted-foreground">{t("dashboard.pendingStops")}</p>
                 <p className="text-3xl font-bold text-amber-500 mt-1">{stats.pendingStops}</p>
               </div>
             </div>
@@ -80,7 +82,7 @@ export default function Dashboard() {
                 <Leaf className="h-6 w-6 text-emerald-500" />
               </div>
               <div>
-                <p className="text-sm font-medium text-muted-foreground">CO₂ Emissions</p>
+                <p className="text-sm font-medium text-muted-foreground">{t("dashboard.co2Emissions")}</p>
                 <p className="text-3xl font-bold text-foreground mt-1">{stats.co2EmissionsKg.toFixed(1)} kg</p>
               </div>
             </div>

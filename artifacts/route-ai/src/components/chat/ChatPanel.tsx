@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { MessageSquare, X, Send, Bot, User, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ORG_ID } from "@/lib/constants";
+import { useTranslation } from "react-i18next";
 
 interface Message {
   role: "user" | "assistant";
@@ -9,14 +10,24 @@ interface Message {
 }
 
 export function ChatPanel() {
+  const { t, i18n } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
-    { role: "assistant", content: "Hi! I'm your RouteAI assistant. Ask me anything about your fleet, routes, stops, or sustainability metrics." }
+    { role: "assistant", content: t("chat.greeting") }
   ]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setMessages((prev) => {
+      if (prev.length === 1 && prev[0].role === "assistant") {
+        return [{ role: "assistant", content: t("chat.greeting") }];
+      }
+      return prev;
+    });
+  }, [i18n.language, t]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -103,20 +114,20 @@ export function ChatPanel() {
       if (!fullContent) {
         setMessages((prev) => {
           const updated = [...prev];
-          updated[updated.length - 1] = { role: "assistant", content: "Sorry, I couldn't generate a response. Please try again." };
+          updated[updated.length - 1] = { role: "assistant", content: t("chat.noResponse") };
           return updated;
         });
       }
     } catch {
       setMessages((prev) => {
         const updated = [...prev];
-        updated[updated.length - 1] = { role: "assistant", content: "Something went wrong. Please try again." };
+        updated[updated.length - 1] = { role: "assistant", content: t("chat.error") };
         return updated;
       });
     } finally {
       setIsStreaming(false);
     }
-  }, [input, isStreaming, messages]);
+  }, [input, isStreaming, messages, t]);
 
   return (
     <>
@@ -150,8 +161,8 @@ export function ChatPanel() {
             <Bot className="h-4 w-4 text-primary-foreground" />
           </div>
           <div className="flex-1">
-            <h3 className="font-bold text-sm">RouteAI Assistant</h3>
-            <p className="text-xs text-muted-foreground">Ask about your fleet</p>
+            <h3 className="font-bold text-sm">{t("chat.title")}</h3>
+            <p className="text-xs text-muted-foreground">{t("chat.subtitle")}</p>
           </div>
           <button
             onClick={() => setIsOpen(false)}
@@ -180,7 +191,7 @@ export function ChatPanel() {
                 {msg.content}
                 {msg.role === "assistant" && !msg.content && isStreaming && (
                   <span className="inline-flex gap-1 items-center text-muted-foreground">
-                    <Loader2 className="h-3 w-3 animate-spin" /> Thinking...
+                    <Loader2 className="h-3 w-3 animate-spin" /> {t("chat.thinking")}
                   </span>
                 )}
               </div>
@@ -204,7 +215,7 @@ export function ChatPanel() {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask about routes, vehicles, stops..."
+              placeholder={t("chat.placeholder")}
               disabled={isStreaming}
               className="flex-1 bg-muted border-none rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50"
             />

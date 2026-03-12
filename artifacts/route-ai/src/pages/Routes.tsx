@@ -3,9 +3,11 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { Route as RouteIcon, Trash2, MapPin, Clock, Gauge, Download } from "lucide-react";
 import { format } from "date-fns";
+import { sv, enUS } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { type Route, getExportRouteUrl } from "@workspace/api-client-react";
 import { ORG_ID } from "@/lib/constants";
+import { useTranslation } from "react-i18next";
 
 const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
   draft: { bg: "bg-muted/50", text: "text-muted-foreground" },
@@ -18,24 +20,26 @@ const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
 export default function Routes() {
   const { data: routes, isLoading, error } = useRoutes();
   const deleteRoute = useDeleteRoute();
+  const { t, i18n } = useTranslation();
+  const dateLocale = i18n.language === "sv" ? sv : enUS;
 
   return (
     <AppLayout>
       <div className="p-8">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">All Routes</h1>
-            <p className="text-muted-foreground mt-1">View and manage delivery routes</p>
+            <h1 className="text-3xl font-bold tracking-tight">{t("routes.title")}</h1>
+            <p className="text-muted-foreground mt-1">{t("routes.subtitle")}</p>
           </div>
         </div>
 
-        {isLoading && <LoadingState message="Loading routes..." />}
-        {error && <p className="text-destructive">Failed to load routes.</p>}
+        {isLoading && <LoadingState message={t("routes.loadingRoutes")} />}
+        {error && <p className="text-destructive">{t("routes.failedToLoad")}</p>}
 
         {routes && routes.length === 0 && (
           <div className="text-center py-16 text-muted-foreground">
             <RouteIcon className="h-12 w-12 mx-auto mb-4 opacity-30" />
-            <p>No routes yet. Use the Route Planner to create optimized routes.</p>
+            <p>{t("routes.noRoutes")}</p>
           </div>
         )}
 
@@ -56,7 +60,7 @@ export default function Routes() {
                       <div>
                         <h3 className="font-semibold">{route.name}</h3>
                         <p className="text-xs text-muted-foreground">
-                          {route.date ? format(new Date(route.date), "PPP") : "No date"}
+                          {route.date ? format(new Date(route.date), "PPP", { locale: dateLocale }) : t("common.noDate")}
                         </p>
                       </div>
                     </div>
@@ -64,7 +68,7 @@ export default function Routes() {
                     <div className="flex items-center gap-6">
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <MapPin className="h-4 w-4" />
-                        <span>{route.totalStops} stops</span>
+                        <span>{route.totalStops} {t("common.stops")}</span>
                       </div>
 
                       {route.totalDistanceKm != null && (
@@ -82,14 +86,14 @@ export default function Routes() {
                       )}
 
                       <span className={cn("px-3 py-1 rounded-full text-xs font-medium uppercase tracking-wide", style.bg, style.text)}>
-                        {route.status}
+                        {t(`routes.status${route.status.charAt(0).toUpperCase()}${route.status.slice(1).replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())}`)}
                       </span>
 
                       <a
                         href={`${getExportRouteUrl(route.id)}?organizationId=${ORG_ID}`}
                         download={`${route.name}.csv`}
                         className="p-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-                        title="Export CSV"
+                        title={t("common.exportCsv")}
                       >
                         <Download className="h-4 w-4" />
                       </a>

@@ -6,13 +6,17 @@ import { useVehicles } from "@/hooks/use-vehicles";
 import { useMemo } from "react";
 import { Clock, MapPin, Route as RouteIcon, Gauge, Leaf, Fuel, Zap } from "lucide-react";
 import { format } from "date-fns";
+import { sv, enUS } from "date-fns/locale";
 import { formatDistance, formatDuration } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 export default function RouteHistory() {
   const { data: routes, isLoading } = useListRoutes(
     { organizationId: ORG_ID, status: "completed" as const },
   );
   const { data: vehicles } = useVehicles();
+  const { t, i18n } = useTranslation();
+  const dateLocale = i18n.language === "sv" ? sv : enUS;
 
   const vehiclesById = useMemo(() => {
     const map = new Map<string, { name: string; vehicleType: string }>();
@@ -20,7 +24,7 @@ export default function RouteHistory() {
     return map;
   }, [vehicles]);
 
-  if (isLoading) return <AppLayout><LoadingState message="Loading route history..." /></AppLayout>;
+  if (isLoading) return <AppLayout><LoadingState message={t("routeHistory.loadingHistory")} /></AppLayout>;
 
   const completedRoutes = routes ?? [];
 
@@ -29,16 +33,16 @@ export default function RouteHistory() {
       <div className="p-6 md:p-8 max-w-7xl mx-auto animate-in fade-in">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
-            <Clock className="h-7 w-7 text-primary" /> Route History
+            <Clock className="h-7 w-7 text-primary" /> {t("routeHistory.title")}
           </h1>
-          <p className="text-muted-foreground mt-1">Past completed routes and their performance</p>
+          <p className="text-muted-foreground mt-1">{t("routeHistory.subtitle")}</p>
         </div>
 
         {completedRoutes.length === 0 ? (
           <div className="bg-card rounded-2xl border border-card-border p-12 text-center shadow-xl shadow-black/5">
             <Clock className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-lg font-medium text-muted-foreground">No completed routes yet</p>
-            <p className="text-sm text-muted-foreground mt-1">Routes will appear here once they are marked as completed.</p>
+            <p className="text-lg font-medium text-muted-foreground">{t("routeHistory.noCompleted")}</p>
+            <p className="text-sm text-muted-foreground mt-1">{t("routeHistory.noCompletedDesc")}</p>
           </div>
         ) : (
           <div className="bg-card rounded-2xl border border-card-border shadow-xl shadow-black/5 overflow-hidden">
@@ -46,13 +50,13 @@ export default function RouteHistory() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-muted/50 border-b border-border">
-                    <th className="p-4 font-semibold text-muted-foreground text-sm">Route Name</th>
-                    <th className="p-4 font-semibold text-muted-foreground text-sm">Date</th>
-                    <th className="p-4 font-semibold text-muted-foreground text-sm">Driver / Vehicle</th>
-                    <th className="p-4 font-semibold text-muted-foreground text-sm">Stops</th>
-                    <th className="p-4 font-semibold text-muted-foreground text-sm">Distance</th>
-                    <th className="p-4 font-semibold text-muted-foreground text-sm">Duration</th>
-                    <th className="p-4 font-semibold text-muted-foreground text-sm">CO₂</th>
+                    <th className="p-4 font-semibold text-muted-foreground text-sm">{t("routeHistory.routeName")}</th>
+                    <th className="p-4 font-semibold text-muted-foreground text-sm">{t("common.date")}</th>
+                    <th className="p-4 font-semibold text-muted-foreground text-sm">{t("routeHistory.driverVehicle")}</th>
+                    <th className="p-4 font-semibold text-muted-foreground text-sm">{t("common.stops")}</th>
+                    <th className="p-4 font-semibold text-muted-foreground text-sm">{t("common.distance")}</th>
+                    <th className="p-4 font-semibold text-muted-foreground text-sm">{t("common.duration")}</th>
+                    <th className="p-4 font-semibold text-muted-foreground text-sm">{t("common.co2")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -67,7 +71,7 @@ export default function RouteHistory() {
                           </div>
                         </td>
                         <td className="p-4 text-muted-foreground text-sm">
-                          {format(new Date(route.date), "MMM do, yyyy")}
+                          {format(new Date(route.date), "PPP", { locale: dateLocale })}
                         </td>
                         <td className="p-4">
                           {veh ? (
