@@ -52,15 +52,52 @@ interface VehicleData {
   rangeKm: number | null;
 }
 
+interface VehicleAssignment {
+  stops: StopData[];
+  totalWeight: number;
+  totalVolume: number;
+  currentTime: Date;
+  totalDistanceKm: number;
+}
+
+function computeArrivalTime(
+  assignment: VehicleAssignment,
+  stop: StopData,
+  depotLat: number,
+  depotLon: number
+): { arrivalTime: Date; travelDistKm: number } {
+  const lastStop = assignment.stops[assignment.stops.length - 1];
+  const fromLat = lastStop ? lastStop.latitude : depotLat;
+  const fromLon = lastStop ? lastStop.longitude : depotLon;
+  const dist = haversineDistance(fromLat, fromLon, stop.latitude, stop.longitude);
+  const travelMinutes = estimateDurationMin(dist);
+  const arrivalTime = new Date(assignment.currentTime.getTime() + travelMinutes * 60000);
+  return { arrivalTime, travelDistKm: dist };
+}
+
+function isTimeWindowFeasible(stop: StopData, arrivalTime: Date): boolean {
+  if (stop.timeWindowEnd && arrivalTime.getTime() > stop.timeWindowEnd.getTime()) {
+    return false;
+  }
+  return true;
+}
+
 function nearestNeighborAssignment(
   stops: StopData[],
   vehicles: VehicleData[],
   depotLat: number,
-  depotLon: number
+  depotLon: number,
+  startTime: Date
 ) {
-  const assigned: Map<string, { stops: StopData[]; totalWeight: number; totalVolume: number }> = new Map();
+  const assigned: Map<string, VehicleAssignment> = new Map();
   for (const v of vehicles) {
-    assigned.set(v.id, { stops: [], totalWeight: 0, totalVolume: 0 });
+    assigned.set(v.id, {
+      stops: [],
+      totalWeight: 0,
+      totalVolume: 0,
+      currentTime: new Date(startTime),
+      totalDistanceKm: 0,
+    });
   }
 
   const unassigned: StopData[] = [];
@@ -87,40 +124,38 @@ function nearestNeighborAssignment(
         continue;
       }
 
-      const lastStop = va.stops[va.stops.length - 1];
-      const fromLat = lastStop ? lastStop.latitude : depotLat;
-      const fromLon = lastStop ? lastStop.longitude : depotLon;
-      const dist = haversineDistance(fromLat, fromLon, stop.latitude, stop.longitude);
+      const { arrivalTime, travelDistKm } = computeArrivalTime(va, stop, depotLat, depotLon);
+
+      if (!isTimeWindowFeasible(stop, arrivalTime)) {
+        continue;
+      }
 
       if (vehicle.rangeKm) {
-        let totalDist = dist;
-        for (let i = 1; i < va.stops.length; i++) {
-          totalDist += haversineDistance(
-            va.stops[i - 1].latitude,
-            va.stops[i - 1].longitude,
-            va.stops[i].latitude,
-            va.stops[i].longitude
-          );
-        }
-        if (va.stops.length > 0) {
-          totalDist += haversineDistance(depotLat, depotLon, va.stops[0].latitude, va.stops[0].longitude);
-        }
-        if (totalDist > vehicle.rangeKm * 0.9) {
+        const projectedTotalDist = va.totalDistanceKm + travelDistKm;
+        const returnDist = haversineDistance(stop.latitude, stop.longitude, depotLat, depotLon);
+        if (projectedTotalDist + returnDist > vehicle.rangeKm * 0.9) {
           continue;
         }
       }
 
-      if (dist < bestDistance) {
-        bestDistance = dist;
+      if (travelDistKm < bestDistance) {
+        bestDistance = travelDistKm;
         bestVehicle = vehicle.id;
       }
     }
 
     if (bestVehicle) {
       const va = assigned.get(bestVehicle)!;
+      const { arrivalTime, travelDistKm } = computeArrivalTime(va, stop, depotLat, depotLon);
       va.stops.push(stop);
       va.totalWeight += stop.weightKg ?? 0;
       va.totalVolume += stop.volumeM3 ?? 0;
+      va.totalDistanceKm += travelDistKm;
+
+      const effectiveStart = stop.timeWindowStart && stop.timeWindowStart.getTime() > arrivalTime.getTime()
+        ? stop.timeWindowStart
+        : arrivalTime;
+      va.currentTime = new Date(effectiveStart.getTime() + stop.serviceDurationMin * 60000);
     } else {
       unassigned.push(stop);
     }
@@ -170,7 +205,8 @@ router.post("/optimize", async (req, res) => {
       stops,
       vehicles,
       depotLatitude,
-      depotLongitude
+      depotLongitude,
+      new Date()
     );
 
     const optimizedRoutes = [];
@@ -208,7 +244,11 @@ router.post("/optimize", async (req, res) => {
         routeDistance += dist;
         routeDuration += dur + stop.serviceDurationMin;
 
-        currentTime = new Date(currentTime.getTime() + dur * 60000);
+        const arrivalTime = new Date(currentTime.getTime() + dur * 60000);
+
+        const effectiveStart = stop.timeWindowStart && stop.timeWindowStart.getTime() > arrivalTime.getTime()
+          ? stop.timeWindowStart
+          : arrivalTime;
 
         await db
           .update(stopsTable)
@@ -226,11 +266,11 @@ router.post("/optimize", async (req, res) => {
         optimizedStops.push({
           stopId: stop.id,
           sequenceOrder: i + 1,
-          estimatedArrival: currentTime.toISOString(),
+          estimatedArrival: effectiveStart.toISOString(),
           distanceFromPreviousKm: Math.round(dist * 100) / 100,
         });
 
-        currentTime = new Date(currentTime.getTime() + stop.serviceDurationMin * 60000);
+        currentTime = new Date(effectiveStart.getTime() + stop.serviceDurationMin * 60000);
       }
 
       const co2 = estimateCo2(routeDistance, vehicle.vehicleType);

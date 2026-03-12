@@ -159,8 +159,8 @@ export const CreateStopBody = zod.object({
   address: zod.string(),
   latitude: zod.number(),
   longitude: zod.number(),
-  timeWindowStart: zod.date().nullish(),
-  timeWindowEnd: zod.date().nullish(),
+  timeWindowStart: zod.coerce.date().nullish(),
+  timeWindowEnd: zod.coerce.date().nullish(),
   serviceDurationMin: zod.number().optional(),
   weightKg: zod.number().nullish(),
   volumeM3: zod.number().nullish(),
@@ -212,8 +212,8 @@ export const UpdateStopBody = zod.object({
   address: zod.string().optional(),
   latitude: zod.number().optional(),
   longitude: zod.number().optional(),
-  timeWindowStart: zod.date().nullish(),
-  timeWindowEnd: zod.date().nullish(),
+  timeWindowStart: zod.coerce.date().nullish(),
+  timeWindowEnd: zod.coerce.date().nullish(),
   serviceDurationMin: zod.number().optional(),
   weightKg: zod.number().nullish(),
   volumeM3: zod.number().nullish(),
@@ -292,7 +292,7 @@ export const CreateRouteBody = zod.object({
   organizationId: zod.string().uuid(),
   vehicleId: zod.string().uuid().nullish(),
   name: zod.string(),
-  date: zod.date(),
+  date: zod.coerce.date(),
 });
 
 /**
@@ -336,7 +336,7 @@ export const UpdateRouteBody = zod.object({
   status: zod
     .enum(["draft", "optimized", "in_progress", "completed", "cancelled"])
     .optional(),
-  date: zod.date().optional(),
+  date: zod.coerce.date().optional(),
   totalDistanceKm: zod.number().nullish(),
   totalDurationMin: zod.number().nullish(),
   totalStops: zod.number().optional(),
