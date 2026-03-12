@@ -77,6 +77,7 @@ All endpoints under `/api`:
 - `POST /api/stops/import` — bulk import stops from CSV data
 - `GET /api/routes/:id/export` — export route stops as CSV download
 - `GET /api/sustainability/stats` — CO₂ emissions breakdown (fossil vs EV, trees equivalent)
+- `POST /api/ai/chat` — AI chat assistant (SSE streaming), accepts `{ organizationId, messages }`, streams response chunks
 
 ## Route Optimization
 
@@ -138,7 +139,8 @@ React + Vite frontend for RouteAI. Dark-mode UI with sidebar navigation.
 - Leaflet map with OpenStreetMap tiles for route visualization
 - Hardcoded ORG_ID: `63e7175d-af1d-4dc3-be62-842a8b3dc9f8` (Stockholm Logistics AB)
 - Key deps: react-leaflet, leaflet, @hello-pangea/dnd, recharts, react-hook-form, lucide-react, date-fns
-- Features: EV battery bars on Fleet page, CSV import modal on Stops page, route CSV export on Routes page, CO₂ sustainability dashboard with Recharts charts
+- Features: EV battery bars on Fleet page, CSV import modal on Stops page, route CSV export on Routes page, CO₂ sustainability dashboard with Recharts charts, AI chat assistant (floating panel with SSE streaming)
+- AI Chat: Floating button bottom-right opens slide-up panel. Uses `@workspace/integrations-openai-ai-server` (gpt-5-mini model). Sends fleet context with each request.
 - `pnpm --filter @workspace/route-ai run dev` — run the dev server
 
 ### `scripts` (`@workspace/scripts`)

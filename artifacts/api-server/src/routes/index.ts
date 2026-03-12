@@ -6,6 +6,7 @@ import routesRouter from "./routes";
 import dashboardRouter from "./dashboard";
 import optimizeRouter from "./optimize";
 import sustainabilityRouter from "./sustainability";
+import aiChatRouter from "./ai-chat";
 
 const router: IRouter = Router();
 
@@ -16,5 +17,6 @@ router.use(routesRouter);
 router.use(dashboardRouter);
 router.use(optimizeRouter);
 router.use(sustainabilityRouter);
+router.use(aiChatRouter);
 
 export default router;

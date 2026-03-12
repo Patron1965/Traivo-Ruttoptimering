@@ -12,6 +12,7 @@ import Routes from "@/pages/Routes";
 import Sustainability from "@/pages/Sustainability";
 import RouteHistory from "@/pages/RouteHistory";
 import NotFound from "@/pages/not-found";
+import { ChatPanel } from "@/components/chat/ChatPanel";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -45,6 +46,7 @@ function App() {
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
           <Router />
         </WouterRouter>
+        <ChatPanel />
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>
