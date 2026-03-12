@@ -24,6 +24,8 @@ tags:
     description: CO2 and sustainability
   - name: ai
     description: AI chat assistant
+  - name: insights
+    description: Proactive AI fleet insights
 paths:
   /healthz:
     get:
@@ -472,6 +474,33 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SustainabilityStats"
+
+  /insights:
+    get:
+      operationId: getInsights
+      tags: [insights]
+      summary: Get proactive AI fleet insights
+      parameters:
+        - name: organizationId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: enhance
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: ["true", "false"]
+            default: "true"
+      responses:
+        "200":
+          description: Fleet insights
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InsightsResponse"
 
   /ai/chat:
     post:
@@ -1110,3 +1139,42 @@ components:
       required:
         - organizationId
         - messages
+
+    Insight:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [warning, suggestion, info]
+        severity:
+          type: string
+          enum: [high, medium, low]
+        title:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+      required:
+        - id
+        - type
+        - severity
+        - title
+        - description
+        - category
+
+    InsightsResponse:
+      type: object
+      properties:
+        insights:
+          type: array
+          items:
+            $ref: "#/components/schemas/Insight"
+        generatedAt:
+          type: string
+          format: date-time
+      required:
+        - insights
+        - generatedAt

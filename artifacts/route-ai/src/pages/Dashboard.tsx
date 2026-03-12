@@ -1,6 +1,7 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useDashboardStats } from "@/hooks/use-dashboard";
 import { LoadingState, ErrorState } from "@/components/ui/LoadingState";
+import { InsightsPanel } from "@/components/insights/InsightsPanel";
 import { Truck, MapPin, Route, Clock, Leaf, Gauge } from "lucide-react";
 import { formatDistance, formatDuration } from "@/lib/utils";
 
@@ -40,6 +41,8 @@ export default function Dashboard() {
             icon={<Clock className="h-5 w-5 text-violet-500" />} 
           />
         </div>
+
+        <InsightsPanel />
 
         <h2 className="text-2xl font-bold tracking-tight mt-12 mb-6">Fleet & Sustainability</h2>
         

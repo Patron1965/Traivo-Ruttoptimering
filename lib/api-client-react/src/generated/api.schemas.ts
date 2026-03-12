@@ -306,6 +306,37 @@ export interface AiChatRequest {
   messages: AiChatMessage[];
 }
 
+export type InsightType = (typeof InsightType)[keyof typeof InsightType];
+
+export const InsightType = {
+  warning: "warning",
+  suggestion: "suggestion",
+  info: "info",
+} as const;
+
+export type InsightSeverity =
+  (typeof InsightSeverity)[keyof typeof InsightSeverity];
+
+export const InsightSeverity = {
+  high: "high",
+  medium: "medium",
+  low: "low",
+} as const;
+
+export interface Insight {
+  id: string;
+  type: InsightType;
+  severity: InsightSeverity;
+  title: string;
+  description: string;
+  category: string;
+}
+
+export interface InsightsResponse {
+  insights: Insight[];
+  generatedAt: string;
+}
+
 export type ListVehiclesParams = {
   organizationId: string;
 };
@@ -338,3 +369,16 @@ export type GetDashboardStatsParams = {
 export type GetSustainabilityStatsParams = {
   organizationId: string;
 };
+
+export type GetInsightsParams = {
+  organizationId: string;
+  enhance?: GetInsightsEnhance;
+};
+
+export type GetInsightsEnhance =
+  (typeof GetInsightsEnhance)[keyof typeof GetInsightsEnhance];
+
+export const GetInsightsEnhance = {
+  true: "true",
+  false: "false",
+} as const;

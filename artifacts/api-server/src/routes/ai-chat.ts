@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { db, routesTable, vehiclesTable, stopsTable } from "@workspace/db";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { handleError } from "../lib/errors";
+import { generateInsights } from "./insights";
 
 const router: IRouter = Router();
 
@@ -103,6 +104,9 @@ You can help with:
 - CO₂ emissions and sustainability metrics
 - Operational suggestions and optimizations
 - Time window analysis and scheduling
+- Proactive insights and recommendations (see Active Insights below)
+
+When relevant, reference the active insights to provide proactive guidance. For example, if there are late-risk stops, mention them before the user asks.
 
 Always respond in a friendly, professional tone. If you don't have enough data to answer a question, say so clearly. Use metric units (km, kg).`;
 
@@ -128,10 +132,17 @@ router.post("/ai/chat", async (req, res) => {
       return;
     }
 
-    const context = await buildFleetContext(organizationId);
+    const [context, insights] = await Promise.all([
+      buildFleetContext(organizationId),
+      generateInsights(organizationId),
+    ]);
+
+    const insightsContext = insights.length > 0
+      ? `\n\n### Active Insights (${insights.length})\n${insights.map(i => `- [${i.type.toUpperCase()}/${i.severity}] ${i.title}: ${i.description}`).join('\n')}`
+      : '\n\n### Active Insights\nNo active insights at this time.';
 
     const chatMessages = [
-      { role: "system" as const, content: `${SYSTEM_PROMPT}\n\n${context}` },
+      { role: "system" as const, content: `${SYSTEM_PROMPT}\n\n${context}${insightsContext}` },
       ...sanitized.map((m: { role: string; content: string }) => ({
         role: m.role as "user" | "assistant",
         content: m.content,

@@ -511,6 +511,30 @@ export const GetSustainabilityStatsResponse = zod.object({
 });
 
 /**
+ * @summary Get proactive AI fleet insights
+ */
+export const getInsightsQueryEnhanceDefault = `true`;
+
+export const GetInsightsQueryParams = zod.object({
+  organizationId: zod.coerce.string().uuid(),
+  enhance: zod.enum(["true", "false"]).default(getInsightsQueryEnhanceDefault),
+});
+
+export const GetInsightsResponse = zod.object({
+  insights: zod.array(
+    zod.object({
+      id: zod.string(),
+      type: zod.enum(["warning", "suggestion", "info"]),
+      severity: zod.enum(["high", "medium", "low"]),
+      title: zod.string(),
+      description: zod.string(),
+      category: zod.string(),
+    }),
+  ),
+  generatedAt: zod.date(),
+});
+
+/**
  * @summary AI chat assistant with fleet context (SSE streaming)
  */
 export const aiChatBodyMessagesItemContentMax = 4000;

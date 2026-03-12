@@ -24,10 +24,12 @@ import type {
   DashboardStats,
   Error,
   GetDashboardStatsParams,
+  GetInsightsParams,
   GetSustainabilityStatsParams,
   HealthStatus,
   ImportStopsBody,
   ImportStopsResponse,
+  InsightsResponse,
   ListRoutesParams,
   ListStopsParams,
   ListVehiclesParams,
@@ -1966,6 +1968,100 @@ export function useGetSustainabilityStats<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetSustainabilityStatsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get proactive AI fleet insights
+ */
+export const getGetInsightsUrl = (params: GetInsightsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/insights?${stringifiedParams}`
+    : `/api/insights`;
+};
+
+export const getInsights = async (
+  params: GetInsightsParams,
+  options?: RequestInit,
+): Promise<InsightsResponse> => {
+  return customFetch<InsightsResponse>(getGetInsightsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetInsightsQueryKey = (params?: GetInsightsParams) => {
+  return [`/api/insights`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetInsightsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getInsights>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetInsightsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getInsights>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetInsightsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getInsights>>> = ({
+    signal,
+  }) => getInsights(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getInsights>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetInsightsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getInsights>>
+>;
+export type GetInsightsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get proactive AI fleet insights
+ */
+
+export function useGetInsights<
+  TData = Awaited<ReturnType<typeof getInsights>>,
+  TError = ErrorType<unknown>,
+>(
+  params: GetInsightsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getInsights>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetInsightsQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
