@@ -14,6 +14,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { ORG_ID } from "@/lib/constants";
 import { type Driver } from "@workspace/api-client-react";
+import { useTranslation } from "react-i18next";
 
 const driverSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -30,8 +31,9 @@ export default function Drivers() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
   const deleteMutation = useDeleteDriver();
+  const { t } = useTranslation();
 
-  if (isLoading) return <AppLayout><LoadingState message="Loading drivers..." /></AppLayout>;
+  if (isLoading) return <AppLayout><LoadingState message={t("drivers.loadingDrivers")} /></AppLayout>;
 
   const getVehicleName = (vehicleId: string | null | undefined) => {
     if (!vehicleId || !vehicles) return null;
@@ -44,19 +46,19 @@ export default function Drivers() {
       <div className="p-6 md:p-8 max-w-7xl mx-auto animate-in fade-in">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Driver Management</h1>
-            <p className="text-muted-foreground mt-1">Manage drivers and vehicle assignments</p>
+            <h1 className="text-3xl font-bold text-foreground">{t("drivers.title")}</h1>
+            <p className="text-muted-foreground mt-1">{t("drivers.subtitle")}</p>
           </div>
 
           <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-primary/25">
-                <Plus className="h-4 w-4" /> Add Driver
+                <Plus className="h-4 w-4" /> {t("drivers.addDriver")}
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[500px]">
               <DialogHeader>
-                <DialogTitle>Add New Driver</DialogTitle>
+                <DialogTitle>{t("drivers.addNewDriver")}</DialogTitle>
               </DialogHeader>
               <DriverForm vehicles={vehicles || []} onSuccess={() => setIsCreateOpen(false)} />
             </DialogContent>
@@ -68,11 +70,11 @@ export default function Drivers() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-muted/50 border-b border-border">
-                  <th className="p-4 font-semibold text-muted-foreground text-sm">Driver</th>
-                  <th className="p-4 font-semibold text-muted-foreground text-sm">Contact</th>
-                  <th className="p-4 font-semibold text-muted-foreground text-sm">Assigned Vehicle</th>
-                  <th className="p-4 font-semibold text-muted-foreground text-sm">Status</th>
-                  <th className="p-4 font-semibold text-muted-foreground text-sm text-right">Actions</th>
+                  <th className="p-4 font-semibold text-muted-foreground text-sm">{t("drivers.driver")}</th>
+                  <th className="p-4 font-semibold text-muted-foreground text-sm">{t("drivers.contact")}</th>
+                  <th className="p-4 font-semibold text-muted-foreground text-sm">{t("drivers.assignedVehicle")}</th>
+                  <th className="p-4 font-semibold text-muted-foreground text-sm">{t("common.status")}</th>
+                  <th className="p-4 font-semibold text-muted-foreground text-sm text-right">{t("common.actions")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -101,7 +103,7 @@ export default function Drivers() {
                           </div>
                         )}
                         {!d.phone && !d.email && (
-                          <span className="text-muted-foreground italic">No contact info</span>
+                          <span className="text-muted-foreground italic">{t("drivers.noContactInfo")}</span>
                         )}
                       </div>
                     </td>
@@ -112,7 +114,7 @@ export default function Drivers() {
                           {getVehicleName(d.vehicleId) || "Unknown"}
                         </div>
                       ) : (
-                        <span className="text-muted-foreground italic text-sm">Unassigned</span>
+                        <span className="text-muted-foreground italic text-sm">{t("common.unassigned")}</span>
                       )}
                     </td>
                     <td className="p-4">
@@ -121,7 +123,7 @@ export default function Drivers() {
                           ? "bg-emerald-500/10 text-emerald-500"
                           : "bg-muted text-muted-foreground"
                       }`}>
-                        {d.isActive ? "Active" : "Inactive"}
+                        {d.isActive ? t("drivers.active") : t("drivers.inactive")}
                       </span>
                     </td>
                     <td className="p-4 text-right">
@@ -139,7 +141,7 @@ export default function Drivers() {
                           size="icon"
                           className="hover:text-destructive hover:bg-destructive/10"
                           onClick={() => {
-                            if (confirm("Delete this driver?")) deleteMutation.mutate({ id: d.id });
+                            if (confirm(t("drivers.deleteConfirm"))) deleteMutation.mutate({ id: d.id });
                           }}
                         >
                           <Trash2 className="h-4 w-4" />
@@ -150,7 +152,7 @@ export default function Drivers() {
                 ))}
                 {(!drivers || drivers.length === 0) && (
                   <tr>
-                    <td colSpan={5} className="p-8 text-center text-muted-foreground">No drivers found. Add one to get started.</td>
+                    <td colSpan={5} className="p-8 text-center text-muted-foreground">{t("drivers.noDrivers")}</td>
                   </tr>
                 )}
               </tbody>
@@ -161,7 +163,7 @@ export default function Drivers() {
         <Dialog open={!!editingDriver} onOpenChange={(open) => !open && setEditingDriver(null)}>
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
-              <DialogTitle>Edit Driver</DialogTitle>
+              <DialogTitle>{t("drivers.editDriver")}</DialogTitle>
             </DialogHeader>
             {editingDriver && (
               <DriverForm
@@ -184,6 +186,7 @@ function DriverForm({ initialData, vehicles, onSuccess }: {
 }) {
   const createMutation = useCreateDriver();
   const updateMutation = useUpdateDriver();
+  const { t } = useTranslation();
 
   const { register, handleSubmit, control, formState: { errors } } = useForm<DriverFormValues>({
     resolver: zodResolver(driverSchema),
@@ -209,34 +212,34 @@ function DriverForm({ initialData, vehicles, onSuccess }: {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-4">
       <div className="space-y-2">
-        <Label>Full Name</Label>
-        <Input {...register("name")} placeholder="e.g. Erik Johansson" />
+        <Label>{t("drivers.fullName")}</Label>
+        <Input {...register("name")} placeholder={t("drivers.namePlaceholder")} />
         {errors.name && <span className="text-xs text-destructive">{errors.name.message}</span>}
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label>Phone</Label>
+          <Label>{t("drivers.phone")}</Label>
           <Input {...register("phone")} placeholder="+46 70 123 4567" />
         </div>
         <div className="space-y-2">
-          <Label>Email</Label>
+          <Label>{t("drivers.email")}</Label>
           <Input {...register("email")} placeholder="erik@example.com" type="email" />
         </div>
       </div>
 
       <div className="space-y-2">
-        <Label>Assigned Vehicle</Label>
+        <Label>{t("drivers.assignedVehicle")}</Label>
         <Controller
           name="vehicleId"
           control={control}
           render={({ field }) => (
             <Select onValueChange={field.onChange} defaultValue={field.value || "__none__"}>
               <SelectTrigger>
-                <SelectValue placeholder="Select vehicle" />
+                <SelectValue placeholder={t("drivers.selectVehicle")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__none__">No vehicle</SelectItem>
+                <SelectItem value="__none__">{t("drivers.noVehicle")}</SelectItem>
                 {vehicles.map((v) => (
                   <SelectItem key={v.id} value={v.id}>
                     {v.name} ({v.licensePlate})
@@ -249,9 +252,9 @@ function DriverForm({ initialData, vehicles, onSuccess }: {
       </div>
 
       <div className="pt-4 flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={onSuccess}>Cancel</Button>
+        <Button type="button" variant="outline" onClick={onSuccess}>{t("common.cancel")}</Button>
         <Button type="submit" disabled={isPending} className="bg-primary text-primary-foreground">
-          {isPending ? "Saving..." : "Save Driver"}
+          {isPending ? t("common.saving") : t("drivers.saveDriver")}
         </Button>
       </div>
     </form>

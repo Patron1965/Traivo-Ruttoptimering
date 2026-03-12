@@ -95,8 +95,8 @@ export default function Dashboard() {
                 <Users className="h-6 w-6 text-violet-500" />
               </div>
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Drivers on Duty</p>
-                <p className="text-3xl font-bold text-foreground mt-1">{(stats as any).activeDrivers ?? 0}</p>
+                <p className="text-sm font-medium text-muted-foreground">{t("dashboard.driversOnDuty")}</p>
+                <p className="text-3xl font-bold text-foreground mt-1">{stats.activeDrivers ?? 0}</p>
               </div>
             </div>
           </div>

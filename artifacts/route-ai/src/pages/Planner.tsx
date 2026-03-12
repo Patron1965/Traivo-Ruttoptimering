@@ -1,5 +1,6 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useVehicles } from "@/hooks/use-vehicles";
+import { useDrivers } from "@/hooks/use-drivers";
 import { useStops } from "@/hooks/use-stops";
 import { useOptimizeRoutes } from "@/hooks/use-routes";
 import { LoadingState } from "@/components/ui/LoadingState";
@@ -7,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useState, useMemo } from "react";
 import { ORG_ID, DEPOT_LOCATION } from "@/lib/constants";
-import { Cpu, CheckCircle2, AlertCircle, Truck, MapPin, GripVertical, Zap, BatteryCharging } from "lucide-react";
+import { Cpu, CheckCircle2, AlertCircle, Truck, MapPin, GripVertical, Zap, BatteryCharging, User } from "lucide-react";
 import { RouteMap } from "@/components/map/RouteMap";
 import { formatDistance } from "@/lib/utils";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
@@ -35,9 +36,18 @@ interface OptimizedRouteResult {
 
 export default function Planner() {
   const { data: vehicles, isLoading: loadingV } = useVehicles();
+  const { data: drivers } = useDrivers();
   const { data: stops, isLoading: loadingS } = useStops();
   const optimizeMutation = useOptimizeRoutes();
   const { t } = useTranslation();
+
+  const driverByVehicleId = useMemo(() => {
+    const map = new Map<string, string>();
+    drivers?.forEach((d) => {
+      if (d.vehicleId && d.isActive) map.set(d.vehicleId, d.name);
+    });
+    return map;
+  }, [drivers]);
 
   const [selectedVehicleIds, setSelectedVehicleIds] = useState<Set<string>>(new Set());
   const [selectedStopIds, setSelectedStopIds] = useState<Set<string>>(new Set());
@@ -185,6 +195,12 @@ export default function Planner() {
                         <div className="p-3 bg-muted/30 border-b border-border flex items-center gap-2">
                           <Truck className="h-4 w-4 text-primary" />
                           <span className="font-semibold text-sm">{vehicle?.name || t("common.vehicle")}</span>
+                          {driverByVehicleId.get(route.vehicleId) && (
+                            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                              <User className="h-3 w-3" />
+                              {driverByVehicleId.get(route.vehicleId)}
+                            </span>
+                          )}
                           <span className="text-xs text-muted-foreground ml-auto">{route.stops.length} {t("common.stops")}</span>
                         </div>
                         <Droppable droppableId={`driver-${routeIdx}`}>

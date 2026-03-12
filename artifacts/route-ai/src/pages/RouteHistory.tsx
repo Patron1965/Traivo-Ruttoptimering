@@ -3,8 +3,9 @@ import { LoadingState } from "@/components/ui/LoadingState";
 import { useListRoutes, type Route } from "@workspace/api-client-react";
 import { ORG_ID } from "@/lib/constants";
 import { useVehicles } from "@/hooks/use-vehicles";
+import { useDrivers } from "@/hooks/use-drivers";
 import { useMemo } from "react";
-import { Clock, MapPin, Route as RouteIcon, Gauge, Leaf, Fuel, Zap } from "lucide-react";
+import { Clock, MapPin, Route as RouteIcon, Gauge, Leaf, Fuel, Zap, User } from "lucide-react";
 import { format } from "date-fns";
 import { sv, enUS } from "date-fns/locale";
 import { formatDistance, formatDuration } from "@/lib/utils";
@@ -15,6 +16,7 @@ export default function RouteHistory() {
     { organizationId: ORG_ID, status: "completed" as const },
   );
   const { data: vehicles } = useVehicles();
+  const { data: drivers } = useDrivers();
   const { t, i18n } = useTranslation();
   const dateLocale = i18n.language === "sv" ? sv : enUS;
 
@@ -23,6 +25,14 @@ export default function RouteHistory() {
     vehicles?.forEach((v) => map.set(v.id, { name: v.name, vehicleType: v.vehicleType }));
     return map;
   }, [vehicles]);
+
+  const driverByVehicleId = useMemo(() => {
+    const map = new Map<string, string>();
+    drivers?.forEach((d) => {
+      if (d.vehicleId) map.set(d.vehicleId, d.name);
+    });
+    return map;
+  }, [drivers]);
 
   if (isLoading) return <AppLayout><LoadingState message={t("routeHistory.loadingHistory")} /></AppLayout>;
 
@@ -75,11 +85,19 @@ export default function RouteHistory() {
                         </td>
                         <td className="p-4">
                           {veh ? (
-                            <div className="flex items-center gap-2">
-                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${veh.vehicleType === 'electric' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'}`}>
-                                {veh.vehicleType === 'electric' ? <Zap className="h-3 w-3" /> : <Fuel className="h-3 w-3" />}
-                              </span>
-                              <span className="text-sm">{veh.name}</span>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${veh.vehicleType === 'electric' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'}`}>
+                                  {veh.vehicleType === 'electric' ? <Zap className="h-3 w-3" /> : <Fuel className="h-3 w-3" />}
+                                </span>
+                                <span className="text-sm">{veh.name}</span>
+                              </div>
+                              {route.vehicleId && driverByVehicleId.get(route.vehicleId) && (
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                  <User className="h-3 w-3" />
+                                  {driverByVehicleId.get(route.vehicleId)}
+                                </div>
+                              )}
                             </div>
                           ) : (
                             <span className="text-muted-foreground text-sm">—</span>

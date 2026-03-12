@@ -1,13 +1,16 @@
 import { useRoutes, useDeleteRoute } from "@/hooks/use-routes";
+import { useDrivers } from "@/hooks/use-drivers";
+import { useVehicles } from "@/hooks/use-vehicles";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { LoadingState } from "@/components/ui/LoadingState";
-import { Route as RouteIcon, Trash2, MapPin, Clock, Gauge, Download } from "lucide-react";
+import { Route as RouteIcon, Trash2, MapPin, Clock, Gauge, Download, User } from "lucide-react";
 import { format } from "date-fns";
 import { sv, enUS } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { type Route, getExportRouteUrl } from "@workspace/api-client-react";
 import { ORG_ID } from "@/lib/constants";
 import { useTranslation } from "react-i18next";
+import { useMemo } from "react";
 
 const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
   draft: { bg: "bg-muted/50", text: "text-muted-foreground" },
@@ -19,9 +22,25 @@ const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
 
 export default function Routes() {
   const { data: routes, isLoading, error } = useRoutes();
+  const { data: drivers } = useDrivers();
+  const { data: vehicles } = useVehicles();
   const deleteRoute = useDeleteRoute();
   const { t, i18n } = useTranslation();
   const dateLocale = i18n.language === "sv" ? sv : enUS;
+
+  const driverByVehicleId = useMemo(() => {
+    const map = new Map<string, string>();
+    drivers?.forEach((d) => {
+      if (d.vehicleId && d.isActive) map.set(d.vehicleId, d.name);
+    });
+    return map;
+  }, [drivers]);
+
+  const vehicleNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    vehicles?.forEach((v) => map.set(v.id, v.name));
+    return map;
+  }, [vehicles]);
 
   return (
     <AppLayout>
@@ -59,9 +78,24 @@ export default function Routes() {
                       </div>
                       <div>
                         <h3 className="font-semibold">{route.name}</h3>
-                        <p className="text-xs text-muted-foreground">
-                          {route.date ? format(new Date(route.date), "PPP", { locale: dateLocale }) : t("common.noDate")}
-                        </p>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span>{route.date ? format(new Date(route.date), "PPP", { locale: dateLocale }) : t("common.noDate")}</span>
+                          {route.vehicleId && (
+                            <>
+                              <span className="text-border">•</span>
+                              <span>{vehicleNameById.get(route.vehicleId) || t("common.vehicle")}</span>
+                              {driverByVehicleId.get(route.vehicleId) && (
+                                <>
+                                  <span className="text-border">•</span>
+                                  <span className="inline-flex items-center gap-1">
+                                    <User className="h-3 w-3" />
+                                    {driverByVehicleId.get(route.vehicleId)}
+                                  </span>
+                                </>
+                              )}
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
 
