@@ -126,6 +126,17 @@ Generated Zod schemas from the OpenAPI spec. Used by `api-server` for response v
 
 Generated React Query hooks and fetch client from the OpenAPI spec.
 
+### `artifacts/route-ai` (`@workspace/route-ai`)
+
+React + Vite frontend for RouteAI. Dark-mode UI with sidebar navigation.
+
+- Pages: Dashboard (`/`), Live Map (`/map`), Route Planner (`/planner`), All Routes (`/routes`), Fleet (`/vehicles`), Stops (`/stops`)
+- Uses `@workspace/api-client-react` generated React Query hooks for all API calls
+- Leaflet map with OpenStreetMap tiles for route visualization
+- Hardcoded ORG_ID: `63e7175d-af1d-4dc3-be62-842a8b3dc9f8` (Stockholm Logistics AB)
+- Key deps: react-leaflet, leaflet, @hello-pangea/dnd, recharts, react-hook-form, lucide-react, date-fns
+- `pnpm --filter @workspace/route-ai run dev` — run the dev server
+
 ### `scripts` (`@workspace/scripts`)
 
 Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`.

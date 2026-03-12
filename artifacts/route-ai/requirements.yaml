@@ -1,0 +1,19 @@
+packages:
+  "lucide-react": "Beautiful icons for the UI"
+  "leaflet": "Core map library"
+  "react-leaflet": "React bindings for Leaflet maps"
+  "@types/leaflet": "TypeScript definitions for Leaflet"
+  "recharts": "Charts for the dashboard stats"
+  "react-hook-form": "Form state management"
+  "@hookform/resolvers": "Zod resolver for forms"
+  "zod": "Schema validation"
+  "@hello-pangea/dnd": "Drag and drop for route planner"
+  "date-fns": "Date formatting"
+  "clsx": "Classname utility"
+  "tailwind-merge": "Classname utility for tailwind"
+
+images: []
+
+notes:
+  - using provided @workspace/api-client-react for all API interactions
+  - map centers on Stockholm by default

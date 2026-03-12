@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "RouteAI"
+version = "1.0.0"
+id = "artifacts/route-ai"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+localPort = 22129
+name = "web"
+paths = ["/"]
+
+[services.development]
+run = "pnpm --filter @workspace/route-ai run dev"
+
+[services.env]
+PORT = "22129"
+BASE_PATH = "/"
+
+[services.production]
+build = ["pnpm", "--filter", "@workspace/route-ai", "run", "build"]
+publicDir = "artifacts/route-ai/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
