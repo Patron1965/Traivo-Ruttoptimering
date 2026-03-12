@@ -230,6 +230,8 @@ export interface OptimizedStop {
   sequenceOrder: number;
   estimatedArrival: string;
   distanceFromPreviousKm: number;
+  isChargingStop?: boolean;
+  chargingStationName?: string;
 }
 
 export interface OptimizedRoute {
@@ -239,6 +241,7 @@ export interface OptimizedRoute {
   distanceKm: number;
   durationMin: number;
   co2EmissionsKg: number;
+  chargingStopsInserted?: number;
 }
 
 export interface OptimizeResponse {

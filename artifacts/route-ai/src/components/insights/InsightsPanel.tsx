@@ -51,9 +51,9 @@ const categoryIcons: Record<string, typeof Zap> = {
   capacity: Battery,
 };
 
-export function InsightsPanel() {
+export function InsightsPanel({ dashboardUpdatedAt }: { dashboardUpdatedAt?: number }) {
   const [isExpanded, setIsExpanded] = useState(true);
-  const { data, isLoading, error, refetch, isFetching } = useInsights();
+  const { data, isLoading, error, refetch, isFetching } = useInsights(dashboardUpdatedAt);
 
   const insights = data?.insights ?? [];
   const hasInsights = insights.length > 0;

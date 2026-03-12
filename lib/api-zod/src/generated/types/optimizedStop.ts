@@ -11,4 +11,6 @@ export interface OptimizedStop {
   sequenceOrder: number;
   estimatedArrival: Date;
   distanceFromPreviousKm: number;
+  isChargingStop?: boolean;
+  chargingStationName?: string;
 }

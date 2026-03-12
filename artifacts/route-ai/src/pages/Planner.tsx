@@ -7,19 +7,29 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useState, useMemo } from "react";
 import { ORG_ID, DEPOT_LOCATION } from "@/lib/constants";
-import { Cpu, CheckCircle2, AlertCircle, Truck, MapPin, GripVertical } from "lucide-react";
+import { Cpu, CheckCircle2, AlertCircle, Truck, MapPin, GripVertical, Zap, BatteryCharging } from "lucide-react";
 import { RouteMap } from "@/components/map/RouteMap";
 import { formatDistance } from "@/lib/utils";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 import { type Stop, type Vehicle, type Route } from "@workspace/api-client-react";
 
+interface OptimizedStopRef {
+  stopId: string;
+  sequenceOrder: number;
+  estimatedArrival: string;
+  distanceFromPreviousKm: number;
+  isChargingStop?: boolean;
+  chargingStationName?: string;
+}
+
 interface OptimizedRouteResult {
   vehicleId: string;
   routeId: string;
-  stops: { stopId: string; sequenceOrder: number; estimatedArrival: string; distanceFromPreviousKm: number }[];
+  stops: OptimizedStopRef[];
   distanceKm: number;
   durationMin: number;
   co2EmissionsKg: number;
+  chargingStopsInserted?: number;
 }
 
 export default function Planner() {
@@ -116,8 +126,18 @@ export default function Planner() {
 
     const newRoutes = dndRoutes.map(r => ({ ...r, stops: [...r.stops] }));
 
-    const [movedStop] = newRoutes[sourceDriverIdx].stops.splice(sourceIdx, 1);
-    newRoutes[destDriverIdx].stops.splice(destIdx, 0, movedStop);
+    const sourceDraggable = newRoutes[sourceDriverIdx].stops.filter(s => !s.isChargingStop);
+    const destDraggable = sourceDriverIdx === destDriverIdx ? sourceDraggable : newRoutes[destDriverIdx].stops.filter(s => !s.isChargingStop);
+
+    const [movedStop] = sourceDraggable.splice(sourceIdx, 1);
+    destDraggable.splice(destIdx, 0, movedStop);
+
+    const sourceCharging = newRoutes[sourceDriverIdx].stops.filter(s => s.isChargingStop);
+    newRoutes[sourceDriverIdx].stops = [...sourceCharging, ...sourceDraggable];
+    if (sourceDriverIdx !== destDriverIdx) {
+      const destCharging = newRoutes[destDriverIdx].stops.filter(s => s.isChargingStop);
+      newRoutes[destDriverIdx].stops = [...destCharging, ...destDraggable];
+    }
 
     newRoutes.forEach(route => {
       route.stops.forEach((stop, idx) => {
@@ -172,35 +192,63 @@ export default function Planner() {
                               {...provided.droppableProps}
                               className={`min-h-[60px] p-2 space-y-1 transition-colors ${snapshot.isDraggingOver ? 'bg-primary/5' : ''}`}
                             >
-                              {route.stops.map((stopRef, stopIdx) => {
-                                const stop = stopsById.get(stopRef.stopId);
+                              {(() => {
+                                const chargingStops = route.stops.filter(s => s.isChargingStop);
+                                const deliveryStops = route.stops.filter(s => !s.isChargingStop);
                                 return (
-                                  <Draggable key={stopRef.stopId} draggableId={stopRef.stopId} index={stopIdx}>
-                                    {(provided, snapshot) => (
-                                      <div
-                                        ref={provided.innerRef}
-                                        {...provided.draggableProps}
-                                        className={`flex items-center gap-2 p-2 rounded-lg border text-sm transition-all ${
-                                          snapshot.isDragging 
-                                            ? 'border-primary bg-card shadow-lg shadow-primary/10' 
-                                            : 'border-border/50 bg-card/50 hover:bg-muted/30'
-                                        }`}
-                                      >
-                                        <div {...provided.dragHandleProps} className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground">
-                                          <GripVertical className="h-4 w-4" />
-                                        </div>
-                                        <span className="w-6 h-6 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center shrink-0">
-                                          {stopIdx + 1}
-                                        </span>
-                                        <div className="flex-1 min-w-0">
-                                          <p className="font-medium truncate">{stop?.notes || "Stop"}</p>
-                                          <p className="text-xs text-muted-foreground truncate">{stop?.address}</p>
-                                        </div>
+                                  <>
+                                    {chargingStops.length > 0 && (
+                                      <div className="space-y-1 mb-1">
+                                        {chargingStops.map((cs) => (
+                                          <div
+                                            key={cs.stopId}
+                                            className="flex items-center gap-2 p-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 text-sm"
+                                          >
+                                            <div className="w-4" />
+                                            <span className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-500 text-xs font-bold flex items-center justify-center shrink-0">
+                                              <BatteryCharging className="h-3.5 w-3.5" />
+                                            </span>
+                                            <div className="flex-1 min-w-0">
+                                              <p className="font-medium truncate text-emerald-500">{cs.chargingStationName}</p>
+                                              <p className="text-xs text-muted-foreground">Charging stop · 30 min</p>
+                                            </div>
+                                            <Zap className="h-4 w-4 text-emerald-500 shrink-0" />
+                                          </div>
+                                        ))}
                                       </div>
                                     )}
-                                  </Draggable>
+                                    {deliveryStops.map((stopRef, dragIdx) => {
+                                      const stop = stopsById.get(stopRef.stopId);
+                                      return (
+                                        <Draggable key={stopRef.stopId} draggableId={stopRef.stopId} index={dragIdx}>
+                                          {(provided, snapshot) => (
+                                            <div
+                                              ref={provided.innerRef}
+                                              {...provided.draggableProps}
+                                              className={`flex items-center gap-2 p-2 rounded-lg border text-sm transition-all ${
+                                                snapshot.isDragging 
+                                                  ? 'border-primary bg-card shadow-lg shadow-primary/10' 
+                                                  : 'border-border/50 bg-card/50 hover:bg-muted/30'
+                                              }`}
+                                            >
+                                              <div {...provided.dragHandleProps} className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground">
+                                                <GripVertical className="h-4 w-4" />
+                                              </div>
+                                              <span className="w-6 h-6 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center shrink-0">
+                                                {dragIdx + 1}
+                                              </span>
+                                              <div className="flex-1 min-w-0">
+                                                <p className="font-medium truncate">{stop?.notes || "Stop"}</p>
+                                                <p className="text-xs text-muted-foreground truncate">{stop?.address}</p>
+                                              </div>
+                                            </div>
+                                          )}
+                                        </Draggable>
+                                      );
+                                    })}
+                                  </>
                                 );
-                              })}
+                              })()}
                               {provided.placeholder}
                               {route.stops.length === 0 && (
                                 <p className="text-xs text-muted-foreground text-center py-4 italic">Drop stops here</p>
@@ -305,12 +353,20 @@ export default function Planner() {
                     </p>
                   </div>
                 </div>
-                {optimizeMutation.data.unassignedStopIds.length > 0 && (
-                  <div className="px-4 py-2 bg-amber-500/10 text-amber-500 rounded-lg text-sm font-medium flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4" />
-                    {optimizeMutation.data.unassignedStopIds.length} stops couldn't be assigned
-                  </div>
-                )}
+                <div className="flex flex-wrap gap-2">
+                  {(optimizeMutation.data.routes as OptimizedRouteResult[]).some(r => (r.chargingStopsInserted ?? 0) > 0) && (
+                    <div className="px-4 py-2 bg-emerald-500/10 text-emerald-500 rounded-lg text-sm font-medium flex items-center gap-2">
+                      <BatteryCharging className="h-4 w-4" />
+                      {(optimizeMutation.data.routes as OptimizedRouteResult[]).reduce((sum, r) => sum + (r.chargingStopsInserted ?? 0), 0)} charging stop(s) inserted
+                    </div>
+                  )}
+                  {optimizeMutation.data.unassignedStopIds.length > 0 && (
+                    <div className="px-4 py-2 bg-amber-500/10 text-amber-500 rounded-lg text-sm font-medium flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4" />
+                      {optimizeMutation.data.unassignedStopIds.length} stops couldn't be assigned
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}

@@ -14,4 +14,5 @@ export interface OptimizedRoute {
   distanceKm: number;
   durationMin: number;
   co2EmissionsKg: number;
+  chargingStopsInserted?: number;
 }

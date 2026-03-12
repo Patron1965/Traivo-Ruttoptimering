@@ -86,6 +86,8 @@ The optimize endpoint uses a nearest-neighbor heuristic with:
 - Time-window-aware stop sorting
 - Vehicle capacity constraints (weight + volume)
 - EV range constraints (90% threshold)
+- Automatic EV charging station insertion when range insufficient (10 mock Stockholm-area stations)
+- 30-minute charging stop duration, resets remaining range after charging
 - Haversine distance calculations
 - CO2 emission estimates (0.21 kg/km fossil, 0.02 kg/km electric)
 

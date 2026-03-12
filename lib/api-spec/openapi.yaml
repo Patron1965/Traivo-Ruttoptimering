@@ -1005,6 +1005,8 @@ components:
           type: number
         co2EmissionsKg:
           type: number
+        chargingStopsInserted:
+          type: integer
       required:
         - vehicleId
         - routeId
@@ -1018,7 +1020,6 @@ components:
       properties:
         stopId:
           type: string
-          format: uuid
         sequenceOrder:
           type: integer
         estimatedArrival:
@@ -1026,6 +1027,10 @@ components:
           format: date-time
         distanceFromPreviousKm:
           type: number
+        isChargingStop:
+          type: boolean
+        chargingStationName:
+          type: string
       required:
         - stopId
         - sequenceOrder

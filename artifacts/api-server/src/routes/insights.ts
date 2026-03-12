@@ -197,7 +197,7 @@ export async function generateInsights(organizationId: string): Promise<Insight[
     return (sevOrder[a.severity] - sevOrder[b.severity]) || (typeOrder[a.type] - typeOrder[b.type]);
   });
 
-  return insights;
+  return insights.slice(0, 5);
 }
 
 async function enrichInsightsWithAI(insights: Insight[]): Promise<Insight[]> {

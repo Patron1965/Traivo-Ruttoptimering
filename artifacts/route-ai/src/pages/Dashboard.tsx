@@ -6,7 +6,7 @@ import { Truck, MapPin, Route, Clock, Leaf, Gauge } from "lucide-react";
 import { formatDistance, formatDuration } from "@/lib/utils";
 
 export default function Dashboard() {
-  const { data: stats, isLoading, error } = useDashboardStats();
+  const { data: stats, isLoading, error, dataUpdatedAt } = useDashboardStats();
 
   if (isLoading) return <AppLayout><LoadingState message="Loading telemetry..." /></AppLayout>;
   if (error || !stats) return <AppLayout><ErrorState error={error} /></AppLayout>;
@@ -42,7 +42,7 @@ export default function Dashboard() {
           />
         </div>
 
-        <InsightsPanel />
+        <InsightsPanel dashboardUpdatedAt={dataUpdatedAt} />
 
         <h2 className="text-2xl font-bold tracking-tight mt-12 mb-6">Fleet & Sustainability</h2>
         
