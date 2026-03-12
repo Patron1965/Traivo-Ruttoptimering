@@ -5,6 +5,7 @@ import { Route as RouteIcon, Trash2, MapPin, Clock, Gauge, Download } from "luci
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { type Route, getExportRouteUrl } from "@workspace/api-client-react";
+import { ORG_ID } from "@/lib/constants";
 
 const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
   draft: { bg: "bg-muted/50", text: "text-muted-foreground" },
@@ -85,7 +86,7 @@ export default function Routes() {
                       </span>
 
                       <a
-                        href={getExportRouteUrl(route.id)}
+                        href={`${getExportRouteUrl(route.id)}?organizationId=${ORG_ID}`}
                         download={`${route.name}.csv`}
                         className="p-2 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
                         title="Export CSV"
