@@ -1,7 +1,8 @@
 import { Router, type IRouter } from "express";
-import { eq, inArray } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { db, vehiclesTable, stopsTable, routesTable } from "@workspace/db";
 import { OptimizeRoutesBody } from "@workspace/api-zod";
+import { handleError } from "../lib/errors";
 
 function haversineDistance(
   lat1: number,
@@ -63,9 +64,8 @@ function nearestNeighborAssignment(
   }
 
   const unassigned: StopData[] = [];
-  const remaining = [...stops];
 
-  const sortedByTimeWindow = remaining.sort((a, b) => {
+  const sortedByTimeWindow = [...stops].sort((a, b) => {
     if (a.timeWindowStart && b.timeWindowStart) {
       return a.timeWindowStart.getTime() - b.timeWindowStart.getTime();
     }
@@ -139,12 +139,32 @@ router.post("/optimize", async (req, res) => {
     const vehicles = await db
       .select()
       .from(vehiclesTable)
-      .where(inArray(vehiclesTable.id, vehicleIds));
+      .where(
+        and(
+          inArray(vehiclesTable.id, vehicleIds),
+          eq(vehiclesTable.organizationId, organizationId)
+        )
+      );
+
+    if (vehicles.length !== vehicleIds.length) {
+      res.status(400).json({ error: "One or more vehicles do not belong to the specified organization" });
+      return;
+    }
 
     const stops = await db
       .select()
       .from(stopsTable)
-      .where(inArray(stopsTable.id, stopIds));
+      .where(
+        and(
+          inArray(stopsTable.id, stopIds),
+          eq(stopsTable.organizationId, organizationId)
+        )
+      );
+
+    if (stops.length !== stopIds.length) {
+      res.status(400).json({ error: "One or more stops do not belong to the specified organization" });
+      return;
+    }
 
     const { assigned, unassigned } = nearestNeighborAssignment(
       stops,
@@ -196,7 +216,12 @@ router.post("/optimize", async (req, res) => {
             routeId: route.id,
             sequenceOrder: i + 1,
           })
-          .where(eq(stopsTable.id, stop.id));
+          .where(
+            and(
+              eq(stopsTable.id, stop.id),
+              eq(stopsTable.organizationId, organizationId)
+            )
+          );
 
         optimizedStops.push({
           stopId: stop.id,
@@ -238,8 +263,8 @@ router.post("/optimize", async (req, res) => {
       totalDurationMin: Math.round(totalDurationMin * 100) / 100,
       unassignedStopIds: unassigned.map((s) => s.id),
     });
-  } catch (err: any) {
-    res.status(400).json({ error: err.message });
+  } catch (err) {
+    handleError(res, err);
   }
 });
 

@@ -1,7 +1,8 @@
 import { Router, type IRouter } from "express";
-import { eq, sql, count, sum } from "drizzle-orm";
+import { eq, and, sql, count, sum } from "drizzle-orm";
 import { db, routesTable, stopsTable, vehiclesTable } from "@workspace/db";
 import { GetDashboardStatsQueryParams } from "@workspace/api-zod";
+import { handleError } from "../lib/errors";
 
 const router: IRouter = Router();
 
@@ -33,7 +34,12 @@ router.get("/dashboard/stats", async (req, res) => {
         activeVehicles: count(),
       })
       .from(vehiclesTable)
-      .where(eq(vehiclesTable.organizationId, organizationId));
+      .where(
+        and(
+          eq(vehiclesTable.organizationId, organizationId),
+          eq(vehiclesTable.isActive, true)
+        )
+      );
 
     res.json({
       totalRoutes: routeStats?.totalRoutes ?? 0,
@@ -45,8 +51,8 @@ router.get("/dashboard/stats", async (req, res) => {
       pendingStops: Number(stopStats?.pendingStops ?? 0),
       co2EmissionsKg: Number(routeStats?.co2EmissionsKg ?? 0),
     });
-  } catch (err: any) {
-    res.status(400).json({ error: err.message });
+  } catch (err) {
+    handleError(res, err);
   }
 });
 
