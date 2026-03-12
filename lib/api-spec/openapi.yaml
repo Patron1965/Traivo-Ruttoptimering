@@ -529,6 +529,14 @@ paths:
 
 components:
   schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
     HealthStatus:
       type: object
       properties:

@@ -14,6 +14,7 @@ export * from "./createStopBody";
 export * from "./createVehicleBody";
 export * from "./createVehicleBodyVehicleType";
 export * from "./dashboardStats";
+export * from "./error";
 export * from "./getDashboardStatsParams";
 export * from "./getInsightsEnhance";
 export * from "./getInsightsParams";
