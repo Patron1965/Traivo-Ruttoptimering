@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db, vehiclesTable } from "@workspace/db";
 import {
   CreateVehicleBody,
@@ -26,10 +26,13 @@ router.get("/vehicles", async (req, res) => {
 router.get("/vehicles/:id", async (req, res) => {
   try {
     const { id } = parseUuidParam(req.params);
+    const orgId = req.query.organizationId as string | undefined;
+    const conditions = [eq(vehiclesTable.id, id)];
+    if (orgId) conditions.push(eq(vehiclesTable.organizationId, orgId));
     const [vehicle] = await db
       .select()
       .from(vehiclesTable)
-      .where(eq(vehiclesTable.id, id));
+      .where(and(...conditions));
     if (!vehicle) {
       res.status(404).json({ error: "Vehicle not found" });
       return;
@@ -54,10 +57,13 @@ router.put("/vehicles/:id", async (req, res) => {
   try {
     const { id } = parseUuidParam(req.params);
     const data = UpdateVehicleBody.parse(req.body);
+    const orgId = req.query.organizationId as string | undefined;
+    const conditions = [eq(vehiclesTable.id, id)];
+    if (orgId) conditions.push(eq(vehiclesTable.organizationId, orgId));
     const [vehicle] = await db
       .update(vehiclesTable)
       .set(data)
-      .where(eq(vehiclesTable.id, id))
+      .where(and(...conditions))
       .returning();
     if (!vehicle) {
       res.status(404).json({ error: "Vehicle not found" });
@@ -72,9 +78,12 @@ router.put("/vehicles/:id", async (req, res) => {
 router.delete("/vehicles/:id", async (req, res) => {
   try {
     const { id } = parseUuidParam(req.params);
+    const orgId = req.query.organizationId as string | undefined;
+    const conditions = [eq(vehiclesTable.id, id)];
+    if (orgId) conditions.push(eq(vehiclesTable.organizationId, orgId));
     const [deleted] = await db
       .delete(vehiclesTable)
-      .where(eq(vehiclesTable.id, id))
+      .where(and(...conditions))
       .returning();
     if (!deleted) {
       res.status(404).json({ error: "Vehicle not found" });

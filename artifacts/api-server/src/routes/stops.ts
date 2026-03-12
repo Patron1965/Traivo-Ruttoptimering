@@ -30,10 +30,13 @@ router.get("/stops", async (req, res) => {
 router.get("/stops/:id", async (req, res) => {
   try {
     const { id } = parseUuidParam(req.params);
+    const orgId = req.query.organizationId as string | undefined;
+    const conditions = [eq(stopsTable.id, id)];
+    if (orgId) conditions.push(eq(stopsTable.organizationId, orgId));
     const [stop] = await db
       .select()
       .from(stopsTable)
-      .where(eq(stopsTable.id, id));
+      .where(and(...conditions));
     if (!stop) {
       res.status(404).json({ error: "Stop not found" });
       return;
@@ -58,10 +61,13 @@ router.put("/stops/:id", async (req, res) => {
   try {
     const { id } = parseUuidParam(req.params);
     const data = UpdateStopBody.parse(req.body);
+    const orgId = req.query.organizationId as string | undefined;
+    const conditions = [eq(stopsTable.id, id)];
+    if (orgId) conditions.push(eq(stopsTable.organizationId, orgId));
     const [stop] = await db
       .update(stopsTable)
       .set(data)
-      .where(eq(stopsTable.id, id))
+      .where(and(...conditions))
       .returning();
     if (!stop) {
       res.status(404).json({ error: "Stop not found" });
@@ -76,9 +82,12 @@ router.put("/stops/:id", async (req, res) => {
 router.delete("/stops/:id", async (req, res) => {
   try {
     const { id } = parseUuidParam(req.params);
+    const orgId = req.query.organizationId as string | undefined;
+    const conditions = [eq(stopsTable.id, id)];
+    if (orgId) conditions.push(eq(stopsTable.organizationId, orgId));
     const [deleted] = await db
       .delete(stopsTable)
-      .where(eq(stopsTable.id, id))
+      .where(and(...conditions))
       .returning();
     if (!deleted) {
       res.status(404).json({ error: "Stop not found" });

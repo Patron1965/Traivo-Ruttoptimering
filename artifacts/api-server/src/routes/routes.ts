@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
+import { eq, and, isNull } from "drizzle-orm";
 import { db, routesTable, stopsTable } from "@workspace/db";
 import {
   CreateRouteBody,
@@ -26,10 +26,13 @@ router.get("/routes", async (req, res) => {
 router.get("/routes/:id", async (req, res) => {
   try {
     const { id } = parseUuidParam(req.params);
+    const orgId = req.query.organizationId as string | undefined;
+    const conditions = [eq(routesTable.id, id)];
+    if (orgId) conditions.push(eq(routesTable.organizationId, orgId));
     const [route] = await db
       .select()
       .from(routesTable)
-      .where(eq(routesTable.id, id));
+      .where(and(...conditions));
     if (!route) {
       res.status(404).json({ error: "Route not found" });
       return;
@@ -54,10 +57,13 @@ router.put("/routes/:id", async (req, res) => {
   try {
     const { id } = parseUuidParam(req.params);
     const data = UpdateRouteBody.parse(req.body);
+    const orgId = req.query.organizationId as string | undefined;
+    const conditions = [eq(routesTable.id, id)];
+    if (orgId) conditions.push(eq(routesTable.organizationId, orgId));
     const [route] = await db
       .update(routesTable)
       .set({ ...data, updatedAt: new Date() })
-      .where(eq(routesTable.id, id))
+      .where(and(...conditions))
       .returning();
     if (!route) {
       res.status(404).json({ error: "Route not found" });
@@ -72,10 +78,18 @@ router.put("/routes/:id", async (req, res) => {
 router.delete("/routes/:id", async (req, res) => {
   try {
     const { id } = parseUuidParam(req.params);
-    await db.delete(stopsTable).where(eq(stopsTable.routeId, id));
+    const orgId = req.query.organizationId as string | undefined;
+    const conditions = [eq(routesTable.id, id)];
+    if (orgId) conditions.push(eq(routesTable.organizationId, orgId));
+
+    await db
+      .update(stopsTable)
+      .set({ routeId: null, sequenceOrder: null })
+      .where(eq(stopsTable.routeId, id));
+
     const [deleted] = await db
       .delete(routesTable)
-      .where(eq(routesTable.id, id))
+      .where(and(...conditions))
       .returning();
     if (!deleted) {
       res.status(404).json({ error: "Route not found" });
