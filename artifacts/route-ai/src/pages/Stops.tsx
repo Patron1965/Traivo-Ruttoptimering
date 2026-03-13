@@ -17,16 +17,26 @@ import { type Stop, useImportStops } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 
+const optionalNumber = z.preprocess(
+  (val) => (val === "" || val === null || val === undefined ? null : Number(val)),
+  z.number().nullable().optional()
+);
+
+const optionalString = z.preprocess(
+  (val) => (val === "" ? null : val),
+  z.string().nullable().optional()
+);
+
 const createStopSchema = (t: (key: string) => string) => z.object({
   address: z.string().min(1, t("stops.addressRequired")),
   notes: z.string().optional(),
   latitude: z.coerce.number().min(-90).max(90),
   longitude: z.coerce.number().min(-180).max(180),
   serviceDurationMin: z.coerce.number().min(1),
-  weightKg: z.coerce.number().optional().nullable(),
-  volumeM3: z.coerce.number().optional().nullable(),
-  timeWindowStart: z.string().optional().nullable(),
-  timeWindowEnd: z.string().optional().nullable(),
+  weightKg: optionalNumber,
+  volumeM3: optionalNumber,
+  timeWindowStart: optionalString,
+  timeWindowEnd: optionalString,
 });
 
 type StopFormValues = z.infer<ReturnType<typeof createStopSchema>>;
@@ -299,11 +309,11 @@ function StopForm({ initialData, onSuccess }: { initialData?: Stop, onSuccess: (
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>{t("stops.weightKg")}</Label>
-          <Input type="number" {...register("weightKg")} placeholder={t("stops.weightPlaceholder")} />
+          <Input type="number" step="any" {...register("weightKg")} placeholder={t("stops.weightPlaceholder")} />
         </div>
         <div className="space-y-2">
           <Label>{t("stops.volumeM3")}</Label>
-          <Input type="number" {...register("volumeM3")} placeholder={t("stops.volumePlaceholder")} />
+          <Input type="number" step="any" {...register("volumeM3")} placeholder={t("stops.volumePlaceholder")} />
         </div>
       </div>
 
