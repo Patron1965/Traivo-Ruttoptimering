@@ -3,7 +3,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { useRoutes, useRouteStops } from "@/hooks/use-routes";
 import { useDrivers } from "@/hooks/use-drivers";
 import { useVehicles } from "@/hooks/use-vehicles";
-import { useStops } from "@/hooks/use-stops";
+import { useStops, useUpdateStop } from "@/hooks/use-stops";
 import { GanttTimeline } from "@/components/dispatch/GanttTimeline";
 import { StopDetailPanel } from "@/components/dispatch/StopDetailPanel";
 import { DispatchSidebar } from "@/components/dispatch/DispatchSidebar";
@@ -35,6 +35,8 @@ export default function Dispatch() {
   const { data: allStops, isLoading: loadingStops } = useStops();
   const { data: drivers } = useDrivers();
   const { data: vehicles } = useVehicles();
+
+  const updateStop = useUpdateStop();
 
   const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
   const [selectedRowIdx, setSelectedRowIdx] = useState<number>(0);
@@ -233,6 +235,43 @@ export default function Dispatch() {
     [selectedStopId],
   );
 
+  const handleReassignStops = useCallback(
+    async (stopIds: string[], targetRouteId: string) => {
+      const newRouteId = targetRouteId === "unplanned" ? null : targetRouteId;
+      const targetRow = scheduledRows.find((r) => r.routeId === targetRouteId);
+      const existingStopsCount = targetRow?.stops.length ?? 0;
+
+      try {
+        await Promise.all(
+          stopIds.map((stopId, idx) => {
+            const stop = allStops?.find((s) => s.id === stopId);
+            if (!stop) return Promise.resolve();
+            return updateStop.mutateAsync({
+              id: stopId,
+              data: {
+                address: stop.address,
+                latitude: stop.latitude,
+                longitude: stop.longitude,
+                routeId: newRouteId,
+                sequenceOrder: existingStopsCount + idx + 1,
+              },
+            });
+          }),
+        );
+        toast({
+          title: t("dispatch.stopsReassigned"),
+          description: t("dispatch.stopsReassignedDesc", { count: stopIds.length }),
+        });
+      } catch {
+        toast({
+          title: t("common.somethingWentWrong"),
+          variant: "destructive",
+        });
+      }
+    },
+    [allStops, scheduledRows, updateStop, toast, t],
+  );
+
   const handleDividerMouseDown = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
@@ -427,6 +466,7 @@ export default function Dispatch() {
                   highlightedRouteId={highlightedRouteId}
                   onHighlightRoute={handleSetHighlightRoute}
                   scrollToRouteId={highlightedRouteId}
+                  onReassignStops={handleReassignStops}
                 />
               </div>
             )}

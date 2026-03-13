@@ -12,6 +12,7 @@ import driversRouter from "./drivers";
 import trackingRouter from "./tracking";
 import notificationsRouter from "./notifications";
 import publicTrackingRouter from "./public-tracking";
+import osrmRouter from "./osrm";
 
 const router: IRouter = Router();
 
@@ -28,5 +29,6 @@ router.use(insightsRouter);
 router.use(driversRouter);
 router.use(notificationsRouter);
 router.use(publicTrackingRouter);
+router.use(osrmRouter);
 
 export default router;

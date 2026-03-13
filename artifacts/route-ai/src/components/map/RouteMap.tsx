@@ -8,6 +8,7 @@ import { formatDistance } from "@/lib/utils";
 import { MapPin, Truck, Warehouse, Battery, Navigation, Clock, Zap, Fuel } from "lucide-react";
 import { renderToString } from "react-dom/server";
 import { useTranslation } from "react-i18next";
+import { fetchRouteGeometry } from "@/lib/osrm";
 
 interface RouteData extends Route {
   stopsList: Stop[];
@@ -143,6 +144,39 @@ const createVehicleIcon = (heading: number, vehicleType: string) => {
   });
 };
 
+function useRouteGeometries(routes: RouteData[]) {
+  const [geometries, setGeometries] = useState<Map<string, [number, number][]>>(new Map());
+
+  const routeKey = routes.map(r => {
+    const sorted = [...r.stopsList].sort((a, b) => (a.sequenceOrder || 0) - (b.sequenceOrder || 0));
+    return `${r.id}:${sorted.map(s => `${s.latitude},${s.longitude}`).join(";")}`;
+  }).join("|");
+
+  useEffect(() => {
+    if (!routeKey) return;
+    let cancelled = false;
+    const fetchAll = async () => {
+      const newGeometries = new Map<string, [number, number][]>();
+      for (const route of routes) {
+        const sortedStops = [...route.stopsList].sort((a, b) => (a.sequenceOrder || 0) - (b.sequenceOrder || 0));
+        const waypoints: [number, number][] = [
+          [DEPOT_LOCATION.lat, DEPOT_LOCATION.lng],
+          ...sortedStops.map(s => [s.latitude, s.longitude] as [number, number]),
+          [DEPOT_LOCATION.lat, DEPOT_LOCATION.lng],
+        ];
+        const geometry = await fetchRouteGeometry(waypoints);
+        if (cancelled) return;
+        newGeometries.set(route.id, geometry);
+      }
+      if (!cancelled) setGeometries(newGeometries);
+    };
+    fetchAll();
+    return () => { cancelled = true; };
+  }, [routeKey]);
+
+  return geometries;
+}
+
 export function RouteMap({ 
   routes = [], 
   unassignedStops = [],
@@ -158,6 +192,7 @@ export function RouteMap({
 }: RouteMapProps) {
   const [mounted, setMounted] = useState(false);
   const { t } = useTranslation();
+  const routeGeometries = useRouteGeometries(routes);
 
   useEffect(() => {
     setMounted(true);
@@ -212,11 +247,14 @@ export function RouteMap({
       {routes.map((route, rIndex) => {
         const color = ROUTE_COLORS[rIndex % ROUTE_COLORS.length];
         const sortedStops = [...route.stopsList].sort((a, b) => (a.sequenceOrder || 0) - (b.sequenceOrder || 0));
-        const path: [number, number][] = [
+
+        const roadPath = routeGeometries.get(route.id);
+        const fallbackPath: [number, number][] = [
           [DEPOT_LOCATION.lat, DEPOT_LOCATION.lng],
           ...sortedStops.map(s => [s.latitude, s.longitude] as [number, number]),
           [DEPOT_LOCATION.lat, DEPOT_LOCATION.lng]
         ];
+        const path = roadPath || fallbackPath;
 
         const isDimmed =
           highlightedRouteId !== null && highlightedRouteId !== route.id;
