@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Map as MapIcon, Truck, MapPin, Route as RouteIcon, Command, Cpu, Leaf, Clock, Users, PlusCircle } from "lucide-react";
+import { LayoutDashboard, Map as MapIcon, Truck, MapPin, Route as RouteIcon, Command, Cpu, Leaf, Clock, Users, PlusCircle, CalendarClock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { LanguageSwitcher } from "./LanguageSwitcher";
@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { href: "/", labelKey: "sidebar.dashboard", icon: LayoutDashboard },
   { href: "/map", labelKey: "sidebar.liveMap", icon: MapIcon },
   { href: "/planner", labelKey: "sidebar.routePlanner", icon: Cpu },
+  { href: "/dispatch", labelKey: "sidebar.dispatch", icon: CalendarClock },
   { href: "/routes", labelKey: "sidebar.allRoutes", icon: RouteIcon },
   { href: "/routes/create", labelKey: "sidebar.createRoute", icon: PlusCircle },
   { href: "/vehicles", labelKey: "sidebar.fleet", icon: Truck },
