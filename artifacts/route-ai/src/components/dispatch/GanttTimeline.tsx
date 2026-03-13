@@ -15,9 +15,10 @@ interface GanttTimelineProps {
   onSelectStop: (stopId: string, rowIndex: number) => void;
   startHour?: number;
   endHour?: number;
+  zoomLevel?: number;
 }
 
-const HOUR_WIDTH = 120;
+const BASE_HOUR_WIDTH = 120;
 const ROW_HEIGHT = 56;
 const HEADER_HEIGHT = 36;
 const LABEL_WIDTH = 220;
@@ -32,12 +33,14 @@ export function GanttTimeline({
   onSelectStop,
   startHour = 6,
   endHour = 20,
+  zoomLevel = 1,
 }: GanttTimelineProps) {
   const { t } = useTranslation();
   const scrollRef = useRef<HTMLDivElement>(null);
   const labelScrollRef = useRef<HTMLDivElement>(null);
   const headerScrollRef = useRef<HTMLDivElement>(null);
 
+  const HOUR_WIDTH = BASE_HOUR_WIDTH * zoomLevel;
   const totalHours = endHour - startHour;
   const gridWidth = totalHours * HOUR_WIDTH;
 

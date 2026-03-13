@@ -319,6 +319,7 @@
     "drivers": "Förare",
     "routesLabel": "rutter",
     "noRoutes": "Inga aktiva rutter. Skapa eller optimera rutter först.",
+    "unplanned": "Oplanerad",
     "unassigned": "Otilldelad",
     "noVehicle": "Inget fordon",
     "stopDetails": "Stoppdetaljer",

@@ -20,6 +20,8 @@ interface RouteMapProps {
   center?: [number, number];
   zoom?: number;
   interactive?: boolean;
+  selectedStopId?: string | null;
+  onSelectStop?: (stopId: string) => void;
 }
 
 const createCustomIcon = (color: string, label?: string, isDepot = false) => {
@@ -53,6 +55,28 @@ const createCustomIcon = (color: string, label?: string, isDepot = false) => {
   });
 };
 
+const createSelectedIcon = (color: string, label?: string) => {
+  const iconHtml = renderToString(
+    <div className="relative flex items-center justify-center" style={{ width: 40, height: 40 }}>
+      <div className="absolute inset-0 rounded-full animate-ping opacity-30" style={{ backgroundColor: color }} />
+      <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill={color} stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="drop-shadow-lg">
+        <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
+        <circle cx="12" cy="10" r="3" fill="white"/>
+      </svg>
+      {label && (
+        <span className="absolute top-[7px] font-bold text-[11px] text-gray-900">{label}</span>
+      )}
+    </div>
+  );
+  return L.divIcon({
+    html: iconHtml,
+    className: "custom-leaflet-icon-selected",
+    iconSize: [40, 40],
+    iconAnchor: [20, 40],
+    popupAnchor: [0, -40],
+  });
+};
+
 const createVehicleIcon = (heading: number, vehicleType: string) => {
   const color = vehicleType === "electric" ? "#10B981" : "#F59E0B";
   const html = renderToString(
@@ -82,7 +106,9 @@ export function RouteMap({
   vehiclePositions = [],
   center = [DEPOT_LOCATION.lat, DEPOT_LOCATION.lng],
   zoom = 11,
-  interactive = true
+  interactive = true,
+  selectedStopId = null,
+  onSelectStop,
 }: RouteMapProps) {
   const [mounted, setMounted] = useState(false);
   const { t } = useTranslation();
@@ -156,11 +182,14 @@ export function RouteMap({
                 dashArray: route.status === "draft" ? "8, 8" : undefined
               }} 
             />
-            {sortedStops.map((stop, sIndex) => (
+            {sortedStops.map((stop, sIndex) => {
+              const isSelected = stop.id === selectedStopId;
+              return (
               <Marker 
                 key={stop.id} 
                 position={[stop.latitude, stop.longitude]}
-                icon={createCustomIcon(color, (sIndex + 1).toString())}
+                icon={isSelected ? createSelectedIcon(color, (sIndex + 1).toString()) : createCustomIcon(color, (sIndex + 1).toString())}
+                eventHandlers={onSelectStop ? { click: () => onSelectStop(stop.id) } : undefined}
               >
                 <Popup>
                   <div className="p-2 min-w-[200px]">
@@ -183,7 +212,8 @@ export function RouteMap({
                   </div>
                 </Popup>
               </Marker>
-            ))}
+              );
+            })}
           </div>
         );
       })}

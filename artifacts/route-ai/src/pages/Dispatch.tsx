@@ -11,7 +11,7 @@ import { LoadingState } from "@/components/ui/LoadingState";
 import { ROUTE_COLORS, ORG_ID } from "@/lib/constants";
 import { computeSchedule, type ScheduledRow, type ScheduledStop } from "@/lib/scheduling";
 import { useTranslation } from "react-i18next";
-import { CalendarClock, GripHorizontal } from "lucide-react";
+import { CalendarClock, GripHorizontal, ZoomIn, ZoomOut } from "lucide-react";
 import type { Route, Stop } from "@workspace/api-client-react";
 
 export default function Dispatch() {
@@ -24,6 +24,7 @@ export default function Dispatch() {
   const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
   const [selectedRowIdx, setSelectedRowIdx] = useState<number>(0);
   const [mapHeight, setMapHeight] = useState(45);
+  const [zoomLevel, setZoomLevel] = useState(1);
   const containerRef = useRef<HTMLDivElement>(null);
   const draggingRef = useRef(false);
 
@@ -82,7 +83,7 @@ export default function Dispatch() {
   );
 
   const scheduledRows: ScheduledRow[] = useMemo(() => {
-    return activeRoutes.map((route, idx) => {
+    const routeRows = activeRoutes.map((route, idx) => {
       const vehicle = route.vehicleId
         ? vehiclesById.get(route.vehicleId)
         : undefined;
@@ -115,7 +116,32 @@ export default function Dispatch() {
         stops: scheduled,
       };
     });
-  }, [activeRoutes, vehiclesById, driversById, stopsByRouteId, t]);
+
+    if (unassignedStops.length > 0) {
+      const today = new Date().toISOString().split("T")[0];
+      const unplannedScheduled = computeSchedule(unassignedStops, today);
+      const totalWeight = unplannedScheduled.reduce((s, st) => s + st.weightKg, 0);
+      const totalVolume = unplannedScheduled.reduce((s, st) => s + st.volumeM3, 0);
+      routeRows.push({
+        routeId: "unplanned",
+        routeName: t("dispatch.unplanned"),
+        driverId: null,
+        driverName: t("dispatch.unplanned"),
+        vehicleId: "",
+        vehicleName: t("dispatch.noVehicle"),
+        vehicleType: "fossil",
+        capacityKg: 0,
+        capacityVolume: 0,
+        totalWeightKg: totalWeight,
+        totalVolumeM3: totalVolume,
+        capacityPercent: 0,
+        color: "#64748B",
+        stops: unplannedScheduled,
+      });
+    }
+
+    return routeRows;
+  }, [activeRoutes, vehiclesById, driversById, stopsByRouteId, unassignedStops, t]);
 
   const mapRoutes = useMemo(() => {
     return activeRoutes.map((route, idx) => {
@@ -129,6 +155,23 @@ export default function Dispatch() {
       };
     });
   }, [activeRoutes, stopsByRouteId]);
+
+  const handleMapSelectStop = useCallback(
+    (stopId: string) => {
+      if (selectedStopId === stopId) {
+        setSelectedStopId(null);
+      } else {
+        setSelectedStopId(stopId);
+        for (let i = 0; i < scheduledRows.length; i++) {
+          if (scheduledRows[i].stops.some((s) => s.stopId === stopId)) {
+            setSelectedRowIdx(i);
+            break;
+          }
+        }
+      }
+    },
+    [selectedStopId, scheduledRows],
+  );
 
   const selectedStop = useMemo(() => {
     if (!selectedStopId) return null;
@@ -214,6 +257,8 @@ export default function Dispatch() {
                   routes={mapRoutes}
                   unassignedStops={unassignedStops}
                   interactive={true}
+                  selectedStopId={selectedStopId}
+                  onSelectStop={handleMapSelectStop}
                 />
               </div>
             </div>
@@ -237,11 +282,37 @@ export default function Dispatch() {
                 </div>
               </div>
             ) : (
-              <GanttTimeline
-                rows={scheduledRows}
-                selectedStopId={selectedStopId}
-                onSelectStop={handleSelectStop}
-              />
+              <div className="relative h-full">
+                <div className="absolute top-1 right-3 z-30 flex items-center gap-1 bg-card/90 backdrop-blur-sm rounded-md border border-border px-1.5 py-1 shadow-md">
+                  <button
+                    type="button"
+                    className="p-1 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
+                    onClick={() => setZoomLevel((z) => Math.max(0.5, +(z - 0.25).toFixed(2)))}
+                    disabled={zoomLevel <= 0.5}
+                    aria-label="Zoom out"
+                  >
+                    <ZoomOut className="h-3.5 w-3.5" />
+                  </button>
+                  <span className="text-[10px] font-mono text-muted-foreground min-w-[36px] text-center select-none" data-testid="zoom-level">
+                    {Math.round(zoomLevel * 100)}%
+                  </span>
+                  <button
+                    type="button"
+                    className="p-1 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
+                    onClick={() => setZoomLevel((z) => Math.min(3, +(z + 0.25).toFixed(2)))}
+                    disabled={zoomLevel >= 3}
+                    aria-label="Zoom in"
+                  >
+                    <ZoomIn className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <GanttTimeline
+                  rows={scheduledRows}
+                  selectedStopId={selectedStopId}
+                  onSelectStop={handleSelectStop}
+                  zoomLevel={zoomLevel}
+                />
+              </div>
             )}
           </div>
         </div>

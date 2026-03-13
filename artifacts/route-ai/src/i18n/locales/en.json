@@ -319,6 +319,7 @@
     "drivers": "Drivers",
     "routesLabel": "routes",
     "noRoutes": "No active routes. Create or optimize routes first.",
+    "unplanned": "Unplanned",
     "unassigned": "Unassigned",
     "noVehicle": "No vehicle",
     "stopDetails": "Stop Details",
