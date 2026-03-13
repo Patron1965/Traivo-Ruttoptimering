@@ -10,6 +10,7 @@ import Vehicles from "@/pages/Vehicles";
 import Stops from "@/pages/Stops";
 import Planner from "@/pages/Planner";
 import Routes from "@/pages/Routes";
+import CreateRoute from "@/pages/CreateRoute";
 import Sustainability from "@/pages/Sustainability";
 import RouteHistory from "@/pages/RouteHistory";
 import Drivers from "@/pages/Drivers";
@@ -35,6 +36,7 @@ function AppRouter() {
       <Route path="/stops" component={Stops} />
       <Route path="/planner" component={Planner} />
       <Route path="/routes" component={Routes} />
+      <Route path="/routes/create" component={CreateRoute} />
       <Route path="/sustainability" component={Sustainability} />
       <Route path="/history" component={RouteHistory} />
       <Route path="/drivers" component={Drivers} />

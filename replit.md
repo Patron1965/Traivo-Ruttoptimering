@@ -150,7 +150,7 @@ Generated React Query hooks and fetch client from the OpenAPI spec.
 
 React + Vite frontend for RouteAI. Dark-mode UI with sidebar navigation.
 
-- Pages: Dashboard (`/`), Live Map (`/map`), Route Planner (`/planner`), All Routes (`/routes`), Fleet (`/vehicles`), Drivers (`/drivers`), Stops (`/stops`), CO₂ Dashboard (`/sustainability`), Route History (`/history`), Public Tracking (`/track/:code`)
+- Pages: Dashboard (`/`), Live Map (`/map`), Route Planner (`/planner`), All Routes (`/routes`), Create Route (`/routes/create`), Fleet (`/vehicles`), Drivers (`/drivers`), Stops (`/stops`), CO₂ Dashboard (`/sustainability`), Route History (`/history`), Public Tracking (`/track/:code`)
 - Uses `@workspace/api-client-react` generated React Query hooks for all API calls
 - Leaflet map with OpenStreetMap tiles for route visualization
 - Hardcoded ORG_ID: `63e7175d-af1d-4dc3-be62-842a8b3dc9f8` (Stockholm Logistics AB)

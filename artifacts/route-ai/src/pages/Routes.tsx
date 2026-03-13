@@ -3,9 +3,11 @@ import { useDrivers, useUpdateDriver } from "@/hooks/use-drivers";
 import { useVehicles } from "@/hooks/use-vehicles";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { LoadingState } from "@/components/ui/LoadingState";
-import { Route as RouteIcon, Trash2, MapPin, Clock, Gauge, Download, User } from "lucide-react";
+import { Route as RouteIcon, Trash2, MapPin, Clock, Gauge, Download, User, Plus } from "lucide-react";
+import { Link } from "wouter";
 import { format } from "date-fns";
 import { sv, enUS } from "date-fns/locale";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { type Route, getExportRouteUrl } from "@workspace/api-client-react";
 import { ORG_ID } from "@/lib/constants";
@@ -75,6 +77,12 @@ export default function Routes() {
             <h1 className="text-3xl font-bold tracking-tight">{t("routes.title")}</h1>
             <p className="text-muted-foreground mt-1">{t("routes.subtitle")}</p>
           </div>
+          <Link href="/routes/create">
+            <Button className="gap-2">
+              <Plus className="h-4 w-4" />
+              {t("routes.createRoute")}
+            </Button>
+          </Link>
         </div>
 
         {isLoading && <LoadingState message={t("routes.loadingRoutes")} />}

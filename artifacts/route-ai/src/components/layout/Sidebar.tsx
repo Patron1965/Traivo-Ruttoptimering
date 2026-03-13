@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Map as MapIcon, Truck, MapPin, Route as RouteIcon, Command, Cpu, Leaf, Clock, Users } from "lucide-react";
+import { LayoutDashboard, Map as MapIcon, Truck, MapPin, Route as RouteIcon, Command, Cpu, Leaf, Clock, Users, PlusCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { LanguageSwitcher } from "./LanguageSwitcher";
@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { href: "/map", labelKey: "sidebar.liveMap", icon: MapIcon },
   { href: "/planner", labelKey: "sidebar.routePlanner", icon: Cpu },
   { href: "/routes", labelKey: "sidebar.allRoutes", icon: RouteIcon },
+  { href: "/routes/create", labelKey: "sidebar.createRoute", icon: PlusCircle },
   { href: "/vehicles", labelKey: "sidebar.fleet", icon: Truck },
   { href: "/drivers", labelKey: "sidebar.drivers", icon: Users },
   { href: "/stops", labelKey: "sidebar.stops", icon: MapPin },
@@ -31,7 +32,7 @@ export function Sidebar({ className }: { className?: string }) {
       
       <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
         {NAV_ITEMS.map((item) => {
-          const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
+          const isActive = location === item.href;
           return (
             <Link 
               key={item.href} 
