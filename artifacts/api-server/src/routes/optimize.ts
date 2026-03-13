@@ -5,7 +5,7 @@ import { OptimizeRoutesBody } from "@workspace/api-zod";
 import { handleError } from "../lib/errors";
 import crypto from "crypto";
 
-function generateTrackingCode(): string {
+function generateTrackingCodeRaw(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const random = crypto.randomBytes(4);
   let code = "RT-";
@@ -13,6 +13,21 @@ function generateTrackingCode(): string {
     code += chars[random[i] % chars.length];
   }
   return code;
+}
+
+async function generateUniqueTrackingCode(): Promise<string> {
+  const MAX_RETRIES = 10;
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    const code = generateTrackingCodeRaw();
+    const existing = await db
+      .select({ id: stopsTable.id })
+      .from(stopsTable)
+      .where(eq(stopsTable.trackingCode, code))
+      .limit(1);
+    if (existing.length === 0) return code;
+  }
+  const fallback = crypto.randomBytes(6).toString("hex").toUpperCase();
+  return `RT-${fallback}`;
 }
 
 const CHARGING_STATIONS = [
@@ -398,7 +413,7 @@ router.post("/optimize", async (req, res) => {
             : arrivalTime;
 
           seqOrder++;
-          const trackingCode1 = generateTrackingCode();
+          const trackingCode1 = await generateUniqueTrackingCode();
           await db
             .update(stopsTable)
             .set({ routeId: route.id, sequenceOrder: seqOrder, trackingCode: trackingCode1 })
@@ -428,7 +443,7 @@ router.post("/optimize", async (req, res) => {
             : arrivalTime;
 
           seqOrder++;
-          const trackingCode2 = generateTrackingCode();
+          const trackingCode2 = await generateUniqueTrackingCode();
           await db
             .update(stopsTable)
             .set({ routeId: route.id, sequenceOrder: seqOrder, trackingCode: trackingCode2 })

@@ -202,6 +202,25 @@ router.get("/vehicles/positions", async (req, res) => {
               message: `${vehicle.name} has arrived at ${stop.address}`,
               relatedEntityId: stop.id,
             });
+
+            const allStopsForRoute = stops;
+            const isFirstActive = allStopsForRoute.every(
+              (s) => s.id === stop.id || s.status === "pending"
+            );
+            if (isFirstActive) {
+              await db
+                .update(routesTable)
+                .set({ status: "in_progress", updatedAt: new Date() })
+                .where(eq(routesTable.id, route.id));
+
+              await db.insert(notificationsTable).values({
+                organizationId,
+                type: "route_started",
+                title: `Route ${route.name} started`,
+                message: `${vehicle.name} has started route ${route.name}`,
+                relatedEntityId: route.id,
+              });
+            }
           }
         } else if (distToStop > GEOFENCE_RADIUS_KM && stop.status === "in_progress") {
           const existingExit = await db
@@ -239,6 +258,36 @@ router.get("/vehicles/positions", async (req, res) => {
               message: `${vehicle.name} has departed from ${stop.address}`,
               relatedEntityId: stop.id,
             });
+
+            await db.insert(notificationsTable).values({
+              organizationId,
+              type: "stop_completed",
+              title: `Delivery completed`,
+              message: `${vehicle.name} completed delivery at ${stop.address}`,
+              relatedEntityId: stop.id,
+            });
+
+            const freshStops = await db
+              .select()
+              .from(stopsTable)
+              .where(eq(stopsTable.routeId, route.id));
+            const allDone = freshStops.every(
+              (s) => s.status === "completed" || s.status === "failed" || s.status === "skipped"
+            );
+            if (allDone) {
+              await db
+                .update(routesTable)
+                .set({ status: "completed", updatedAt: new Date() })
+                .where(eq(routesTable.id, route.id));
+
+              await db.insert(notificationsTable).values({
+                organizationId,
+                type: "route_completed",
+                title: `Route ${route.name} completed`,
+                message: `All deliveries on route ${route.name} have been completed`,
+                relatedEntityId: route.id,
+              });
+            }
           }
         }
       }

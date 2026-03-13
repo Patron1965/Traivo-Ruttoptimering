@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and } from "drizzle-orm";
-import { db, stopsTable } from "@workspace/db";
+import { db, stopsTable, notificationsTable, vehiclesTable, routesTable } from "@workspace/db";
 import {
   CreateStopBody,
   UpdateStopBody,
@@ -92,6 +92,12 @@ router.put("/stops/:id", async (req, res) => {
     const orgId = req.query.organizationId as string | undefined;
     const conditions = [eq(stopsTable.id, id)];
     if (orgId) conditions.push(eq(stopsTable.organizationId, orgId));
+
+    const [existing] = await db
+      .select()
+      .from(stopsTable)
+      .where(and(...conditions));
+
     const [stop] = await db
       .update(stopsTable)
       .set(data)
@@ -101,6 +107,31 @@ router.put("/stops/:id", async (req, res) => {
       res.status(404).json({ error: "Stop not found" });
       return;
     }
+
+    if (existing && existing.status !== "failed" && stop.status === "failed" && orgId) {
+      let vehicleName = "Vehicle";
+      if (stop.routeId) {
+        const [route] = await db
+          .select()
+          .from(routesTable)
+          .where(eq(routesTable.id, stop.routeId));
+        if (route?.vehicleId) {
+          const [vehicle] = await db
+            .select()
+            .from(vehiclesTable)
+            .where(eq(vehiclesTable.id, route.vehicleId));
+          if (vehicle) vehicleName = vehicle.name;
+        }
+      }
+      await db.insert(notificationsTable).values({
+        organizationId: orgId,
+        type: "stop_failed",
+        title: `Delivery failed`,
+        message: `${vehicleName} failed delivery at ${stop.address}`,
+        relatedEntityId: stop.id,
+      });
+    }
+
     res.json(stop);
   } catch (err) {
     handleError(res, err);
