@@ -333,7 +333,9 @@
     "distance": "Distance",
     "travelTime": "Travel Time",
     "serviceTime": "Service Time",
-    "loadInfo": "Load"
+    "loadInfo": "Load",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out"
   },
   "notFound": {
     "title": "404",

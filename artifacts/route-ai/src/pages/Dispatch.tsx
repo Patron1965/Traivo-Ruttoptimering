@@ -289,7 +289,7 @@ export default function Dispatch() {
                     className="p-1 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
                     onClick={() => setZoomLevel((z) => Math.max(0.5, +(z - 0.25).toFixed(2)))}
                     disabled={zoomLevel <= 0.5}
-                    aria-label="Zoom out"
+                    aria-label={t("dispatch.zoomOut")}
                   >
                     <ZoomOut className="h-3.5 w-3.5" />
                   </button>
@@ -301,7 +301,7 @@ export default function Dispatch() {
                     className="p-1 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
                     onClick={() => setZoomLevel((z) => Math.min(3, +(z + 0.25).toFixed(2)))}
                     disabled={zoomLevel >= 3}
-                    aria-label="Zoom in"
+                    aria-label={t("dispatch.zoomIn")}
                   >
                     <ZoomIn className="h-3.5 w-3.5" />
                   </button>

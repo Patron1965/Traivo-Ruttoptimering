@@ -278,11 +278,14 @@ export function RouteMap({
           </Popup>
         </Marker>
       ))}
-      {unassignedStops.map((stop) => (
+      {unassignedStops.map((stop) => {
+        const isSelected = stop.id === selectedStopId;
+        return (
         <Marker 
           key={stop.id} 
           position={[stop.latitude, stop.longitude]}
-          icon={createCustomIcon("#64748B")}
+          icon={isSelected ? createSelectedIcon("#64748B") : createCustomIcon("#64748B")}
+          eventHandlers={onSelectStop ? { click: () => onSelectStop(stop.id) } : undefined}
         >
           <Popup>
             <div className="p-2 min-w-[200px]">
@@ -294,7 +297,8 @@ export function RouteMap({
             </div>
           </Popup>
         </Marker>
-      ))}
+        );
+      })}
     </MapContainer>
   );
 }

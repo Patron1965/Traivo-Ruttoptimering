@@ -333,7 +333,9 @@
     "distance": "Avstånd",
     "travelTime": "Restid",
     "serviceTime": "Servicetid",
-    "loadInfo": "Last"
+    "loadInfo": "Last",
+    "zoomIn": "Zooma in",
+    "zoomOut": "Zooma ut"
   },
   "notFound": {
     "title": "404",
