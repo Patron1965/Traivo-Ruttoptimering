@@ -216,8 +216,8 @@ export function RouteMap({
       <MapFlyTo routes={routes} unassignedStops={unassignedStops} focusStopId={focusStopId} />
       <ZoomControl position="bottomright" />
       <TileLayer
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        url="https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png"
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://stadiamaps.com/">Stadia Maps</a>'
       />
 
       <Marker position={[DEPOT_LOCATION.lat, DEPOT_LOCATION.lng]} icon={createCustomIcon("#06B6D4", undefined, true)}>
