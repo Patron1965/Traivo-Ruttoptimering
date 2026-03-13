@@ -47,13 +47,23 @@ export default function Routes() {
   }, [vehicles]);
 
   const handleAssignDriver = (vehicleId: string, driverId: string) => {
+    const current = driverByVehicleId.get(vehicleId);
     if (driverId === "__none__") {
-      const current = driverByVehicleId.get(vehicleId);
       if (current) {
         updateDriver.mutate({ id: current.id, data: { vehicleId: null }, params: { organizationId: ORG_ID } });
       }
     } else {
-      updateDriver.mutate({ id: driverId, data: { vehicleId }, params: { organizationId: ORG_ID } });
+      const doAssign = () => {
+        updateDriver.mutate({ id: driverId, data: { vehicleId }, params: { organizationId: ORG_ID } });
+      };
+      if (current && current.id !== driverId) {
+        updateDriver.mutate(
+          { id: current.id, data: { vehicleId: null }, params: { organizationId: ORG_ID } },
+          { onSuccess: doAssign }
+        );
+      } else {
+        doAssign();
+      }
     }
   };
 

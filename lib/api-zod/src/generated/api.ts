@@ -489,7 +489,7 @@ export const GetDashboardStatsResponse = zod.object({
   completedRoutes: zod.number(),
   pendingStops: zod.number(),
   co2EmissionsKg: zod.number(),
-  activeDrivers: zod.number().optional(),
+  activeDrivers: zod.number(),
 });
 
 /**

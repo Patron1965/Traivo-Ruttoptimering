@@ -1345,6 +1345,7 @@ components:
         - completedRoutes
         - pendingStops
         - co2EmissionsKg
+        - activeDrivers
 
     SustainabilityStats:
       type: object
