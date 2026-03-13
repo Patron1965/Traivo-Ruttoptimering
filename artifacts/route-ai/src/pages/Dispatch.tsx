@@ -96,7 +96,7 @@ export default function Dispatch() {
 
       const totalWeight = scheduled.reduce((s, st) => s + st.weightKg, 0);
       const totalVolume = scheduled.reduce((s, st) => s + st.volumeM3, 0);
-      const capKg = vehicle?.capacityKg ?? 1;
+      const capKg = vehicle?.capacityKg ?? 0;
       const capPct = capKg > 0 ? (totalWeight / capKg) * 100 : 0;
 
       return {
