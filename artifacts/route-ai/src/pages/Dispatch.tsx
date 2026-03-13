@@ -6,16 +6,31 @@ import { useVehicles } from "@/hooks/use-vehicles";
 import { useStops } from "@/hooks/use-stops";
 import { GanttTimeline } from "@/components/dispatch/GanttTimeline";
 import { StopDetailPanel } from "@/components/dispatch/StopDetailPanel";
+import { DispatchSidebar } from "@/components/dispatch/DispatchSidebar";
 import { RouteMap } from "@/components/map/RouteMap";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { ROUTE_COLORS, ORG_ID } from "@/lib/constants";
 import { computeSchedule, type ScheduledRow, type ScheduledStop } from "@/lib/scheduling";
 import { useTranslation } from "react-i18next";
-import { CalendarClock, GripHorizontal, ZoomIn, ZoomOut } from "lucide-react";
+import { useLocation } from "wouter";
+import { useToast } from "@/hooks/use-toast";
+import {
+  CalendarClock,
+  GripHorizontal,
+  ZoomIn,
+  ZoomOut,
+  Sparkles,
+  Send,
+  MapPin,
+  Route as RouteIcon,
+  Package,
+} from "lucide-react";
 import type { Route, Stop } from "@workspace/api-client-react";
 
 export default function Dispatch() {
   const { t } = useTranslation();
+  const [, navigate] = useLocation();
+  const { toast } = useToast();
   const { data: routes, isLoading: loadingRoutes } = useRoutes();
   const { data: allStops, isLoading: loadingStops } = useStops();
   const { data: drivers } = useDrivers();
@@ -23,8 +38,11 @@ export default function Dispatch() {
 
   const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
   const [selectedRowIdx, setSelectedRowIdx] = useState<number>(0);
+  const [highlightedRouteId, setHighlightedRouteId] = useState<string | null>(null);
+  const [focusStopId, setFocusStopId] = useState<string | null>(null);
   const [mapHeight, setMapHeight] = useState(45);
   const [zoomLevel, setZoomLevel] = useState(1);
+  const [planLiveMode, setPlanLiveMode] = useState<"plan" | "live">("plan");
   const containerRef = useRef<HTMLDivElement>(null);
   const draggingRef = useRef(false);
 
@@ -143,6 +161,9 @@ export default function Dispatch() {
     return routeRows;
   }, [activeRoutes, vehiclesById, driversById, stopsByRouteId, unassignedStops, t]);
 
+  const totalStopsCount = scheduledRows.reduce((s, r) => s + r.stops.length, 0);
+  const routeRowsCount = scheduledRows.filter((r) => r.routeId !== "unplanned").length;
+
   const mapRoutes = useMemo(() => {
     return activeRoutes.map((route, idx) => {
       const routeStops = stopsByRouteId.get(route.id) || [];
@@ -155,6 +176,20 @@ export default function Dispatch() {
       };
     });
   }, [activeRoutes, stopsByRouteId]);
+
+  const handleToggleHighlightRoute = useCallback(
+    (routeId: string) => {
+      setHighlightedRouteId((prev) => (prev === routeId ? null : routeId));
+    },
+    [],
+  );
+
+  const handleSetHighlightRoute = useCallback(
+    (routeId: string) => {
+      setHighlightedRouteId(routeId);
+    },
+    [],
+  );
 
   const handleMapSelectStop = useCallback(
     (stopId: string) => {
@@ -188,9 +223,11 @@ export default function Dispatch() {
     (stopId: string, rowIdx: number) => {
       if (selectedStopId === stopId) {
         setSelectedStopId(null);
+        setFocusStopId(null);
       } else {
         setSelectedStopId(stopId);
         setSelectedRowIdx(rowIdx);
+        setFocusStopId(stopId);
       }
     },
     [selectedStopId],
@@ -220,6 +257,13 @@ export default function Dispatch() {
     [],
   );
 
+  const todayStr = new Date().toLocaleDateString(undefined, {
+    weekday: "short",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+
   if (loadingRoutes || loadingStops) {
     return (
       <AppLayout>
@@ -231,19 +275,85 @@ export default function Dispatch() {
   return (
     <AppLayout>
       <div className="flex h-full w-full">
-        <div className="flex-1 flex flex-col" ref={containerRef}>
-          <div className="shrink-0 px-6 py-3 border-b border-border bg-card/80 backdrop-blur-sm flex items-center gap-3">
-            <CalendarClock className="h-5 w-5 text-primary" />
-            <div>
-              <h1 className="text-lg font-bold">{t("dispatch.title")}</h1>
-              <p className="text-xs text-muted-foreground">
-                {t("dispatch.subtitle", { count: scheduledRows.length })}
-              </p>
+        <DispatchSidebar
+          rows={scheduledRows}
+          highlightedRouteId={highlightedRouteId}
+          onSelectRoute={handleToggleHighlightRoute}
+          unplannedCount={unassignedStops.length}
+        />
+
+        <div className="flex-1 flex flex-col min-w-0" ref={containerRef}>
+          <div className="shrink-0 px-4 py-2 border-b border-border bg-card/80 backdrop-blur-sm flex items-center gap-3 flex-wrap">
+            <CalendarClock className="h-5 w-5 text-primary shrink-0" />
+            <div className="mr-2">
+              <h1 className="text-sm font-bold leading-tight">{t("dispatch.title")}</h1>
+              <p className="text-[11px] text-muted-foreground">{todayStr}</p>
             </div>
-            <div className="ml-auto text-xs text-muted-foreground">
-              {scheduledRows.reduce((s, r) => s + r.stops.length, 0)}{" "}
-              {t("common.stops")} ·{" "}
-              {scheduledRows.length} {t("dispatch.routesLabel")}
+
+            <div className="flex items-center bg-muted/50 rounded-md p-0.5 border border-border/50">
+              <button
+                type="button"
+                className={`px-2.5 py-1 text-[11px] font-semibold rounded transition-colors cursor-pointer ${
+                  planLiveMode === "plan"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                onClick={() => setPlanLiveMode("plan")}
+              >
+                {t("dispatch.planMode")}
+              </button>
+              <button
+                type="button"
+                className={`px-2.5 py-1 text-[11px] font-semibold rounded transition-colors cursor-pointer ${
+                  planLiveMode === "live"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                onClick={() => setPlanLiveMode("live")}
+              >
+                {t("dispatch.liveMode")}
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2 ml-auto">
+              <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <RouteIcon className="h-3.5 w-3.5" />
+                  <span className="font-semibold text-foreground">{routeRowsCount}</span> {t("dispatch.routesLabel")}
+                </span>
+                <span className="flex items-center gap-1">
+                  <MapPin className="h-3.5 w-3.5" />
+                  <span className="font-semibold text-foreground">{totalStopsCount}</span> {t("common.stops")}
+                </span>
+                <span className={`flex items-center gap-1 ${unassignedStops.length > 0 ? "text-destructive" : ""}`}>
+                  <Package className="h-3.5 w-3.5" />
+                  <span className="font-semibold">{unassignedStops.length}</span> {t("dispatch.unplannedLabel")}
+                </span>
+              </div>
+
+              <div className="h-5 w-px bg-border/60 mx-1" />
+
+              <button
+                type="button"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold bg-primary/10 text-primary rounded-md hover:bg-primary/20 transition-colors cursor-pointer"
+                onClick={() => navigate("/planner")}
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                {t("dispatch.optimize")}
+              </button>
+              <button
+                type="button"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold bg-muted text-foreground rounded-md hover:bg-muted/80 transition-colors cursor-pointer"
+                onClick={() =>
+                  toast({
+                    title: t("dispatch.sentToDrivers"),
+                    description: t("dispatch.sentToDriversDesc"),
+                  })
+                }
+              >
+                <Send className="h-3.5 w-3.5" />
+                {t("dispatch.sendToDrivers")}
+              </button>
             </div>
           </div>
 
@@ -259,6 +369,9 @@ export default function Dispatch() {
                   interactive={true}
                   selectedStopId={selectedStopId}
                   onSelectStop={handleMapSelectStop}
+                  highlightedRouteId={highlightedRouteId}
+                  onHighlightRoute={handleSetHighlightRoute}
+                  focusStopId={focusStopId}
                 />
               </div>
             </div>
@@ -311,6 +424,9 @@ export default function Dispatch() {
                   selectedStopId={selectedStopId}
                   onSelectStop={handleSelectStop}
                   zoomLevel={zoomLevel}
+                  highlightedRouteId={highlightedRouteId}
+                  onHighlightRoute={handleSetHighlightRoute}
+                  scrollToRouteId={highlightedRouteId}
                 />
               </div>
             )}

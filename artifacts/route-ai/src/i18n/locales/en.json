@@ -345,7 +345,19 @@
     "serviceTime": "Service Time",
     "loadInfo": "Load",
     "zoomIn": "Zoom in",
-    "zoomOut": "Zoom out"
+    "zoomOut": "Zoom out",
+    "routesSidebar": "Routes",
+    "searchRoutes": "Search drivers or routes...",
+    "unplannedStops": "Unplanned stops",
+    "unplannedLabel": "unplanned",
+    "expandSidebar": "Expand sidebar",
+    "collapseSidebar": "Collapse sidebar",
+    "planMode": "Plan",
+    "liveMode": "Live",
+    "optimize": "Optimize",
+    "sendToDrivers": "Send to drivers",
+    "sentToDrivers": "Sent to drivers",
+    "sentToDriversDesc": "Route plans have been sent to all assigned drivers."
   },
   "tracking": {
     "loading": "Loading tracking info...",

@@ -1,4 +1,4 @@
-import { useRef, useMemo } from "react";
+import { useRef, useMemo, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { Truck, User, AlertTriangle } from "lucide-react";
@@ -16,10 +16,13 @@ interface GanttTimelineProps {
   startHour?: number;
   endHour?: number;
   zoomLevel?: number;
+  highlightedRouteId?: string | null;
+  onHighlightRoute?: (routeId: string) => void;
+  scrollToRouteId?: string | null;
 }
 
 const BASE_HOUR_WIDTH = 120;
-const ROW_HEIGHT = 56;
+const ROW_HEIGHT = 44;
 const HEADER_HEIGHT = 36;
 const LABEL_WIDTH = 220;
 
@@ -34,11 +37,23 @@ export function GanttTimeline({
   startHour = 6,
   endHour = 20,
   zoomLevel = 1,
+  highlightedRouteId = null,
+  onHighlightRoute,
+  scrollToRouteId = null,
 }: GanttTimelineProps) {
   const { t } = useTranslation();
   const scrollRef = useRef<HTMLDivElement>(null);
   const labelScrollRef = useRef<HTMLDivElement>(null);
   const headerScrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!scrollToRouteId) return;
+    const rowIndex = rows.findIndex((r) => r.routeId === scrollToRouteId);
+    if (rowIndex < 0) return;
+    const targetTop = rowIndex * ROW_HEIGHT;
+    scrollRef.current?.scrollTo({ top: targetTop, behavior: "smooth" });
+    labelScrollRef.current?.scrollTo({ top: targetTop, behavior: "smooth" });
+  }, [scrollToRouteId, rows]);
 
   const HOUR_WIDTH = BASE_HOUR_WIDTH * zoomLevel;
   const totalHours = endHour - startHour;
@@ -55,6 +70,11 @@ export function GanttTimeline({
     return ((h - startHour) / totalHours) * gridWidth;
   };
 
+  const now = new Date();
+  const nowX = timeToX(now);
+  const nowVisible =
+    now.getHours() >= startHour && now.getHours() < endHour;
+
   return (
     <div className="flex flex-col h-full bg-card/50 border-t border-border overflow-hidden">
       <div className="flex">
@@ -68,7 +88,7 @@ export function GanttTimeline({
         </div>
 
         <div ref={headerScrollRef} className="overflow-hidden flex-1" style={{ height: HEADER_HEIGHT }}>
-          <div className="flex" style={{ width: gridWidth }}>
+          <div className="relative flex" style={{ width: gridWidth }}>
             {hours.map((h) => (
               <div
                 key={h}
@@ -78,6 +98,12 @@ export function GanttTimeline({
                 {String(h).padStart(2, "0")}:00
               </div>
             ))}
+            {nowVisible && (
+              <div
+                className="absolute top-0 bottom-0 w-0.5 bg-destructive z-20"
+                style={{ left: nowX }}
+              />
+            )}
           </div>
         </div>
       </div>
@@ -93,13 +119,22 @@ export function GanttTimeline({
             }
           }}
         >
-          {rows.map((row) => {
+          {rows.map((row, rowIdx) => {
             const overCap = row.capacityPercent > 100;
+            const isDimmed =
+              highlightedRouteId !== null &&
+              highlightedRouteId !== row.routeId;
             return (
               <div
                 key={row.routeId}
-                className="flex items-center gap-2 px-3 border-b border-border/30"
+                className={cn(
+                  "flex items-center gap-2 px-3 border-b border-border/30 transition-all cursor-pointer hover:bg-muted/40",
+                  rowIdx % 2 === 1 && "bg-muted/10",
+                  isDimmed && "opacity-40",
+                  highlightedRouteId === row.routeId && "bg-primary/10",
+                )}
                 style={{ height: ROW_HEIGHT }}
+                onClick={() => onHighlightRoute?.(row.routeId)}
               >
                 <div
                   className="w-2.5 h-2.5 rounded-full shrink-0"
@@ -147,7 +182,15 @@ export function GanttTimeline({
             }
           }}
         >
-          <div style={{ width: gridWidth, minHeight: "100%" }}>
+          <div className="relative" style={{ width: gridWidth, minHeight: "100%" }}>
+            {nowVisible && (
+              <div
+                className="absolute top-0 bottom-0 w-0.5 bg-destructive/60 z-10 pointer-events-none"
+                style={{ left: nowX }}
+              >
+                <div className="absolute -top-0.5 -left-1 w-2.5 h-2.5 rounded-full bg-destructive" />
+              </div>
+            )}
             {rows.map((row, rowIdx) => (
               <GanttRow
                 key={row.routeId}
@@ -158,6 +201,12 @@ export function GanttTimeline({
                 timeToX={timeToX}
                 selectedStopId={selectedStopId}
                 onSelectStop={onSelectStop}
+                isDimmed={
+                  highlightedRouteId !== null &&
+                  highlightedRouteId !== row.routeId
+                }
+                isHighlighted={highlightedRouteId === row.routeId}
+                onHighlightRoute={onHighlightRoute}
               />
             ))}
           </div>
@@ -175,6 +224,9 @@ function GanttRow({
   timeToX,
   selectedStopId,
   onSelectStop,
+  isDimmed,
+  isHighlighted,
+  onHighlightRoute,
 }: {
   row: ScheduledRow;
   rowIdx: number;
@@ -183,10 +235,18 @@ function GanttRow({
   timeToX: (d: Date) => number;
   selectedStopId: string | null;
   onSelectStop: (stopId: string, rowIndex: number) => void;
+  isDimmed: boolean;
+  isHighlighted: boolean;
+  onHighlightRoute?: (routeId: string) => void;
 }) {
   return (
     <div
-      className="relative border-b border-border/30"
+      className={cn(
+        "relative border-b border-border/30 transition-all group hover:bg-muted/20",
+        rowIdx % 2 === 1 && "bg-muted/10",
+        isDimmed && "opacity-40",
+        isHighlighted && "bg-primary/5",
+      )}
       style={{ height: ROW_HEIGHT, width: gridWidth }}
     >
       {hours.map((h) => (
@@ -237,11 +297,14 @@ function GanttRow({
                   style={{
                     left: x,
                     width: blockW,
-                    top: ROW_HEIGHT / 2 - 14,
-                    height: 28,
+                    top: ROW_HEIGHT / 2 - 12,
+                    height: 24,
                     backgroundColor: row.color,
                   }}
-                  onClick={() => onSelectStop(stop.stopId, rowIdx)}
+                  onClick={() => {
+                    onSelectStop(stop.stopId, rowIdx);
+                    onHighlightRoute?.(row.routeId);
+                  }}
                 >
                   {stop.sequenceOrder}
                 </button>

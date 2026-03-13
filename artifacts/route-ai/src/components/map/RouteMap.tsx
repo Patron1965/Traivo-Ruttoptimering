@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { MapContainer, TileLayer, Marker, Popup, Polyline, ZoomControl, Circle } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Polyline, ZoomControl, Circle, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { type Route, type Stop, type VehiclePosition } from "@workspace/api-client-react";
@@ -22,6 +22,28 @@ interface RouteMapProps {
   interactive?: boolean;
   selectedStopId?: string | null;
   onSelectStop?: (stopId: string) => void;
+  highlightedRouteId?: string | null;
+  onHighlightRoute?: (routeId: string) => void;
+  focusStopId?: string | null;
+}
+
+function MapFlyTo({ routes, unassignedStops, focusStopId }: { routes: RouteData[]; unassignedStops: Stop[]; focusStopId: string | null }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!focusStopId) return;
+    for (const route of routes) {
+      const stop = route.stopsList.find((s) => s.id === focusStopId);
+      if (stop) {
+        map.flyTo([stop.latitude, stop.longitude], 14, { duration: 0.5 });
+        return;
+      }
+    }
+    const unassigned = unassignedStops.find((s) => s.id === focusStopId);
+    if (unassigned) {
+      map.flyTo([unassigned.latitude, unassigned.longitude], 14, { duration: 0.5 });
+    }
+  }, [focusStopId, routes, unassignedStops, map]);
+  return null;
 }
 
 const createCustomIcon = (color: string, label?: string, isDepot = false) => {
@@ -52,6 +74,27 @@ const createCustomIcon = (color: string, label?: string, isDepot = false) => {
     iconSize: [32, 32],
     iconAnchor: [16, 32],
     popupAnchor: [0, -32],
+  });
+};
+
+const createDimmedIcon = (color: string, label?: string) => {
+  const iconHtml = renderToString(
+    <div className="relative flex items-center justify-center" style={{ width: 24, height: 24, opacity: 0.35 }}>
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill={color} stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
+        <circle cx="12" cy="10" r="3" fill="white"/>
+      </svg>
+      {label && (
+        <span className="absolute top-[4px] font-bold text-[8px] text-gray-900">{label}</span>
+      )}
+    </div>
+  );
+  return L.divIcon({
+    html: iconHtml,
+    className: "custom-leaflet-icon-dimmed",
+    iconSize: [24, 24],
+    iconAnchor: [12, 24],
+    popupAnchor: [0, -24],
   });
 };
 
@@ -109,6 +152,9 @@ export function RouteMap({
   interactive = true,
   selectedStopId = null,
   onSelectStop,
+  highlightedRouteId = null,
+  onHighlightRoute,
+  focusStopId = null,
 }: RouteMapProps) {
   const [mounted, setMounted] = useState(false);
   const { t } = useTranslation();
@@ -132,6 +178,7 @@ export function RouteMap({
       dragging={interactive}
       scrollWheelZoom={interactive}
     >
+      <MapFlyTo routes={routes} unassignedStops={unassignedStops} focusStopId={focusStopId} />
       <ZoomControl position="bottomright" />
       <TileLayer
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -171,25 +218,38 @@ export function RouteMap({
           [DEPOT_LOCATION.lat, DEPOT_LOCATION.lng]
         ];
 
+        const isDimmed =
+          highlightedRouteId !== null && highlightedRouteId !== route.id;
+
         return (
           <div key={route.id}>
             <Polyline 
               positions={path} 
               pathOptions={{ 
                 color, 
-                weight: 4, 
-                opacity: 0.8,
+                weight: isDimmed ? 2 : 4,
+                opacity: isDimmed ? 0.2 : 0.8,
                 dashArray: route.status === "draft" ? "8, 8" : undefined
               }} 
             />
             {sortedStops.map((stop, sIndex) => {
               const isSelected = stop.id === selectedStopId;
+              const icon = isSelected
+                ? createSelectedIcon(color, (sIndex + 1).toString())
+                : isDimmed
+                  ? createDimmedIcon(color, (sIndex + 1).toString())
+                  : createCustomIcon(color, (sIndex + 1).toString());
               return (
               <Marker 
                 key={stop.id} 
                 position={[stop.latitude, stop.longitude]}
-                icon={isSelected ? createSelectedIcon(color, (sIndex + 1).toString()) : createCustomIcon(color, (sIndex + 1).toString())}
-                eventHandlers={onSelectStop ? { click: () => onSelectStop(stop.id) } : undefined}
+                icon={icon}
+                eventHandlers={{
+                  click: () => {
+                    onSelectStop?.(stop.id);
+                    onHighlightRoute?.(route.id);
+                  },
+                }}
               >
                 <Popup>
                   <div className="p-2 min-w-[200px]">

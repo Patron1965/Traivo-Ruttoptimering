@@ -345,7 +345,19 @@
     "serviceTime": "Servicetid",
     "loadInfo": "Last",
     "zoomIn": "Zooma in",
-    "zoomOut": "Zooma ut"
+    "zoomOut": "Zooma ut",
+    "routesSidebar": "Rutter",
+    "searchRoutes": "Sök förare eller rutter...",
+    "unplannedStops": "Oplanerade stopp",
+    "unplannedLabel": "oplanerade",
+    "expandSidebar": "Expandera sidopanel",
+    "collapseSidebar": "Minimera sidopanel",
+    "planMode": "Plan",
+    "liveMode": "Live",
+    "optimize": "Optimera",
+    "sendToDrivers": "Skicka till förare",
+    "sentToDrivers": "Skickat till förare",
+    "sentToDriversDesc": "Ruttplaner har skickats till alla tilldelade förare."
   },
   "tracking": {
     "loading": "Laddar sp\u00e5rningsinformation...",
