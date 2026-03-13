@@ -345,6 +345,27 @@
     "zoomIn": "Zoom in",
     "zoomOut": "Zoom out"
   },
+  "tracking": {
+    "loading": "Loading tracking info...",
+    "notFound": "Tracking Not Found",
+    "codeNotFound": "Tracking code not found",
+    "loadFailed": "Failed to load tracking info",
+    "unableToFind": "Unable to find this delivery",
+    "code": "Code",
+    "deliveryStatus": "Delivery Status",
+    "deliveryFailed": "Delivery Failed",
+    "contactSupport": "Please contact support for more information",
+    "scheduled": "Scheduled",
+    "onTheWay": "On the Way",
+    "arrivingSoon": "Arriving Soon",
+    "delivered": "Delivered",
+    "deliveryDetails": "Delivery Details",
+    "address": "Address",
+    "timeWindow": "Time Window",
+    "vehicle": "Vehicle",
+    "poweredBy": "Powered by RouteAI",
+    "updatesAutomatically": "Updates automatically"
+  },
   "notFound": {
     "title": "404",
     "message": "The page you're looking for doesn't exist or has been moved.",

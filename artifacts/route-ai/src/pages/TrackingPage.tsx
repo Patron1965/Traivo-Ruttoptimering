@@ -4,6 +4,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { renderToString } from "react-dom/server";
 import { MapPin, Package, Truck, Check, AlertTriangle, Clock, Zap, Fuel } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/";
 
@@ -19,13 +20,6 @@ interface TrackingInfo {
   vehicleName: string | null;
 }
 
-const STATUS_STEPS = [
-  { key: "scheduled", label: "Scheduled", icon: Clock },
-  { key: "on_the_way", label: "On the Way", icon: Truck },
-  { key: "arriving_soon", label: "Arriving Soon", icon: Package },
-  { key: "delivered", label: "Delivered", icon: Check },
-] as const;
-
 const createDestinationIcon = () => {
   const html = renderToString(
     <div style={{ width: 36, height: 36 }} className="relative flex items-center justify-center">
@@ -40,21 +34,29 @@ const createDestinationIcon = () => {
 };
 
 export default function TrackingPage({ code }: { code: string }) {
+  const { t } = useTranslation();
   const [data, setData] = useState<TrackingInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const STATUS_STEPS = [
+    { key: "scheduled", label: t("tracking.scheduled"), icon: Clock },
+    { key: "on_the_way", label: t("tracking.onTheWay"), icon: Truck },
+    { key: "arriving_soon", label: t("tracking.arrivingSoon"), icon: Package },
+    { key: "delivered", label: t("tracking.delivered"), icon: Check },
+  ] as const;
 
   useEffect(() => {
     const fetchTracking = async () => {
       try {
         const res = await fetch(`${API_BASE}api/track/${code}`, { credentials: "same-origin" });
         if (!res.ok) {
-          setError(res.status === 404 ? "Tracking code not found" : "Failed to load tracking info");
+          setError(res.status === 404 ? t("tracking.codeNotFound") : t("tracking.loadFailed"));
           return;
         }
         setData(await res.json());
       } catch {
-        setError("Failed to load tracking info");
+        setError(t("tracking.loadFailed"));
       } finally {
         setLoading(false);
       }
@@ -62,14 +64,14 @@ export default function TrackingPage({ code }: { code: string }) {
     fetchTracking();
     const interval = setInterval(fetchTracking, 15000);
     return () => clearInterval(interval);
-  }, [code]);
+  }, [code, t]);
 
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="h-12 w-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="mt-4 text-muted-foreground">Loading tracking info...</p>
+          <p className="mt-4 text-muted-foreground">{t("tracking.loading")}</p>
         </div>
       </div>
     );
@@ -80,9 +82,9 @@ export default function TrackingPage({ code }: { code: string }) {
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="text-center max-w-md">
           <AlertTriangle className="h-16 w-16 text-amber-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold mb-2">Tracking Not Found</h1>
-          <p className="text-muted-foreground">{error || "Unable to find this delivery"}</p>
-          <p className="text-sm text-muted-foreground mt-4">Code: <span className="font-mono font-bold">{code}</span></p>
+          <h1 className="text-2xl font-bold mb-2">{t("tracking.notFound")}</h1>
+          <p className="text-muted-foreground">{error || t("tracking.unableToFind")}</p>
+          <p className="text-sm text-muted-foreground mt-4">{t("tracking.code")}: <span className="font-mono font-bold">{code}</span></p>
         </div>
       </div>
     );
@@ -107,14 +109,14 @@ export default function TrackingPage({ code }: { code: string }) {
 
       <div className="max-w-4xl mx-auto p-4 space-y-6 mt-4">
         <div className="bg-card rounded-2xl border border-card-border p-6 shadow-lg">
-          <h2 className="text-xl font-bold mb-6">Delivery Status</h2>
+          <h2 className="text-xl font-bold mb-6">{t("tracking.deliveryStatus")}</h2>
 
           {isFailed ? (
             <div className="flex items-center gap-3 bg-destructive/10 text-destructive p-4 rounded-xl">
               <AlertTriangle className="h-6 w-6" />
               <div>
-                <p className="font-bold">Delivery Failed</p>
-                <p className="text-sm opacity-80">Please contact support for more information</p>
+                <p className="font-bold">{t("tracking.deliveryFailed")}</p>
+                <p className="text-sm opacity-80">{t("tracking.contactSupport")}</p>
               </div>
             </div>
           ) : (
@@ -153,16 +155,16 @@ export default function TrackingPage({ code }: { code: string }) {
           <div className="bg-card rounded-2xl border border-card-border p-6 shadow-lg space-y-4">
             <h3 className="font-bold text-lg flex items-center gap-2">
               <MapPin className="h-5 w-5 text-primary" />
-              Delivery Details
+              {t("tracking.deliveryDetails")}
             </h3>
             <div className="space-y-3">
               <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">Address</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("tracking.address")}</p>
                 <p className="font-medium mt-1">{data.address}</p>
               </div>
               {data.timeWindowStart && data.timeWindowEnd && (
                 <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider">Time Window</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("tracking.timeWindow")}</p>
                   <p className="font-medium mt-1">
                     {new Date(data.timeWindowStart).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                     {" – "}
@@ -172,7 +174,7 @@ export default function TrackingPage({ code }: { code: string }) {
               )}
               {data.vehicleName && (
                 <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider">Vehicle</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("tracking.vehicle")}</p>
                   <div className="flex items-center gap-2 mt-1">
                     {data.vehicleType === "electric" ? (
                       <Zap className="h-4 w-4 text-emerald-500" />
@@ -209,7 +211,7 @@ export default function TrackingPage({ code }: { code: string }) {
         </div>
 
         <div className="text-center text-xs text-muted-foreground pb-8">
-          Powered by RouteAI &middot; Updates automatically
+          {t("tracking.poweredBy")} &middot; {t("tracking.updatesAutomatically")}
         </div>
       </div>
     </div>

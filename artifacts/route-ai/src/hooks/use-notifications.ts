@@ -1,16 +1,19 @@
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetNotifications as useGeneratedGetNotifications,
+  getGetNotificationsQueryKey,
   useMarkNotificationRead as useGeneratedMarkNotificationRead,
   useMarkAllNotificationsRead as useGeneratedMarkAllNotificationsRead,
 } from "@workspace/api-client-react";
 import { ORG_ID } from "@/lib/constants";
 
 export function useNotifications() {
+  const params = { organizationId: ORG_ID };
   return useGeneratedGetNotifications(
-    { organizationId: ORG_ID },
+    params,
     {
       query: {
+        queryKey: getGetNotificationsQueryKey(params),
         refetchInterval: 10000,
         staleTime: 5000,
       },

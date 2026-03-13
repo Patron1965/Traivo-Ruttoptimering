@@ -1,15 +1,18 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   useGetVehiclePositions as useGeneratedGetVehiclePositions,
+  getGetVehiclePositionsQueryKey,
   useGetGeofenceEvents as useGeneratedGetGeofenceEvents,
+  getGetGeofenceEventsQueryKey,
 } from "@workspace/api-client-react";
 import { ORG_ID } from "@/lib/constants";
 
 export function useVehiclePositions() {
+  const params = { organizationId: ORG_ID };
   return useGeneratedGetVehiclePositions(
-    { organizationId: ORG_ID },
+    params,
     {
       query: {
+        queryKey: getGetVehiclePositionsQueryKey(params),
         refetchInterval: 3000,
         staleTime: 1000,
       },
@@ -18,10 +21,12 @@ export function useVehiclePositions() {
 }
 
 export function useGeofenceEvents(limit = 50) {
+  const params = { organizationId: ORG_ID, limit };
   return useGeneratedGetGeofenceEvents(
-    { organizationId: ORG_ID, limit },
+    params,
     {
       query: {
+        queryKey: getGetGeofenceEventsQueryKey(params),
         refetchInterval: 5000,
         staleTime: 2000,
       },

@@ -345,6 +345,27 @@
     "zoomIn": "Zooma in",
     "zoomOut": "Zooma ut"
   },
+  "tracking": {
+    "loading": "Laddar sp\u00e5rningsinformation...",
+    "notFound": "Sp\u00e5rning hittades inte",
+    "codeNotFound": "Sp\u00e5rningskoden hittades inte",
+    "loadFailed": "Kunde inte ladda sp\u00e5rningsinformation",
+    "unableToFind": "Kan inte hitta denna leverans",
+    "code": "Kod",
+    "deliveryStatus": "Leveransstatus",
+    "deliveryFailed": "Leveransen misslyckades",
+    "contactSupport": "Kontakta support f\u00f6r mer information",
+    "scheduled": "Schemalagd",
+    "onTheWay": "P\u00e5 v\u00e4g",
+    "arrivingSoon": "Snart framme",
+    "delivered": "Levererad",
+    "deliveryDetails": "Leveransdetaljer",
+    "address": "Adress",
+    "timeWindow": "Tidsf\u00f6nster",
+    "vehicle": "Fordon",
+    "poweredBy": "Drivs av RouteAI",
+    "updatesAutomatically": "Uppdateras automatiskt"
+  },
   "notFound": {
     "title": "404",
     "message": "Sidan du letar efter finns inte eller har flyttats.",

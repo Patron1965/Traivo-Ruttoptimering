@@ -64,9 +64,9 @@ export function computeSchedule(
     latitude: number;
     longitude: number;
     sequenceOrder?: number | null;
-    weightKg: number | null;
-    volumeM3: number | null;
-    serviceDurationMin: number | null;
+    weightKg?: number | null;
+    volumeM3?: number | null;
+    serviceDurationMin?: number | null;
     timeWindowStart?: string | null;
     timeWindowEnd?: string | null;
     status: string;
