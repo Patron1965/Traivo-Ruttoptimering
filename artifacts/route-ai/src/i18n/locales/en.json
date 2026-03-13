@@ -42,7 +42,51 @@
     "lng": "Lng",
     "andMore": "...and {{count}} more",
     "electric": "Electric",
-    "optional": "Optional"
+    "optional": "Optional",
+    "back": "Back"
+  },
+  "import": {
+    "title": "Import Stops",
+    "dragOrClick": "Click to select a file",
+    "supportedFormats": "Supported formats: Excel (.xlsx, .xls) and CSV (.csv)",
+    "selectFile": "Select File",
+    "needHeaderAndData": "File must have a header row and at least one data row.",
+    "parseFailed": "Could not read the file. Check the format.",
+    "matchColumns": "Match columns from your file to system fields",
+    "matchedCount": "{{count}} of {{total}} fields matched",
+    "required": "Required",
+    "optional": "Optional",
+    "systemField": "System Field",
+    "fileColumn": "File Column",
+    "selectColumn": "Select column...",
+    "skip": "Skip",
+    "example": "Ex",
+    "preview": "Preview",
+    "backToMapping": "Back to mapping",
+    "readyToImport": "{{count}} stop(s) ready to import",
+    "skippedRows": "{{count}} row(s) skipped due to invalid values",
+    "rowMissingAddress": "Row {{row}}: Address missing",
+    "rowInvalidCoords": "Row {{row}}: Invalid coordinates",
+    "importing": "Importing...",
+    "importCount": "Import {{count}} Stops",
+    "importFailed": "Import failed. Please try again.",
+    "importButton": "Import File",
+    "step": {
+      "upload": "Upload",
+      "mapping": "Match Columns",
+      "preview": "Preview"
+    },
+    "field": {
+      "address": "Address",
+      "latitude": "Latitude",
+      "longitude": "Longitude",
+      "notes": "Notes",
+      "timeWindowStart": "Time Window Start",
+      "timeWindowEnd": "Time Window End",
+      "serviceDurationMin": "Service Duration (min)",
+      "weightKg": "Weight (kg)",
+      "volumeM3": "Volume (m³)"
+    }
   },
   "sidebar": {
     "dashboard": "Dashboard",

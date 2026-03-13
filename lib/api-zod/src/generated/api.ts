@@ -182,6 +182,8 @@ export const ImportStopsBody = zod.object({
       timeWindowEnd: zod.coerce.date().nullish(),
       serviceDurationMin: zod.number().optional(),
       notes: zod.string().nullish(),
+      weightKg: zod.number().nullish(),
+      volumeM3: zod.number().nullish(),
     }),
   ),
 });

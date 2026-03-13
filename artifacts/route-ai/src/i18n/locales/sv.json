@@ -42,7 +42,51 @@
     "lng": "Lng",
     "andMore": "...och {{count}} till",
     "electric": "Elektrisk",
-    "optional": "Valfri"
+    "optional": "Valfri",
+    "back": "Tillbaka"
+  },
+  "import": {
+    "title": "Importera stopp",
+    "dragOrClick": "Klicka f\u00f6r att v\u00e4lja en fil",
+    "supportedFormats": "St\u00f6dda format: Excel (.xlsx, .xls) och CSV (.csv)",
+    "selectFile": "V\u00e4lj fil",
+    "needHeaderAndData": "Filen m\u00e5ste ha en rubrikrad och minst en datarad.",
+    "parseFailed": "Kunde inte l\u00e4sa filen. Kontrollera formatet.",
+    "matchColumns": "Matcha kolumner fr\u00e5n din fil med systemets f\u00e4lt",
+    "matchedCount": "{{count}} av {{total}} f\u00e4lt matchade",
+    "required": "Obligatoriskt",
+    "optional": "Valfritt",
+    "systemField": "Systemf\u00e4lt",
+    "fileColumn": "Kolumn i fil",
+    "selectColumn": "V\u00e4lj kolumn...",
+    "skip": "Hoppa \u00f6ver",
+    "example": "Ex",
+    "preview": "F\u00f6rhandsgranska",
+    "backToMapping": "Tillbaka till matchning",
+    "readyToImport": "{{count}} stopp redo att importera",
+    "skippedRows": "{{count}} rad(er) hoppades \u00f6ver p.g.a. felaktiga v\u00e4rden",
+    "rowMissingAddress": "Rad {{row}}: Adress saknas",
+    "rowInvalidCoords": "Rad {{row}}: Ogiltiga koordinater",
+    "importing": "Importerar...",
+    "importCount": "Importera {{count}} stopp",
+    "importFailed": "Importen misslyckades. F\u00f6rs\u00f6k igen.",
+    "importButton": "Importera fil",
+    "step": {
+      "upload": "Ladda upp",
+      "mapping": "Matcha kolumner",
+      "preview": "F\u00f6rhandsgranska"
+    },
+    "field": {
+      "address": "Adress",
+      "latitude": "Latitud",
+      "longitude": "Longitud",
+      "notes": "Anteckningar",
+      "timeWindowStart": "Tidsf\u00f6nster start",
+      "timeWindowEnd": "Tidsf\u00f6nster slut",
+      "serviceDurationMin": "Servicetid (min)",
+      "weightKg": "Vikt (kg)",
+      "volumeM3": "Volym (m\u00b3)"
+    }
   },
   "sidebar": {
     "dashboard": "\u00d6versikt",
