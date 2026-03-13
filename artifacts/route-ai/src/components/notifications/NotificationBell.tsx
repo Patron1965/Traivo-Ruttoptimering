@@ -3,6 +3,7 @@ import { Bell, Check, CheckCheck, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNotifications, useMarkNotificationRead, useMarkAllNotificationsRead } from "@/hooks/use-notifications";
 import { ORG_ID } from "@/lib/constants";
+import { useTranslation } from "react-i18next";
 
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
@@ -10,6 +11,7 @@ export function NotificationBell() {
   const { data } = useNotifications();
   const markRead = useMarkNotificationRead();
   const markAllRead = useMarkAllNotificationsRead();
+  const { t } = useTranslation();
 
   const unreadCount = data?.unreadCount ?? 0;
   const notifications = data?.notifications ?? [];
@@ -41,10 +43,10 @@ export function NotificationBell() {
     const now = new Date();
     const diffMs = now.getTime() - d.getTime();
     const diffMin = Math.floor(diffMs / 60000);
-    if (diffMin < 1) return "Just now";
-    if (diffMin < 60) return `${diffMin}m ago`;
+    if (diffMin < 1) return t("notifications.justNow");
+    if (diffMin < 60) return t("notifications.minutesAgo", { count: diffMin });
     const diffHours = Math.floor(diffMin / 60);
-    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffHours < 24) return t("notifications.hoursAgo", { count: diffHours });
     return d.toLocaleDateString();
   };
 
@@ -67,7 +69,7 @@ export function NotificationBell() {
       {open && (
         <div className="absolute right-0 top-12 w-96 bg-card border border-border rounded-2xl shadow-2xl shadow-black/20 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
           <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-            <h3 className="font-bold text-sm">Notifications</h3>
+            <h3 className="font-bold text-sm">{t("notifications.title")}</h3>
             <div className="flex items-center gap-2">
               {unreadCount > 0 && (
                 <Button
@@ -77,7 +79,7 @@ export function NotificationBell() {
                   onClick={() => markAllRead.mutate({ params: { organizationId: ORG_ID } })}
                 >
                   <CheckCheck className="h-3 w-3" />
-                  Mark all read
+                  {t("notifications.markAllRead")}
                 </Button>
               )}
               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setOpen(false)}>
@@ -90,7 +92,7 @@ export function NotificationBell() {
             {notifications.length === 0 ? (
               <div className="p-8 text-center text-muted-foreground">
                 <Bell className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                <p className="text-sm">No notifications yet</p>
+                <p className="text-sm">{t("notifications.noNotifications")}</p>
               </div>
             ) : (
               notifications.map((n) => (

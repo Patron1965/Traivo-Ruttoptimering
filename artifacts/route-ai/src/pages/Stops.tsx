@@ -137,27 +137,27 @@ export default function Stops() {
                       )}
                     </td>
                     <td className="p-4">
-                      {(stop as any).trackingCode ? (
+                      {stop.trackingCode ? (
                         <div className="flex items-center gap-1">
-                          <span className="font-mono text-xs bg-muted px-2 py-1 rounded font-bold">{(stop as any).trackingCode}</span>
+                          <span className="font-mono text-xs bg-muted px-2 py-1 rounded font-bold">{stop.trackingCode}</span>
                           <Button
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7 hover:text-primary"
                             onClick={() => {
-                              const url = `${window.location.origin}${import.meta.env.BASE_URL}track/${(stop as any).trackingCode}`;
+                              const url = `${window.location.origin}${import.meta.env.BASE_URL}track/${stop.trackingCode}`;
                               navigator.clipboard.writeText(url);
                             }}
-                            title="Copy tracking link"
+                            title={t("stops.copyTrackingLink")}
                           >
                             <Copy className="h-3 w-3" />
                           </Button>
                           <a
-                            href={`${import.meta.env.BASE_URL}track/${(stop as any).trackingCode}`}
+                            href={`${import.meta.env.BASE_URL}track/${stop.trackingCode}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center justify-center h-7 w-7 rounded-md hover:bg-primary/10 hover:text-primary transition-colors"
-                            title="Open tracking page"
+                            title={t("stops.openTrackingPage")}
                           >
                             <ExternalLink className="h-3 w-3" />
                           </a>

@@ -96,6 +96,14 @@
     "assignDriver": "Assign driver",
     "noDriver": "No driver"
   },
+  "notifications": {
+    "title": "Notifications",
+    "markAllRead": "Mark all read",
+    "noNotifications": "No notifications yet",
+    "justNow": "Just now",
+    "minutesAgo": "{{count}}m ago",
+    "hoursAgo": "{{count}}h ago"
+  },
   "planner": {
     "title": "AI Optimizer",
     "subtitle": "Select resources to generate optimal routes.",
@@ -200,6 +208,8 @@
     "addressRequired": "Address is required",
     "saveStop": "Save Stop",
     "tracking": "Tracking",
+    "copyTrackingLink": "Copy tracking link",
+    "openTrackingPage": "Open tracking page",
     "csvNeedHeaderAndData": "CSV must have a header row and at least one data row.",
     "csvMissingColumns": "CSV must have columns: address, latitude, longitude",
     "csvInvalidRows": "{{count}} row(s) have invalid address/lat/lng values.",

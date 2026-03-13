@@ -96,6 +96,14 @@
     "assignDriver": "Tilldela förare",
     "noDriver": "Ingen förare"
   },
+  "notifications": {
+    "title": "Aviseringar",
+    "markAllRead": "Markera alla som lästa",
+    "noNotifications": "Inga aviseringar ännu",
+    "justNow": "Just nu",
+    "minutesAgo": "{{count}}m sedan",
+    "hoursAgo": "{{count}}t sedan"
+  },
   "planner": {
     "title": "AI-optimerare",
     "subtitle": "V\u00e4lj resurser f\u00f6r att generera optimala rutter.",
@@ -200,6 +208,8 @@
     "addressRequired": "Adress \u00e4r obligatoriskt",
     "saveStop": "Spara stopp",
     "tracking": "Sp\u00e5rning",
+    "copyTrackingLink": "Kopiera sp\u00e5rningsl\u00e4nk",
+    "openTrackingPage": "\u00d6ppna sp\u00e5rningssida",
     "csvNeedHeaderAndData": "CSV m\u00e5ste ha en rubrikrad och minst en datarad.",
     "csvMissingColumns": "CSV m\u00e5ste ha kolumner: address, latitude, longitude",
     "csvInvalidRows": "{{count}} rad(er) har ogiltiga adress-/lat-/lng-v\u00e4rden.",
