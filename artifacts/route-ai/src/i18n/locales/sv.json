@@ -265,7 +265,9 @@
     "success": "Rutt skapad!",
     "successDesc": "\"{{name}}\" med {{count}} stopp har skapats.",
     "error": "Kunde inte skapa rutt",
-    "errorDesc": "Något gick fel. Försök igen."
+    "errorDesc": "Något gick fel. Försök igen.",
+    "loadError": "Kunde inte ladda data. Kontrollera din anslutning.",
+    "retry": "Försök igen"
   },
   "routeHistory": {
     "title": "Rutthistorik",

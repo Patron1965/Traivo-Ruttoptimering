@@ -265,7 +265,9 @@
     "success": "Route created!",
     "successDesc": "\"{{name}}\" with {{count}} stops has been created.",
     "error": "Failed to create route",
-    "errorDesc": "Something went wrong. Please try again."
+    "errorDesc": "Something went wrong. Please try again.",
+    "loadError": "Failed to load data. Check your connection.",
+    "retry": "Try again"
   },
   "routeHistory": {
     "title": "Route History",

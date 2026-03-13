@@ -24,6 +24,7 @@ import {
   Loader2,
   AlertTriangle,
   ExternalLink,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -46,9 +47,9 @@ export default function CreateRoute() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
 
-  const { data: vehicles, isLoading: loadingVehicles } = useVehicles();
-  const { data: drivers, isLoading: loadingDrivers } = useDrivers();
-  const { data: allStops, isLoading: loadingStops } = useStops();
+  const { data: vehicles, isLoading: loadingVehicles, isError: errorVehicles, refetch: refetchVehicles } = useVehicles();
+  const { data: drivers, isLoading: loadingDrivers, isError: errorDrivers, refetch: refetchDrivers } = useDrivers();
+  const { data: allStops, isLoading: loadingStops, isError: errorStops, refetch: refetchStops } = useStops();
   const { data: routes } = useRoutes();
   const createRoute = useCreateRoute();
   const updateStop = useUpdateStop();
@@ -261,6 +262,15 @@ export default function CreateRoute() {
               </div>
               {loadingVehicles ? (
                 <SectionSkeleton rows={2} />
+              ) : errorVehicles ? (
+                <div className="text-sm text-destructive py-6 text-center space-y-2">
+                  <AlertTriangle className="h-8 w-8 mx-auto opacity-60" />
+                  <p>{t("createRoute.loadError")}</p>
+                  <Button variant="outline" size="sm" className="text-xs gap-1" onClick={() => refetchVehicles()}>
+                    <RefreshCw className="h-3 w-3" />
+                    {t("createRoute.retry")}
+                  </Button>
+                </div>
               ) : !vehicles || vehicles.length === 0 ? (
                 <div className="text-sm text-muted-foreground py-6 text-center space-y-2">
                   <Truck className="h-8 w-8 mx-auto opacity-30" />
@@ -327,6 +337,15 @@ export default function CreateRoute() {
               </div>
               {loadingDrivers ? (
                 <SectionSkeleton rows={2} />
+              ) : errorDrivers ? (
+                <div className="text-sm text-destructive py-6 text-center space-y-2">
+                  <AlertTriangle className="h-8 w-8 mx-auto opacity-60" />
+                  <p>{t("createRoute.loadError")}</p>
+                  <Button variant="outline" size="sm" className="text-xs gap-1" onClick={() => refetchDrivers()}>
+                    <RefreshCw className="h-3 w-3" />
+                    {t("createRoute.retry")}
+                  </Button>
+                </div>
               ) : activeDrivers.length === 0 ? (
                 <div className="text-sm text-muted-foreground py-6 text-center space-y-2">
                   <User className="h-8 w-8 mx-auto opacity-30" />
@@ -423,6 +442,15 @@ export default function CreateRoute() {
                       className="h-16 rounded-xl border-2 border-border bg-muted/20 animate-pulse"
                     />
                   ))}
+                </div>
+              ) : errorStops ? (
+                <div className="text-sm text-destructive py-6 text-center space-y-2">
+                  <AlertTriangle className="h-8 w-8 mx-auto opacity-60" />
+                  <p>{t("createRoute.loadError")}</p>
+                  <Button variant="outline" size="sm" className="text-xs gap-1" onClick={() => refetchStops()}>
+                    <RefreshCw className="h-3 w-3" />
+                    {t("createRoute.retry")}
+                  </Button>
                 </div>
               ) : sortedStops.length === 0 ? (
                 <div className="text-sm text-muted-foreground py-6 text-center space-y-2">

@@ -1,4 +1,5 @@
 import app from "./app";
+import { autoSeed } from "./lib/auto-seed";
 
 const rawPort = process.env["PORT"];
 
@@ -14,6 +15,15 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-app.listen(port, () => {
-  console.log(`Server listening on port ${port}`);
-});
+autoSeed()
+  .then(() => {
+    app.listen(port, () => {
+      console.log(`Server listening on port ${port}`);
+    });
+  })
+  .catch((err) => {
+    console.error("Auto-seed failed:", err);
+    app.listen(port, () => {
+      console.log(`Server listening on port ${port} (seed failed)`);
+    });
+  });
