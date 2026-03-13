@@ -58,7 +58,7 @@ export function ChatPanel() {
         .slice(-20)
         .map((m) => ({ role: m.role, content: m.content }));
 
-      const response = await fetch("/api/ai/chat", {
+      const response = await fetch(`${import.meta.env.BASE_URL}api/ai/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
