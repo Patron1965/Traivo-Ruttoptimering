@@ -111,7 +111,9 @@
   background: hsl(var(--background)) !important;
   font-family: var(--font-sans) !important;
 }
-.leaflet-layer,
+.map-tiles-dark {
+  filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7);
+}
 .leaflet-control-zoom-in,
 .leaflet-control-zoom-out,
 .leaflet-control-attribution {
