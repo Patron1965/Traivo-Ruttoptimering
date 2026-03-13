@@ -740,6 +740,12 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: organizationId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
       responses:
         "200":
           description: Updated notification

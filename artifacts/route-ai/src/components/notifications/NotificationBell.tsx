@@ -102,7 +102,7 @@ export function NotificationBell() {
                     !n.isRead ? "bg-primary/5" : ""
                   }`}
                   onClick={() => {
-                    if (!n.isRead) markRead.mutate({ id: n.id });
+                    if (!n.isRead) markRead.mutate({ id: n.id, params: { organizationId: ORG_ID } });
                   }}
                 >
                   <div className={`mt-0.5 ${getTypeColor(n.type)}`}>

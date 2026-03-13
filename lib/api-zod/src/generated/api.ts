@@ -747,6 +747,10 @@ export const MarkNotificationReadParams = zod.object({
   id: zod.coerce.string().uuid(),
 });
 
+export const MarkNotificationReadQueryParams = zod.object({
+  organizationId: zod.coerce.string().uuid(),
+});
+
 export const MarkNotificationReadResponse = zod.object({
   id: zod.string().uuid(),
   organizationId: zod.string().uuid(),

@@ -44,6 +44,7 @@ import type {
   ListVehiclesParams,
   MarkAllNotificationsRead200,
   MarkAllNotificationsReadParams,
+  MarkNotificationReadParams,
   Notification,
   NotificationsResponse,
   OptimizeRequest,
@@ -2955,15 +2956,31 @@ export function useGetNotifications<
 /**
  * @summary Mark a notification as read
  */
-export const getMarkNotificationReadUrl = (id: string) => {
-  return `/api/notifications/${id}/read`;
+export const getMarkNotificationReadUrl = (
+  id: string,
+  params: MarkNotificationReadParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/notifications/${id}/read?${stringifiedParams}`
+    : `/api/notifications/${id}/read`;
 };
 
 export const markNotificationRead = async (
   id: string,
+  params: MarkNotificationReadParams,
   options?: RequestInit,
 ): Promise<Notification> => {
-  return customFetch<Notification>(getMarkNotificationReadUrl(id), {
+  return customFetch<Notification>(getMarkNotificationReadUrl(id, params), {
     ...options,
     method: "PUT",
   });
@@ -2976,14 +2993,14 @@ export const getMarkNotificationReadMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof markNotificationRead>>,
     TError,
-    { id: string },
+    { id: string; params: MarkNotificationReadParams },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof markNotificationRead>>,
   TError,
-  { id: string },
+  { id: string; params: MarkNotificationReadParams },
   TContext
 > => {
   const mutationKey = ["markNotificationRead"];
@@ -2997,11 +3014,11 @@ export const getMarkNotificationReadMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof markNotificationRead>>,
-    { id: string }
+    { id: string; params: MarkNotificationReadParams }
   > = (props) => {
-    const { id } = props ?? {};
+    const { id, params } = props ?? {};
 
-    return markNotificationRead(id, requestOptions);
+    return markNotificationRead(id, params, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -3023,14 +3040,14 @@ export const useMarkNotificationRead = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof markNotificationRead>>,
     TError,
-    { id: string },
+    { id: string; params: MarkNotificationReadParams },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof markNotificationRead>>,
   TError,
-  { id: string },
+  { id: string; params: MarkNotificationReadParams },
   TContext
 > => {
   return useMutation(getMarkNotificationReadMutationOptions(options));

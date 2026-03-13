@@ -43,6 +43,7 @@ export * from "./listStopsParams";
 export * from "./listVehiclesParams";
 export * from "./markAllNotificationsRead200";
 export * from "./markAllNotificationsReadParams";
+export * from "./markNotificationReadParams";
 export * from "./notification";
 export * from "./notificationsResponse";
 export * from "./notificationType";

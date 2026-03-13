@@ -546,6 +546,10 @@ export type GetNotificationsParams = {
   limit?: number;
 };
 
+export type MarkNotificationReadParams = {
+  organizationId: string;
+};
+
 export type MarkAllNotificationsReadParams = {
   organizationId: string;
 };

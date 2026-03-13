@@ -44,13 +44,19 @@ router.put("/notifications/:id/read", async (req, res) => {
   try {
     const { id } = parseUuidParam(req.params);
     const organizationId = req.query.organizationId as string;
-    const conditions = organizationId
-      ? and(eq(notificationsTable.id, id), eq(notificationsTable.organizationId, organizationId))
-      : eq(notificationsTable.id, id);
+    if (!organizationId) {
+      res.status(400).json({ error: "organizationId is required" });
+      return;
+    }
     const [notification] = await db
       .update(notificationsTable)
       .set({ isRead: true })
-      .where(conditions)
+      .where(
+        and(
+          eq(notificationsTable.id, id),
+          eq(notificationsTable.organizationId, organizationId)
+        )
+      )
       .returning();
     if (!notification) {
       res.status(404).json({ error: "Notification not found" });
