@@ -81,7 +81,8 @@ export function computeSchedule(
   );
 
   const baseTime = new Date(routeDate);
-  if (baseTime.getHours() === 0 && baseTime.getMinutes() === 0) {
+  const hour = baseTime.getHours();
+  if (hour < 5 || hour >= 20) {
     baseTime.setHours(7, 0, 0, 0);
   }
 
