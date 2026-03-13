@@ -108,7 +108,7 @@ router.put("/stops/:id", async (req, res) => {
       return;
     }
 
-    if (existing && existing.status !== "failed" && stop.status === "failed" && orgId) {
+    if (existing && existing.status !== "failed" && stop.status === "failed") {
       let vehicleName = "Vehicle";
       if (stop.routeId) {
         const [route] = await db
@@ -124,7 +124,7 @@ router.put("/stops/:id", async (req, res) => {
         }
       }
       await db.insert(notificationsTable).values({
-        organizationId: orgId,
+        organizationId: stop.organizationId,
         type: "stop_failed",
         title: `Delivery failed`,
         message: `${vehicleName} failed delivery at ${stop.address}`,

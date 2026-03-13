@@ -17,6 +17,12 @@ export function NotificationBell() {
   const notifications = data?.notifications ?? [];
 
   useEffect(() => {
+    if (open && unreadCount > 0) {
+      markAllRead.mutate({ params: { organizationId: ORG_ID } });
+    }
+  }, [open]);
+
+  useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) {
         setOpen(false);
