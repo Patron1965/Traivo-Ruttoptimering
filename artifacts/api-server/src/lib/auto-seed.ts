@@ -1,5 +1,7 @@
 import { eq } from "drizzle-orm";
-import { db, organizationsTable, vehiclesTable, customersTable, stopsTable, routesTable } from "@workspace/db";
+import { db, organizationsTable, vehiclesTable, customersTable, stopsTable, routesTable, driversTable } from "@workspace/db";
+
+const FIXED_ORG_ID = "63e7175d-af1d-4dc3-be62-842a8b3dc9f8";
 
 export async function autoSeed() {
   const existingOrgs = await db.select().from(organizationsTable).limit(1);
@@ -13,6 +15,7 @@ export async function autoSeed() {
   const [org] = await db
     .insert(organizationsTable)
     .values({
+      id: FIXED_ORG_ID,
       name: "Stockholm Logistics AB",
       email: "info@stockholm-logistics.se",
     })
@@ -63,6 +66,15 @@ export async function autoSeed() {
 
   const vehicles = await db.insert(vehiclesTable).values(vehicleData).returning();
   console.log(`Created ${vehicles.length} vehicles`);
+
+  const driverData = [
+    { organizationId: org.id, name: "Tomas Björnberg", phone: "0704407450", email: "tomas@nordicrouting.se", vehicleId: vehicles[0].id, isActive: true },
+    { organizationId: org.id, name: "Erik Johansson", phone: "+46701234567", email: "erik@test.com", vehicleId: null, isActive: true },
+    { organizationId: org.id, name: "Anna Lindström", phone: "+46709876543", email: "anna@test.com", vehicleId: vehicles[2].id, isActive: true },
+  ];
+
+  const drivers = await db.insert(driversTable).values(driverData).returning();
+  console.log(`Created ${drivers.length} drivers`);
 
   const customerData = [
     { organizationId: org.id, name: "IKEA Kungens Kurva", address: "Modulvägen 1, Kungens Kurva" },
