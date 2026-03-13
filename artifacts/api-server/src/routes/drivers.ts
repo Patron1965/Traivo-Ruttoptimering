@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, ne } from "drizzle-orm";
-import { db, driversTable } from "@workspace/db";
+import { db, driversTable, vehiclesTable } from "@workspace/db";
 import { handleError, parseUuidParam } from "../lib/errors";
 
 const router: IRouter = Router();
@@ -53,6 +53,15 @@ router.post("/drivers", async (req, res) => {
     }
 
     if (vehicleId) {
+      const [vehicle] = await db
+        .select()
+        .from(vehiclesTable)
+        .where(and(eq(vehiclesTable.id, vehicleId), eq(vehiclesTable.organizationId, organizationId)));
+      if (!vehicle) {
+        res.status(400).json({ error: "Vehicle not found in this organization" });
+        return;
+      }
+
       const [existing] = await db
         .select()
         .from(driversTable)
@@ -107,6 +116,17 @@ router.put("/drivers/:id", async (req, res) => {
 
     const effectiveVehicleId = vehicleId !== undefined ? vehicleId : currentDriver.vehicleId;
     const effectiveIsActive = isActive !== undefined ? isActive : currentDriver.isActive;
+
+    if (vehicleId && vehicleId !== currentDriver.vehicleId) {
+      const [vehicle] = await db
+        .select()
+        .from(vehiclesTable)
+        .where(and(eq(vehiclesTable.id, vehicleId), eq(vehiclesTable.organizationId, organizationId)));
+      if (!vehicle) {
+        res.status(400).json({ error: "Vehicle not found in this organization" });
+        return;
+      }
+    }
 
     if (effectiveVehicleId && effectiveIsActive) {
       const [existing] = await db

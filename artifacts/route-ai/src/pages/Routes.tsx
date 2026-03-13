@@ -144,7 +144,7 @@ export default function Routes() {
                         </div>
                       )}
 
-                      {route.vehicleId && route.status !== "completed" && route.status !== "cancelled" && (
+                      {route.vehicleId && (route.status === "draft" || route.status === "optimized") && (
                         <Select
                           value={driverByVehicleId.get(route.vehicleId)?.id || "__none__"}
                           onValueChange={(val) => handleAssignDriver(route.vehicleId!, val)}
