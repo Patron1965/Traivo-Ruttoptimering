@@ -1,10 +1,10 @@
 import { useState, useMemo } from "react";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useVehicles } from "@/hooks/use-vehicles";
 import { useDrivers, useUpdateDriver } from "@/hooks/use-drivers";
 import { useStops, useUpdateStop } from "@/hooks/use-stops";
-import { useCreateRoute } from "@/hooks/use-routes";
+import { useRoutes, useCreateRoute } from "@/hooks/use-routes";
 import { ORG_ID } from "@/lib/constants";
 import { useTranslation } from "react-i18next";
 import { useToast } from "@/hooks/use-toast";
@@ -21,18 +21,35 @@ import {
   Package,
   Clock,
   Weight,
+  Loader2,
+  AlertTriangle,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+
+function SectionSkeleton({ rows = 2 }: { rows?: number }) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      {Array.from({ length: rows }).map((_, i) => (
+        <div
+          key={i}
+          className="h-20 rounded-xl border-2 border-border bg-muted/20 animate-pulse"
+        />
+      ))}
+    </div>
+  );
+}
 
 export default function CreateRoute() {
   const { t } = useTranslation();
   const [, navigate] = useLocation();
   const { toast } = useToast();
 
-  const { data: vehicles } = useVehicles();
-  const { data: drivers } = useDrivers();
-  const { data: allStops } = useStops();
+  const { data: vehicles, isLoading: loadingVehicles } = useVehicles();
+  const { data: drivers, isLoading: loadingDrivers } = useDrivers();
+  const { data: allStops, isLoading: loadingStops } = useStops();
+  const { data: routes } = useRoutes();
   const createRoute = useCreateRoute();
   const updateStop = useUpdateStop();
   const updateDriver = useUpdateDriver();
@@ -47,29 +64,38 @@ export default function CreateRoute() {
   const [selectedStopIds, setSelectedStopIds] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
 
-  const unassignedStops = useMemo(
-    () => allStops?.filter((s) => !s.routeId) || [],
-    [allStops]
-  );
+  const routesById = useMemo(() => {
+    const map = new Map<string, string>();
+    routes?.forEach((r) => map.set(r.id, r.name));
+    return map;
+  }, [routes]);
+
+  const sortedStops = useMemo(() => {
+    if (!allStops) return [];
+    return [...allStops].sort((a, b) => {
+      if (!a.routeId && b.routeId) return -1;
+      if (a.routeId && !b.routeId) return 1;
+      return a.address.localeCompare(b.address);
+    });
+  }, [allStops]);
 
   const activeDrivers = useMemo(
     () => drivers?.filter((d) => d.isActive) || [],
     [drivers]
   );
 
-  const driversForVehicle = useMemo(() => {
-    if (!selectedVehicleId) return activeDrivers;
-    return activeDrivers.filter(
-      (d) => !d.vehicleId || d.vehicleId === selectedVehicleId
-    );
-  }, [activeDrivers, selectedVehicleId]);
+  const vehiclesById = useMemo(() => {
+    const map = new Map<string, string>();
+    vehicles?.forEach((v) => map.set(v.id, v.name));
+    return map;
+  }, [vehicles]);
 
   const selectedVehicle = vehicles?.find((v) => v.id === selectedVehicleId);
   const selectedDriver = activeDrivers.find((d) => d.id === selectedDriverId);
 
   const selectedStopsData = useMemo(
-    () => unassignedStops.filter((s) => selectedStopIds.has(s.id)),
-    [unassignedStops, selectedStopIds]
+    () => (allStops || []).filter((s) => selectedStopIds.has(s.id)),
+    [allStops, selectedStopIds]
   );
 
   const totalWeight = selectedStopsData.reduce((sum, s) => sum + (s.weightKg || 0), 0);
@@ -79,6 +105,8 @@ export default function CreateRoute() {
     (selectedVehicle.capacityKg && totalWeight > selectedVehicle.capacityKg) ||
     (selectedVehicle.capacityVolume && totalVolume > selectedVehicle.capacityVolume)
   );
+
+  const reassignCount = selectedStopsData.filter((s) => s.routeId).length;
 
   const toggleStop = (id: string) => {
     setSelectedStopIds((prev) => {
@@ -90,10 +118,10 @@ export default function CreateRoute() {
   };
 
   const selectAllStops = () => {
-    if (selectedStopIds.size === unassignedStops.length) {
+    if (selectedStopIds.size === sortedStops.length && sortedStops.length > 0) {
       setSelectedStopIds(new Set());
     } else {
-      setSelectedStopIds(new Set(unassignedStops.map((s) => s.id)));
+      setSelectedStopIds(new Set(sortedStops.map((s) => s.id)));
     }
   };
 
@@ -231,51 +259,60 @@ export default function CreateRoute() {
                 </div>
                 <h2 className="font-bold text-lg">{t("createRoute.selectVehicle")}</h2>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {vehicles?.map((v) => (
-                  <button
-                    key={v.id}
-                    onClick={() => {
-                      setSelectedVehicleId(v.id === selectedVehicleId ? null : v.id);
-                      if (selectedDriverId) {
-                        const d = activeDrivers.find((d) => d.id === selectedDriverId);
-                        if (d?.vehicleId && d.vehicleId !== v.id && d.vehicleId !== selectedVehicleId) {
-                          setSelectedDriverId(null);
-                        }
-                      }
-                    }}
-                    className={cn(
-                      "text-left p-4 rounded-xl border-2 transition-all duration-200",
-                      selectedVehicleId === v.id
-                        ? "border-primary bg-primary/5 shadow-lg shadow-primary/10"
-                        : "border-border hover:border-muted-foreground/30 hover:bg-muted/30"
-                    )}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-bold">{v.name}</span>
-                      {selectedVehicleId === v.id && (
-                        <div className="h-6 w-6 rounded-full bg-primary flex items-center justify-center">
-                          <Check className="h-3.5 w-3.5 text-primary-foreground" />
-                        </div>
+              {loadingVehicles ? (
+                <SectionSkeleton rows={2} />
+              ) : !vehicles || vehicles.length === 0 ? (
+                <div className="text-sm text-muted-foreground py-6 text-center space-y-2">
+                  <Truck className="h-8 w-8 mx-auto opacity-30" />
+                  <p>{t("createRoute.noVehicles")}</p>
+                  <Link href="/vehicles">
+                    <Button variant="link" size="sm" className="text-xs gap-1">
+                      {t("createRoute.goToVehicles")}
+                      <ExternalLink className="h-3 w-3" />
+                    </Button>
+                  </Link>
+                </div>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {vehicles.map((v) => (
+                    <button
+                      key={v.id}
+                      onClick={() => {
+                        setSelectedVehicleId(v.id === selectedVehicleId ? null : v.id);
+                      }}
+                      className={cn(
+                        "text-left p-4 rounded-xl border-2 transition-all duration-200",
+                        selectedVehicleId === v.id
+                          ? "border-primary bg-primary/5 shadow-lg shadow-primary/10"
+                          : "border-border hover:border-muted-foreground/30 hover:bg-muted/30"
                       )}
-                    </div>
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                      {v.vehicleType === "electric" ? (
-                        <span className="flex items-center gap-1 text-emerald-400">
-                          <Zap className="h-3 w-3" /> EV
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-1">
-                          <Fuel className="h-3 w-3" /> {t("createRoute.fossil")}
-                        </span>
-                      )}
-                      <span>{v.licensePlate}</span>
-                      <span>{v.capacityKg} kg</span>
-                      <span>{v.capacityVolume} m³</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-bold">{v.name}</span>
+                        {selectedVehicleId === v.id && (
+                          <div className="h-6 w-6 rounded-full bg-primary flex items-center justify-center">
+                            <Check className="h-3.5 w-3.5 text-primary-foreground" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                        {v.vehicleType === "electric" ? (
+                          <span className="flex items-center gap-1 text-emerald-400">
+                            <Zap className="h-3 w-3" /> EV
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1">
+                            <Fuel className="h-3 w-3" /> {t("createRoute.fossil")}
+                          </span>
+                        )}
+                        <span>{v.licensePlate}</span>
+                        <span>{v.capacityKg} kg</span>
+                        <span>{v.capacityVolume} m³</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </section>
 
             <section className="bg-card border border-border rounded-2xl p-6 space-y-4">
@@ -288,38 +325,70 @@ export default function CreateRoute() {
                   {t("createRoute.driverOptional")}
                 </span>
               </div>
-              {driversForVehicle.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-4 text-center">
-                  {t("createRoute.noDrivers")}
-                </p>
+              {loadingDrivers ? (
+                <SectionSkeleton rows={2} />
+              ) : activeDrivers.length === 0 ? (
+                <div className="text-sm text-muted-foreground py-6 text-center space-y-2">
+                  <User className="h-8 w-8 mx-auto opacity-30" />
+                  <p>{t("createRoute.noDrivers")}</p>
+                  <Link href="/drivers">
+                    <Button variant="link" size="sm" className="text-xs gap-1">
+                      {t("createRoute.goToDrivers")}
+                      <ExternalLink className="h-3 w-3" />
+                    </Button>
+                  </Link>
+                </div>
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2">
-                  {driversForVehicle.map((d) => (
-                    <button
-                      key={d.id}
-                      onClick={() =>
-                        setSelectedDriverId(d.id === selectedDriverId ? null : d.id)
-                      }
-                      className={cn(
-                        "text-left p-4 rounded-xl border-2 transition-all duration-200",
-                        selectedDriverId === d.id
-                          ? "border-violet-500 bg-violet-500/5 shadow-lg shadow-violet-500/10"
-                          : "border-border hover:border-muted-foreground/30 hover:bg-muted/30"
-                      )}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-bold">{d.name}</span>
-                        {selectedDriverId === d.id && (
-                          <div className="h-6 w-6 rounded-full bg-violet-500 flex items-center justify-center">
-                            <Check className="h-3.5 w-3.5 text-white" />
-                          </div>
+                  {activeDrivers.map((d) => {
+                    const currentVehicleName = d.vehicleId
+                      ? vehiclesById.get(d.vehicleId)
+                      : null;
+                    const willReassign =
+                      selectedDriverId === d.id &&
+                      d.vehicleId &&
+                      selectedVehicleId &&
+                      d.vehicleId !== selectedVehicleId;
+
+                    return (
+                      <button
+                        key={d.id}
+                        onClick={() =>
+                          setSelectedDriverId(d.id === selectedDriverId ? null : d.id)
+                        }
+                        className={cn(
+                          "text-left p-4 rounded-xl border-2 transition-all duration-200",
+                          selectedDriverId === d.id
+                            ? "border-violet-500 bg-violet-500/5 shadow-lg shadow-violet-500/10"
+                            : "border-border hover:border-muted-foreground/30 hover:bg-muted/30"
                         )}
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {d.phone || d.email || ""}
-                      </p>
-                    </button>
-                  ))}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-bold">{d.name}</span>
+                          {selectedDriverId === d.id && (
+                            <div className="h-6 w-6 rounded-full bg-violet-500 flex items-center justify-center">
+                              <Check className="h-3.5 w-3.5 text-white" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          {d.phone || d.email || ""}
+                          {currentVehicleName && (
+                            <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-muted text-[10px]">
+                              <Truck className="h-2.5 w-2.5" />
+                              {currentVehicleName}
+                            </span>
+                          )}
+                        </div>
+                        {willReassign && (
+                          <p className="text-[10px] text-amber-400 mt-1.5 flex items-center gap-1">
+                            <AlertTriangle className="h-3 w-3" />
+                            {t("createRoute.driverReassignNote")}
+                          </p>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </section>
@@ -332,76 +401,118 @@ export default function CreateRoute() {
                   </div>
                   <h2 className="font-bold text-lg">{t("createRoute.selectStops")}</h2>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-xs"
-                  onClick={selectAllStops}
-                >
-                  {selectedStopIds.size === unassignedStops.length && unassignedStops.length > 0
-                    ? t("createRoute.deselectAll")
-                    : t("createRoute.selectAll")}
-                </Button>
+                {sortedStops.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs"
+                    onClick={selectAllStops}
+                  >
+                    {selectedStopIds.size === sortedStops.length && sortedStops.length > 0
+                      ? t("createRoute.deselectAll")
+                      : t("createRoute.selectAll")}
+                  </Button>
+                )}
               </div>
 
-              {unassignedStops.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-4 text-center">
-                  {t("createRoute.noStops")}
-                </p>
+              {loadingStops ? (
+                <div className="space-y-2">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="h-16 rounded-xl border-2 border-border bg-muted/20 animate-pulse"
+                    />
+                  ))}
+                </div>
+              ) : sortedStops.length === 0 ? (
+                <div className="text-sm text-muted-foreground py-6 text-center space-y-2">
+                  <MapPin className="h-8 w-8 mx-auto opacity-30" />
+                  <p>{t("createRoute.noStopsAnywhere")}</p>
+                  <Link href="/stops">
+                    <Button variant="link" size="sm" className="text-xs gap-1">
+                      {t("createRoute.goToStops")}
+                      <ExternalLink className="h-3 w-3" />
+                    </Button>
+                  </Link>
+                </div>
               ) : (
                 <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
-                  {unassignedStops.map((stop) => (
-                    <button
-                      key={stop.id}
-                      onClick={() => toggleStop(stop.id)}
-                      className={cn(
-                        "w-full text-left p-3 rounded-xl border-2 transition-all duration-150 flex items-center gap-3",
-                        selectedStopIds.has(stop.id)
-                          ? "border-amber-500 bg-amber-500/5"
-                          : "border-border hover:border-muted-foreground/30 hover:bg-muted/30"
-                      )}
-                    >
-                      <div
+                  {sortedStops.map((stop) => {
+                    const isAssigned = !!stop.routeId;
+                    const routeName = isAssigned
+                      ? routesById.get(stop.routeId!) || t("common.unknown")
+                      : null;
+                    const isSelected = selectedStopIds.has(stop.id);
+
+                    return (
+                      <button
+                        key={stop.id}
+                        onClick={() => toggleStop(stop.id)}
                         className={cn(
-                          "h-5 w-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors",
-                          selectedStopIds.has(stop.id)
-                            ? "border-amber-500 bg-amber-500"
-                            : "border-muted-foreground/40"
+                          "w-full text-left p-3 rounded-xl border-2 transition-all duration-150 flex items-center gap-3",
+                          isSelected
+                            ? "border-amber-500 bg-amber-500/5"
+                            : isAssigned
+                              ? "border-border/60 bg-muted/10 hover:border-muted-foreground/30"
+                              : "border-border hover:border-muted-foreground/30 hover:bg-muted/30"
                         )}
                       >
-                        {selectedStopIds.has(stop.id) && (
-                          <Check className="h-3 w-3 text-white" />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{stop.address}</p>
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
-                          {stop.timeWindowStart && (
-                            <span className="flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              {new Date(stop.timeWindowStart).toLocaleTimeString([], {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}
-                              {stop.timeWindowEnd &&
-                                ` – ${new Date(stop.timeWindowEnd).toLocaleTimeString([], {
+                        <div
+                          className={cn(
+                            "h-5 w-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors",
+                            isSelected
+                              ? "border-amber-500 bg-amber-500"
+                              : "border-muted-foreground/40"
+                          )}
+                        >
+                          {isSelected && (
+                            <Check className="h-3 w-3 text-white" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium truncate">{stop.address}</p>
+                            {isAssigned && (
+                              <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground flex items-center gap-1">
+                                <RouteIcon className="h-2.5 w-2.5" />
+                                {routeName}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                            {stop.timeWindowStart && (
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                {new Date(stop.timeWindowStart).toLocaleTimeString([], {
                                   hour: "2-digit",
                                   minute: "2-digit",
-                                })}`}
-                            </span>
+                                })}
+                                {stop.timeWindowEnd &&
+                                  ` – ${new Date(stop.timeWindowEnd).toLocaleTimeString([], {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}`}
+                              </span>
+                            )}
+                            {stop.weightKg && (
+                              <span className="flex items-center gap-1">
+                                <Weight className="h-3 w-3" />
+                                {stop.weightKg}kg
+                              </span>
+                            )}
+                            {stop.volumeM3 && <span>{stop.volumeM3}m³</span>}
+                            {stop.serviceDurationMin && <span>{stop.serviceDurationMin} min</span>}
+                          </div>
+                          {isAssigned && isSelected && (
+                            <p className="text-[10px] text-amber-400 mt-1 flex items-center gap-1">
+                              <AlertTriangle className="h-3 w-3" />
+                              {t("createRoute.stopReassignWarning")}
+                            </p>
                           )}
-                          {stop.weightKg && (
-                            <span className="flex items-center gap-1">
-                              <Weight className="h-3 w-3" />
-                              {stop.weightKg}kg
-                            </span>
-                          )}
-                          {stop.volumeM3 && <span>{stop.volumeM3}m³</span>}
-                          {stop.serviceDurationMin && <span>{stop.serviceDurationMin} min</span>}
                         </div>
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </section>
@@ -439,6 +550,13 @@ export default function CreateRoute() {
                 />
               </div>
 
+              {reassignCount > 0 && (
+                <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-medium flex items-start gap-2">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  {t("createRoute.reassignWarning", { count: reassignCount })}
+                </div>
+              )}
+
               {capacityWarning && (
                 <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-xs font-medium">
                   {t("createRoute.capacityWarning")}
@@ -452,8 +570,17 @@ export default function CreateRoute() {
               size="lg"
               className="w-full gap-2 h-12 text-base font-bold rounded-xl"
             >
-              {saving ? t("common.saving") : t("createRoute.createBtn")}
-              <ChevronRight className="h-5 w-5" />
+              {saving ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {t("common.saving")}
+                </>
+              ) : (
+                <>
+                  {t("createRoute.createBtn")}
+                  <ChevronRight className="h-5 w-5" />
+                </>
+              )}
             </Button>
           </div>
         </div>
