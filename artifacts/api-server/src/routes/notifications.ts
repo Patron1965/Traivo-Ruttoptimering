@@ -32,7 +32,7 @@ router.get("/notifications", async (req, res) => {
       .limit(limit);
 
     res.json({
-      unreadCount: unreadCount?.count ?? 0,
+      unreadCount: Number(unreadCount?.count ?? 0),
       notifications,
     });
   } catch (err) {
