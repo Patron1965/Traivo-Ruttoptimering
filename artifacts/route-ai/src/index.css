@@ -108,16 +108,8 @@
 
 /* Leaflet Map Customizations for Dark Mode */
 .leaflet-container {
-  background: hsl(var(--background)) !important;
+  background: #f2efe9 !important;
   font-family: var(--font-sans) !important;
-}
-.map-tiles-dark {
-  filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7);
-}
-.leaflet-control-zoom-in,
-.leaflet-control-zoom-out,
-.leaflet-control-attribution {
-  filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
 }
 .leaflet-popup-content-wrapper {
   background: hsl(var(--card)) !important;

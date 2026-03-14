@@ -216,9 +216,8 @@ export function RouteMap({
       <MapFlyTo routes={routes} unassignedStops={unassignedStops} focusStopId={focusStopId} />
       <ZoomControl position="bottomright" />
       <TileLayer
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        className="map-tiles-dark"
+        url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>'
       />
 
       <Marker position={[DEPOT_LOCATION.lat, DEPOT_LOCATION.lng]} icon={createCustomIcon("#06B6D4", undefined, true)}>
