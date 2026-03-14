@@ -108,6 +108,17 @@ router.delete("/routes/:id", async (req, res) => {
 router.get("/routes/:id/stops", async (req, res) => {
   try {
     const { id } = parseUuidParam(req.params);
+    const orgId = req.query.organizationId as string | undefined;
+    if (orgId) {
+      const [route] = await db
+        .select({ id: routesTable.id })
+        .from(routesTable)
+        .where(and(eq(routesTable.id, id), eq(routesTable.organizationId, orgId)));
+      if (!route) {
+        res.status(404).json({ error: "Route not found" });
+        return;
+      }
+    }
     const stops = await db
       .select()
       .from(stopsTable)
