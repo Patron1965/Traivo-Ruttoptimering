@@ -6,7 +6,10 @@ const router: IRouter = Router();
 const startedAt = Date.now();
 
 router.get("/healthz", async (_req, res) => {
-  let dbStatus = "ok";
+  const memUsage = process.memoryUsage();
+  const uptimeSeconds = Math.floor((Date.now() - startedAt) / 1000);
+
+  let dbStatus: "ok" | "error" = "ok";
   let dbLatencyMs: number | null = null;
 
   try {
@@ -17,21 +20,21 @@ router.get("/healthz", async (_req, res) => {
     dbStatus = "error";
   }
 
-  const mem = process.memoryUsage();
+  const overallStatus = dbStatus === "ok" ? "ok" : "degraded";
 
-  res.json({
-    status: dbStatus === "ok" ? "ok" : "degraded",
-    uptime: Math.round((Date.now() - startedAt) / 1000),
+  res.status(overallStatus === "ok" ? 200 : 503).json({
+    status: overallStatus,
+    uptime: uptimeSeconds,
     database: {
       status: dbStatus,
       latencyMs: dbLatencyMs,
     },
     memory: {
-      rssBytes: mem.rss,
-      heapUsedBytes: mem.heapUsed,
-      heapTotalBytes: mem.heapTotal,
-      rssMb: Math.round(mem.rss / 1024 / 1024),
-      heapUsedMb: Math.round(mem.heapUsed / 1024 / 1024),
+      rssBytes: memUsage.rss,
+      heapUsedBytes: memUsage.heapUsed,
+      heapTotalBytes: memUsage.heapTotal,
+      rssMb: Math.round(memUsage.rss / 1024 / 1024),
+      heapUsedMb: Math.round(memUsage.heapUsed / 1024 / 1024),
     },
   });
 });

@@ -21,6 +21,7 @@
     "co2": "CO\u2082",
     "ev": "EV",
     "fossil": "Fossil",
+    "hybrid": "Hybrid",
     "status": "Status",
     "na": "N/A",
     "somethingWentWrong": "Something went wrong",
@@ -189,7 +190,9 @@
     "noRoutesYet": "No routes yet",
     "loadingSustainability": "Loading sustainability data...",
     "fossilCo2": "Fossil CO\u2082",
-    "evCo2": "EV CO\u2082"
+    "evCo2": "EV CO\u2082",
+    "hybridCo2": "Hybrid CO\u2082",
+    "hybridEmissions": "Hybrid Emissions"
   },
   "vehicles": {
     "title": "Fleet Management",
@@ -460,5 +463,13 @@
     "title": "404",
     "message": "The page you're looking for doesn't exist or has been moved.",
     "backToDashboard": "Back to Dashboard"
+  },
+  "commandPalette": {
+    "placeholder": "Search routes, vehicles, drivers, pages...",
+    "noResults": "No results found.",
+    "pages": "Pages",
+    "routes": "Routes",
+    "vehicles": "Vehicles",
+    "drivers": "Drivers"
   }
 }

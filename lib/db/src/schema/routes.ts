@@ -20,10 +20,10 @@ export const routesTable = pgTable("routes", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => [
-  index("routes_org_id_idx").on(table.organizationId),
+  index("routes_organization_id_idx").on(table.organizationId),
   index("routes_status_idx").on(table.status),
   index("routes_date_idx").on(table.date),
-  index("routes_org_status_idx").on(table.organizationId, table.status),
+  index("routes_org_status_date_idx").on(table.organizationId, table.status, table.date),
 ]);
 
 export const insertRouteSchema = createInsertSchema(routesTable).omit({ id: true, createdAt: true, updatedAt: true });

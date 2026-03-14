@@ -28,7 +28,8 @@ export const stopsTable = pgTable("stops", {
 }, (table) => [
   uniqueIndex("stops_tracking_code_unique").on(table.trackingCode),
   index("stops_route_id_idx").on(table.routeId),
-  index("stops_org_id_idx").on(table.organizationId),
+  index("stops_organization_id_idx").on(table.organizationId),
+  index("stops_lat_lng_idx").on(table.latitude, table.longitude),
   index("stops_route_seq_idx").on(table.routeId, table.sequenceOrder),
 ]);
 

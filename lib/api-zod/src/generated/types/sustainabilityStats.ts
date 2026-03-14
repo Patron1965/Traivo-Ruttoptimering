@@ -5,13 +5,16 @@
  * RouteAI API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { SustainabilityStatsEmissionProfiles } from "./sustainabilityStatsEmissionProfiles";
 import type { SustainabilityStatsRouteBreakdownItem } from "./sustainabilityStatsRouteBreakdownItem";
 
 export interface SustainabilityStats {
   totalCo2Kg: number;
   fossilCo2Kg: number;
   evCo2Kg: number;
+  hybridCo2Kg: number;
   co2SavedKg: number;
   treesEquivalent: number;
+  emissionProfiles?: SustainabilityStatsEmissionProfiles;
   routeBreakdown: SustainabilityStatsRouteBreakdownItem[];
 }

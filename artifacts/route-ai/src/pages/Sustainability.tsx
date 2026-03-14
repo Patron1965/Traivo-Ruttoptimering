@@ -1,7 +1,7 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useSustainabilityStats } from "@/hooks/use-sustainability";
 import { LoadingState, ErrorState } from "@/components/ui/LoadingState";
-import { Leaf, TreePine, TrendingDown, Zap, Fuel } from "lucide-react";
+import { Leaf, TreePine, TrendingDown, Zap, Fuel, Car } from "lucide-react";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -28,12 +28,14 @@ export default function Sustainability() {
 
   const dailyTrend = useMemo(() => {
     if (!stats) return [];
-    const byDay = new Map<string, { fossil: number; ev: number }>();
+    const byDay = new Map<string, { fossil: number; ev: number; hybrid: number }>();
     stats.routeBreakdown.forEach((r) => {
       const day = new Date(r.date).toLocaleDateString("en-CA");
-      const prev = byDay.get(day) || { fossil: 0, ev: 0 };
+      const prev = byDay.get(day) || { fossil: 0, ev: 0, hybrid: 0 };
       if (r.vehicleType === "electric") {
         prev.ev += r.co2Kg;
+      } else if (r.vehicleType === "hybrid") {
+        prev.hybrid += r.co2Kg;
       } else {
         prev.fossil += r.co2Kg;
       }
@@ -45,16 +47,20 @@ export default function Sustainability() {
         date: new Date(day).toLocaleDateString(i18n.language === "sv" ? "sv-SE" : "en-US", { month: "short", day: "numeric" }),
         fossil: Math.round(vals.fossil * 100) / 100,
         ev: Math.round(vals.ev * 100) / 100,
-        total: Math.round((vals.fossil + vals.ev) * 100) / 100,
+        hybrid: Math.round(vals.hybrid * 100) / 100,
+        total: Math.round((vals.fossil + vals.ev + vals.hybrid) * 100) / 100,
       }));
   }, [stats, i18n.language]);
 
   if (isLoading) return <AppLayout><LoadingState message={t("sustainability.loadingSustainability")} /></AppLayout>;
   if (error || !stats) return <AppLayout><ErrorState error={error} /></AppLayout>;
 
+  const hybridCo2Kg = stats.hybridCo2Kg ?? 0;
+
   const pieData = [
     { name: t("sustainability.fossilCo2"), value: stats.fossilCo2Kg, color: "#F59E0B" },
     { name: t("sustainability.evCo2"), value: stats.evCo2Kg, color: "#10B981" },
+    { name: t("sustainability.hybridCo2"), value: hybridCo2Kg, color: "#8B5CF6" },
   ].filter(d => d.value > 0);
 
   const barData = stats.routeBreakdown.map((r) => ({
@@ -81,7 +87,10 @@ export default function Sustainability() {
           <KpiCard title={t("sustainability.totalCo2")} value={`${stats.totalCo2Kg.toFixed(1)} kg`} icon={<Leaf className="h-5 w-5 text-emerald-500" />} />
           <KpiCard title={t("sustainability.co2Saved")} value={`${stats.co2SavedKg.toFixed(1)} kg`} icon={<TrendingDown className="h-5 w-5 text-primary" />} />
           <KpiCard title={t("sustainability.fossilEmissions")} value={`${stats.fossilCo2Kg.toFixed(1)} kg`} icon={<Fuel className="h-5 w-5 text-amber-500" />} />
-          <KpiCard title={t("sustainability.evEmissions")} value={`${stats.evCo2Kg.toFixed(1)} kg`} icon={<Zap className="h-5 w-5 text-violet-500" />} />
+          <KpiCard title={t("sustainability.evEmissions")} value={`${stats.evCo2Kg.toFixed(1)} kg`} icon={<Zap className="h-5 w-5 text-emerald-400" />} />
+          {hybridCo2Kg > 0 && (
+            <KpiCard title={t("sustainability.hybridEmissions")} value={`${hybridCo2Kg.toFixed(1)} kg`} icon={<Car className="h-5 w-5 text-violet-500" />} />
+          )}
         </div>
 
         <div className="bg-card rounded-2xl border border-card-border p-6 shadow-xl shadow-black/5">
@@ -191,6 +200,7 @@ export default function Sustainability() {
                 <Legend />
                 <Area type="monotone" dataKey="fossil" stroke="#F59E0B" fill="url(#fossilGrad)" name={`${t("sustainability.fossilCo2")} (kg)`} />
                 <Area type="monotone" dataKey="ev" stroke="#10B981" fill="url(#evGrad)" name={`${t("sustainability.evCo2")} (kg)`} />
+                <Area type="monotone" dataKey="hybrid" stroke="#8B5CF6" fill="#8B5CF620" name={`${t("sustainability.hybridCo2")} (kg)`} />
               </AreaChart>
             </ResponsiveContainer>
           ) : (
@@ -220,9 +230,13 @@ export default function Sustainability() {
                     <td className="p-4 font-medium">{r.routeName}</td>
                     <td className="p-4 text-muted-foreground">{r.vehicleName}</td>
                     <td className="p-4">
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${r.vehicleType === 'electric' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'}`}>
-                        {r.vehicleType === 'electric' ? <Zap className="h-3 w-3" /> : <Fuel className="h-3 w-3" />}
-                        {r.vehicleType === 'electric' ? t("common.ev") : t("common.fossil")}
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                        r.vehicleType === 'electric' ? 'bg-emerald-500/10 text-emerald-500' :
+                        r.vehicleType === 'hybrid' ? 'bg-violet-500/10 text-violet-500' :
+                        'bg-amber-500/10 text-amber-500'
+                      }`}>
+                        {r.vehicleType === 'electric' ? <Zap className="h-3 w-3" /> : r.vehicleType === 'hybrid' ? <Car className="h-3 w-3" /> : <Fuel className="h-3 w-3" />}
+                        {r.vehicleType === 'electric' ? t("common.ev") : r.vehicleType === 'hybrid' ? t("common.hybrid") : t("common.fossil")}
                       </span>
                     </td>
                     <td className="p-4 text-muted-foreground">{r.distanceKm.toFixed(1)} km</td>

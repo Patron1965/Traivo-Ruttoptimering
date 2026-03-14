@@ -21,6 +21,7 @@
     "co2": "CO\u2082",
     "ev": "EV",
     "fossil": "Fossil",
+    "hybrid": "Hybrid",
     "status": "Status",
     "na": "Ej tillgängligt",
     "somethingWentWrong": "Något gick fel",
@@ -189,7 +190,9 @@
     "noRoutesYet": "Inga rutter \u00e4nnu",
     "loadingSustainability": "Laddar h\u00e5llbarhetsdata...",
     "fossilCo2": "Fossil CO\u2082",
-    "evCo2": "EV CO\u2082"
+    "evCo2": "EV CO\u2082",
+    "hybridCo2": "Hybrid CO\u2082",
+    "hybridEmissions": "Hybridutsl\u00e4pp"
   },
   "vehicles": {
     "title": "Fordonshantering",
@@ -460,5 +463,13 @@
     "title": "404",
     "message": "Sidan du letar efter finns inte eller har flyttats.",
     "backToDashboard": "Tillbaka till \u00f6versikten"
+  },
+  "commandPalette": {
+    "placeholder": "Sök rutter, fordon, förare, sidor...",
+    "noResults": "Inga resultat hittades.",
+    "pages": "Sidor",
+    "routes": "Rutter",
+    "vehicles": "Fordon",
+    "drivers": "Förare"
   }
 }

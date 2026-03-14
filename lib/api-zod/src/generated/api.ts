@@ -182,8 +182,6 @@ export const ImportStopsBody = zod.object({
       timeWindowEnd: zod.coerce.date().nullish(),
       serviceDurationMin: zod.number().optional(),
       notes: zod.string().nullish(),
-      weightKg: zod.number().nullish(),
-      volumeM3: zod.number().nullish(),
     }),
   ),
 });
@@ -505,14 +503,25 @@ export const GetSustainabilityStatsResponse = zod.object({
   totalCo2Kg: zod.number(),
   fossilCo2Kg: zod.number(),
   evCo2Kg: zod.number(),
+  hybridCo2Kg: zod.number(),
   co2SavedKg: zod.number(),
   treesEquivalent: zod.number(),
+  emissionProfiles: zod
+    .record(
+      zod.string(),
+      zod.object({
+        label: zod.string(),
+        co2PerKmGrams: zod.number(),
+        wellToWheelFactor: zod.number(),
+      }),
+    )
+    .optional(),
   routeBreakdown: zod.array(
     zod.object({
       routeId: zod.string().uuid(),
       routeName: zod.string(),
       vehicleName: zod.string(),
-      vehicleType: zod.enum(["fossil", "electric"]),
+      vehicleType: zod.string(),
       distanceKm: zod.number(),
       co2Kg: zod.number(),
       date: zod.date(),

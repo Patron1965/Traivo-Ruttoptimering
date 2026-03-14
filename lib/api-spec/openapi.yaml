@@ -1362,10 +1362,27 @@ components:
           type: number
         evCo2Kg:
           type: number
+        hybridCo2Kg:
+          type: number
         co2SavedKg:
           type: number
         treesEquivalent:
           type: number
+        emissionProfiles:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              label:
+                type: string
+              co2PerKmGrams:
+                type: number
+              wellToWheelFactor:
+                type: number
+            required:
+              - label
+              - co2PerKmGrams
+              - wellToWheelFactor
         routeBreakdown:
           type: array
           items:
@@ -1380,7 +1397,6 @@ components:
                 type: string
               vehicleType:
                 type: string
-                enum: [fossil, electric]
               distanceKm:
                 type: number
               co2Kg:
@@ -1400,6 +1416,7 @@ components:
         - totalCo2Kg
         - fossilCo2Kg
         - evCo2Kg
+        - hybridCo2Kg
         - co2SavedKg
         - treesEquivalent
         - routeBreakdown

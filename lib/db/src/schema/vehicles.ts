@@ -19,7 +19,7 @@ export const vehiclesTable = pgTable("vehicles", {
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => [
-  index("vehicles_org_id_idx").on(table.organizationId),
+  index("vehicles_organization_id_idx").on(table.organizationId),
 ]);
 
 export const insertVehicleSchema = createInsertSchema(vehiclesTable).omit({ id: true, createdAt: true });

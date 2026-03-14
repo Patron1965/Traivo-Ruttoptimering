@@ -268,19 +268,19 @@ export interface DashboardStats {
   activeDrivers: number;
 }
 
-export type SustainabilityStatsRouteBreakdownItemVehicleType =
-  (typeof SustainabilityStatsRouteBreakdownItemVehicleType)[keyof typeof SustainabilityStatsRouteBreakdownItemVehicleType];
-
-export const SustainabilityStatsRouteBreakdownItemVehicleType = {
-  fossil: "fossil",
-  electric: "electric",
-} as const;
+export type SustainabilityStatsEmissionProfiles = {
+  [key: string]: {
+    label: string;
+    co2PerKmGrams: number;
+    wellToWheelFactor: number;
+  };
+};
 
 export type SustainabilityStatsRouteBreakdownItem = {
   routeId: string;
   routeName: string;
   vehicleName: string;
-  vehicleType: SustainabilityStatsRouteBreakdownItemVehicleType;
+  vehicleType: string;
   distanceKm: number;
   co2Kg: number;
   date: string;
@@ -290,8 +290,10 @@ export interface SustainabilityStats {
   totalCo2Kg: number;
   fossilCo2Kg: number;
   evCo2Kg: number;
+  hybridCo2Kg: number;
   co2SavedKg: number;
   treesEquivalent: number;
+  emissionProfiles?: SustainabilityStatsEmissionProfiles;
   routeBreakdown: SustainabilityStatsRouteBreakdownItem[];
 }
 

@@ -14,6 +14,4 @@ export type ImportStopsBodyStopsItem = {
   timeWindowEnd?: Date | null;
   serviceDurationMin?: number;
   notes?: string | null;
-  weightKg?: number | null;
-  volumeM3?: number | null;
 };

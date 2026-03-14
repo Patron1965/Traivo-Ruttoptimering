@@ -4,12 +4,45 @@ import MarkerClusterGroup from "react-leaflet-cluster";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { type Route, type Stop, type VehiclePosition } from "@workspace/api-client-react";
-import { ROUTE_COLORS, STATUS_COLORS, DEPOT_LOCATION } from "@/lib/constants";
+import { ROUTE_COLORS, DEPOT_LOCATION } from "@/lib/constants";
 import { formatDistance } from "@/lib/utils";
 import { MapPin, Truck, Warehouse, Battery, Navigation, Clock, Zap, Fuel } from "lucide-react";
 import { renderToString } from "react-dom/server";
 import { useTranslation } from "react-i18next";
 import { fetchRouteGeometry } from "@/lib/osrm";
+
+const STATUS_COLORS: Record<string, string> = {
+  draft: "#9CA3AF",
+  planned: "#9CA3AF",
+  optimized: "#9CA3AF",
+  active: "#3B82F6",
+  in_progress: "#3B82F6",
+  delayed: "#F97316",
+  completed: "#10B981",
+  cancelled: "#EF4444",
+};
+
+const STATUS_WEIGHT: Record<string, number> = {
+  draft: 3,
+  planned: 3,
+  optimized: 3,
+  active: 5,
+  in_progress: 5,
+  delayed: 5,
+  completed: 3,
+  cancelled: 2,
+};
+
+const STATUS_OPACITY: Record<string, number> = {
+  draft: 0.5,
+  planned: 0.5,
+  optimized: 0.6,
+  active: 0.9,
+  in_progress: 0.9,
+  delayed: 0.85,
+  completed: 0.7,
+  cancelled: 0.4,
+};
 
 interface RouteData extends Route {
   stopsList: Stop[];
@@ -178,6 +211,10 @@ function useRouteGeometries(routes: RouteData[]) {
   return geometries;
 }
 
+function getRouteColor(status: string): string {
+  return STATUS_COLORS[status] ?? "#9CA3AF";
+}
+
 export function RouteMap({ 
   routes = [], 
   unassignedStops = [],
@@ -245,8 +282,8 @@ export function RouteMap({
         />
       ))}
 
-      {routes.map((route, rIndex) => {
-        const color = STATUS_COLORS[route.status] ?? ROUTE_COLORS[rIndex % ROUTE_COLORS.length];
+      {routes.map((route) => {
+        const color = getRouteColor(route.status);
         const sortedStops = [...route.stopsList].sort((a, b) => (a.sequenceOrder || 0) - (b.sequenceOrder || 0));
 
         const roadPath = routeGeometries.get(route.id);
@@ -260,25 +297,43 @@ export function RouteMap({
         const isDimmed =
           highlightedRouteId !== null && highlightedRouteId !== route.id;
 
+        const weight = isDimmed ? 2 : (STATUS_WEIGHT[route.status] ?? 3);
+        const opacity = isDimmed ? 0.2 : (STATUS_OPACITY[route.status] ?? 0.7);
+
         return (
-          <div key={route.id}>
-            <Polyline 
-              positions={path} 
-              pathOptions={{ 
-                color, 
-                weight: isDimmed ? 2 : 4,
-                opacity: isDimmed ? 0.2 : 0.8,
-                dashArray: route.status === "draft" ? "8, 8" : undefined
-              }} 
-            />
-            {sortedStops.map((stop, sIndex) => {
-              const isSelected = stop.id === selectedStopId;
-              const icon = isSelected
-                ? createSelectedIcon(color, (sIndex + 1).toString())
-                : isDimmed
-                  ? createDimmedIcon(color, (sIndex + 1).toString())
-                  : createCustomIcon(color, (sIndex + 1).toString());
-              return (
+          <Polyline 
+            key={`polyline-${route.id}`}
+            positions={path} 
+            pathOptions={{ 
+              color, 
+              weight,
+              opacity,
+              dashArray: route.status === "draft" ? "8, 8" : undefined
+            }} 
+          />
+        );
+      })}
+
+      <MarkerClusterGroup
+        chunkedLoading
+        maxClusterRadius={60}
+        spiderfyOnMaxZoom
+        showCoverageOnHover={false}
+        disableClusteringAtZoom={13}
+      >
+        {routes.map((route) => {
+          const color = getRouteColor(route.status);
+          const sortedStops = [...route.stopsList].sort((a, b) => (a.sequenceOrder || 0) - (b.sequenceOrder || 0));
+          const isDimmed = highlightedRouteId !== null && highlightedRouteId !== route.id;
+
+          return sortedStops.map((stop, sIndex) => {
+            const isSelected = stop.id === selectedStopId;
+            const icon = isSelected
+              ? createSelectedIcon(color, (sIndex + 1).toString())
+              : isDimmed
+                ? createDimmedIcon(color, (sIndex + 1).toString())
+                : createCustomIcon(color, (sIndex + 1).toString());
+            return (
               <Marker 
                 key={stop.id} 
                 position={[stop.latitude, stop.longitude]}
@@ -311,11 +366,32 @@ export function RouteMap({
                   </div>
                 </Popup>
               </Marker>
-              );
-            })}
-          </div>
-        );
-      })}
+            );
+          });
+        })}
+
+        {unassignedStops.map((stop) => {
+          const isSelected = stop.id === selectedStopId;
+          return (
+            <Marker 
+              key={stop.id} 
+              position={[stop.latitude, stop.longitude]}
+              icon={isSelected ? createSelectedIcon("#64748B") : createCustomIcon("#64748B")}
+              eventHandlers={onSelectStop ? { click: () => onSelectStop(stop.id) } : undefined}
+            >
+              <Popup>
+                <div className="p-2 min-w-[200px]">
+                  <div className="flex items-center gap-2 mb-2 pb-2 border-b border-border/50">
+                    <span className="px-2 py-0.5 rounded-md bg-destructive/10 text-destructive text-xs font-bold uppercase tracking-wider">{t("common.unassigned")}</span>
+                  </div>
+                  <h4 className="font-bold">{stop.notes || t("common.deliveryStop")}</h4>
+                  <p className="text-sm text-muted-foreground mt-1">{stop.address}</p>
+                </div>
+              </Popup>
+            </Marker>
+          );
+        })}
+      </MarkerClusterGroup>
 
       {vehiclePositions.map((pos, idx) => (
         <Marker
@@ -377,7 +453,7 @@ export function RouteMap({
           </Popup>
         </Marker>
       ))}
-      <MarkerClusterGroup chunkedLoading maxClusterRadius={60} disableClusteringAtZoom={14}>
+      <MarkerClusterGroup chunkedLoading maxClusterRadius={60} disableClusteringAtZoom={13}>
         {unassignedStops.map((stop) => {
           const isSelected = stop.id === selectedStopId;
           return (
