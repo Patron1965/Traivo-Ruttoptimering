@@ -446,6 +446,15 @@
     "stop_failed": "Misslyckad",
     "stop_skipped": "Överhoppad"
   },
+  "commandPalette": {
+    "placeholder": "Sök rutter, fordon, förare, sidor...",
+    "noResults": "Inga resultat hittades.",
+    "pages": "Sidor",
+    "routes": "Rutter",
+    "vehicles": "Fordon",
+    "drivers": "Förare",
+    "hint": "Navigera med ↑↓, välj med Enter"
+  },
   "notFound": {
     "title": "404",
     "message": "Sidan du letar efter finns inte eller har flyttats.",

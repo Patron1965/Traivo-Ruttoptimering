@@ -66,10 +66,12 @@ The database uses PostgreSQL with Drizzle ORM. Schema files are in `lib/db/src/s
 
 Key enums: `vehicle_type` (fossil, electric), `route_status`, `stop_status`
 
+Database indexes: routes(organization_id, status, date, org+status composite), stops(route_id, organization_id, route_id+sequence_order), vehicles(organization_id), drivers(organization_id)
+
 ## API Endpoints
 
 All endpoints under `/api`:
-- `GET /api/healthz` — health check
+- `GET /api/healthz` — enhanced health check (DB connectivity, latency, memory usage, uptime)
 - `GET/POST /api/vehicles` — list/create vehicles (query: organizationId)
 - `GET/PUT/DELETE /api/vehicles/:id` — get/update/delete vehicle
 - `GET/POST /api/stops` — list/create stops (query: organizationId, optional routeId)
@@ -103,7 +105,8 @@ The optimize endpoint uses a nearest-neighbor heuristic with:
 - Automatic EV charging station insertion when range insufficient (10 mock Stockholm-area stations)
 - 30-minute charging stop duration, resets remaining range after charging
 - Haversine distance calculations
-- CO2 emission estimates (0.21 kg/km fossil, 0.02 kg/km electric)
+- CO2 emission estimates with well-to-wheel factors: fossil 210 g/km, electric 50 g/km (well-to-wheel including grid mix)
+- Load-adjusted CO2: emission factor scales with cargo load relative to vehicle capacity
 
 ## Packages
 
@@ -111,7 +114,8 @@ The optimize endpoint uses a nearest-neighbor heuristic with:
 
 Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` for request and response validation and `@workspace/db` for persistence.
 
-- Entry: `src/index.ts` — reads `PORT`, starts Express
+- Entry: `src/index.ts` — validates env via Zod (`src/env.ts`), starts Express
+- Env validation: `src/env.ts` — Zod schema for DATABASE_URL, PORT, NODE_ENV; crashes early with clear messages
 - App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`
 - Routes: `src/routes/index.ts` mounts sub-routers (health, vehicles, stops, routes, dashboard, optimize)
 - Depends on: `@workspace/db`, `@workspace/api-zod`
@@ -155,8 +159,8 @@ React + Vite frontend for RouteAI. Dark-mode UI with sidebar navigation.
 - Uses `@workspace/api-client-react` generated React Query hooks for all API calls
 - Leaflet map with OpenStreetMap tiles for route visualization
 - Hardcoded ORG_ID: `63e7175d-af1d-4dc3-be62-842a8b3dc9f8` (Stockholm Logistics AB)
-- Key deps: react-leaflet, leaflet, @hello-pangea/dnd, recharts, react-hook-form, lucide-react, date-fns, i18next, react-i18next
-- Features: Route detail page with stop status management (mark delivered/failed/skipped, progress bar, OSRM map, auto route status transitions), clickable route cards on Routes page, EV battery bars on Fleet page, Excel/CSV import with column matching on Stops page (3-step wizard: upload → match columns → preview, auto-detects common Swedish/English header aliases, supports .xlsx/.xls/.csv with semicolon/tab/comma delimiters, RFC4180-compliant CSV parsing), route CSV export on Routes page, CO₂ sustainability dashboard with Recharts charts, AI chat assistant (floating panel with SSE streaming), proactive AI insights on dashboard, live vehicle tracking on map (3s polling), geofence circles around active stops, driver management with vehicle assignment, notification bell with dropdown, public delivery tracking page with status stepper + mini-map, tracking codes on stops, Dispatch Gantt Timeline (map+timeline split with resizable divider, driver rows, stop blocks, driving bars, stop detail panel, shift+click multi-select, drag & drop stop reassignment between drivers), OSRM road-following route polylines on map
+- Key deps: react-leaflet, leaflet, react-leaflet-cluster, @hello-pangea/dnd, recharts, react-hook-form, lucide-react, date-fns, i18next, react-i18next, cmdk
+- Features: Command Palette (Ctrl+K) for quick search across routes/vehicles/drivers/pages, marker clustering on map for dense stop views, status-colored route polylines (grey=draft, blue=active, green=completed, red=cancelled), Route detail page with stop status management (mark delivered/failed/skipped, progress bar, OSRM map, auto route status transitions), clickable route cards on Routes page, EV battery bars on Fleet page, Excel/CSV import with column matching on Stops page (3-step wizard: upload → match columns → preview, auto-detects common Swedish/English header aliases, supports .xlsx/.xls/.csv with semicolon/tab/comma delimiters, RFC4180-compliant CSV parsing), route CSV export on Routes page, CO₂ sustainability dashboard with Recharts charts, AI chat assistant (floating panel with SSE streaming), proactive AI insights on dashboard, live vehicle tracking on map (3s polling), geofence circles around active stops, driver management with vehicle assignment, notification bell with dropdown, public delivery tracking page with status stepper + mini-map, tracking codes on stops, Dispatch Gantt Timeline (map+timeline split with resizable divider, driver rows, stop blocks, driving bars, stop detail panel, shift+click multi-select, drag & drop stop reassignment between drivers), OSRM road-following route polylines on map
 - i18n: Swedish (default) and English via react-i18next. Translation files in `src/i18n/locales/`. Language persists via localStorage key `routeai-lang`. Language switcher (SV/EN toggle) in sidebar bottom. Config in `src/i18n/index.ts`.
 - AI Chat: Floating button bottom-right opens slide-over panel. Uses `@workspace/integrations-openai-ai-server` (gpt-5-mini model). Sends fleet context + active insights with each request.
 - AI Insights: Dashboard shows collapsible panel with auto-generated fleet insights (late-risk stops, battery warnings, CO₂ suggestions, capacity utilization). Deterministic checks + AI-enhanced recommendations.

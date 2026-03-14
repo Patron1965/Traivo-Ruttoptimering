@@ -90,9 +90,16 @@ function estimateDurationMin(distanceKm: number): number {
   return (distanceKm / avgSpeedKmH) * 60;
 }
 
-function estimateCo2(distanceKm: number, vehicleType: string): number {
-  const emissionFactor = vehicleType === "electric" ? 0.02 : 0.21;
-  return distanceKm * emissionFactor;
+const EMISSION_PROFILES: Record<string, { gCo2PerKm: number; loadFactor: number }> = {
+  fossil:   { gCo2PerKm: 210, loadFactor: 1.15 },
+  electric: { gCo2PerKm: 50,  loadFactor: 1.05 },
+};
+
+function estimateCo2(distanceKm: number, vehicleType: string, loadKg = 0, capacityKg = 1000): number {
+  const profile = EMISSION_PROFILES[vehicleType] ?? EMISSION_PROFILES.fossil;
+  const loadRatio = capacityKg > 0 ? Math.min(loadKg / capacityKg, 1) : 0;
+  const loadAdjustment = 1 + loadRatio * (profile.loadFactor - 1);
+  return (distanceKm * profile.gCo2PerKm * loadAdjustment) / 1000;
 }
 
 interface StopData {
@@ -567,7 +574,7 @@ router.post("/optimize", async (req, res) => {
         }
       }
 
-      const co2 = estimateCo2(routeDistance, vehicle.vehicleType);
+      const co2 = estimateCo2(routeDistance, vehicle.vehicleType, va.totalWeight, vehicle.capacityKg);
 
       await db
         .update(routesTable)

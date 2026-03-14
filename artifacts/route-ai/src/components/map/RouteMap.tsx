@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup, Polyline, ZoomControl, Circle, useMap } from "react-leaflet";
+import MarkerClusterGroup from "react-leaflet-cluster";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { type Route, type Stop, type VehiclePosition } from "@workspace/api-client-react";
-import { ROUTE_COLORS, DEPOT_LOCATION } from "@/lib/constants";
+import { ROUTE_COLORS, STATUS_COLORS, DEPOT_LOCATION } from "@/lib/constants";
 import { formatDistance } from "@/lib/utils";
 import { MapPin, Truck, Warehouse, Battery, Navigation, Clock, Zap, Fuel } from "lucide-react";
 import { renderToString } from "react-dom/server";
@@ -245,7 +246,7 @@ export function RouteMap({
       ))}
 
       {routes.map((route, rIndex) => {
-        const color = ROUTE_COLORS[rIndex % ROUTE_COLORS.length];
+        const color = STATUS_COLORS[route.status] ?? ROUTE_COLORS[rIndex % ROUTE_COLORS.length];
         const sortedStops = [...route.stopsList].sort((a, b) => (a.sequenceOrder || 0) - (b.sequenceOrder || 0));
 
         const roadPath = routeGeometries.get(route.id);
@@ -376,27 +377,29 @@ export function RouteMap({
           </Popup>
         </Marker>
       ))}
-      {unassignedStops.map((stop) => {
-        const isSelected = stop.id === selectedStopId;
-        return (
-        <Marker 
-          key={stop.id} 
-          position={[stop.latitude, stop.longitude]}
-          icon={isSelected ? createSelectedIcon("#64748B") : createCustomIcon("#64748B")}
-          eventHandlers={onSelectStop ? { click: () => onSelectStop(stop.id) } : undefined}
-        >
-          <Popup>
-            <div className="p-2 min-w-[200px]">
-              <div className="flex items-center gap-2 mb-2 pb-2 border-b border-border/50">
-                <span className="px-2 py-0.5 rounded-md bg-destructive/10 text-destructive text-xs font-bold uppercase tracking-wider">{t("common.unassigned")}</span>
+      <MarkerClusterGroup chunkedLoading maxClusterRadius={60} disableClusteringAtZoom={14}>
+        {unassignedStops.map((stop) => {
+          const isSelected = stop.id === selectedStopId;
+          return (
+          <Marker 
+            key={stop.id} 
+            position={[stop.latitude, stop.longitude]}
+            icon={isSelected ? createSelectedIcon("#64748B") : createCustomIcon("#64748B")}
+            eventHandlers={onSelectStop ? { click: () => onSelectStop(stop.id) } : undefined}
+          >
+            <Popup>
+              <div className="p-2 min-w-[200px]">
+                <div className="flex items-center gap-2 mb-2 pb-2 border-b border-border/50">
+                  <span className="px-2 py-0.5 rounded-md bg-destructive/10 text-destructive text-xs font-bold uppercase tracking-wider">{t("common.unassigned")}</span>
+                </div>
+                <h4 className="font-bold">{stop.notes || t("common.deliveryStop")}</h4>
+                <p className="text-sm text-muted-foreground mt-1">{stop.address}</p>
               </div>
-              <h4 className="font-bold">{stop.notes || t("common.deliveryStop")}</h4>
-              <p className="text-sm text-muted-foreground mt-1">{stop.address}</p>
-            </div>
-          </Popup>
-        </Marker>
-        );
-      })}
+            </Popup>
+          </Marker>
+          );
+        })}
+      </MarkerClusterGroup>
     </MapContainer>
   );
 }

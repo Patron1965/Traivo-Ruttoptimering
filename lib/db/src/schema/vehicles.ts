@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, real, boolean, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, real, boolean, pgEnum, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { organizationsTable } from "./organizations";
@@ -18,7 +18,9 @@ export const vehiclesTable = pgTable("vehicles", {
   rangeKm: real("range_km"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => [
+  index("vehicles_org_id_idx").on(table.organizationId),
+]);
 
 export const insertVehicleSchema = createInsertSchema(vehiclesTable).omit({ id: true, createdAt: true });
 export type InsertVehicle = z.infer<typeof insertVehicleSchema>;

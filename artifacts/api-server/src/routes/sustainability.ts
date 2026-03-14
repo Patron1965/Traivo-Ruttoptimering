@@ -4,7 +4,7 @@ import { db, routesTable, vehiclesTable } from "@workspace/db";
 import { GetSustainabilityStatsQueryParams } from "@workspace/api-zod";
 import { handleError } from "../lib/errors";
 
-const CO2_PER_KM_FOSSIL = 0.21;
+const CO2_PER_KM_FOSSIL = 0.242;
 
 const router: IRouter = Router();
 

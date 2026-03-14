@@ -19,6 +19,7 @@ import RouteDetail from "@/pages/RouteDetail";
 import TrackingPage from "@/pages/TrackingPage";
 import NotFound from "@/pages/not-found";
 import { ChatPanel } from "@/components/chat/ChatPanel";
+import { CommandPalette } from "@/components/CommandPalette";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -62,6 +63,7 @@ function App() {
           <AppRouter />
         </WouterRouter>
         <ChatPanel />
+        <CommandPalette />
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>

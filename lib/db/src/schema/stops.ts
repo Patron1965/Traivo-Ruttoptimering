@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, real, integer, pgEnum, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, real, integer, pgEnum, uniqueIndex, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { organizationsTable } from "./organizations";
@@ -27,6 +27,9 @@ export const stopsTable = pgTable("stops", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => [
   uniqueIndex("stops_tracking_code_unique").on(table.trackingCode),
+  index("stops_route_id_idx").on(table.routeId),
+  index("stops_org_id_idx").on(table.organizationId),
+  index("stops_route_seq_idx").on(table.routeId, table.sequenceOrder),
 ]);
 
 export const insertStopSchema = createInsertSchema(stopsTable).omit({ id: true, createdAt: true });

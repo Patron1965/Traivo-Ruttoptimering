@@ -446,6 +446,15 @@
     "stop_failed": "Failed",
     "stop_skipped": "Skipped"
   },
+  "commandPalette": {
+    "placeholder": "Search routes, vehicles, drivers, pages...",
+    "noResults": "No results found.",
+    "pages": "Pages",
+    "routes": "Routes",
+    "vehicles": "Vehicles",
+    "drivers": "Drivers",
+    "hint": "Navigate with ↑↓, select with Enter"
+  },
   "notFound": {
     "title": "404",
     "message": "The page you're looking for doesn't exist or has been moved.",
