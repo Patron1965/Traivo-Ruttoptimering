@@ -77,7 +77,7 @@ All endpoints under `/api`:
 - `GET/POST /api/routes` — list/create routes (query: organizationId)
 - `GET/PUT/DELETE /api/routes/:id` — get/update/delete route
 - `GET /api/routes/:id/stops` — get stops for a route (ordered by sequenceOrder)
-- `POST /api/optimize` — optimize route assignments using nearest-neighbor heuristic
+- `POST /api/optimize` — optimize route assignments using Clarke-Wright Savings algorithm (VRP with capacity, time windows, EV range + charging)
 - `GET /api/dashboard/stats` — aggregated dashboard statistics
 - `POST /api/stops/import` — bulk import stops from Excel/CSV data (transactional, supports weightKg/volumeM3)
 - `GET /api/routes/:id/export` — export route stops as CSV download
