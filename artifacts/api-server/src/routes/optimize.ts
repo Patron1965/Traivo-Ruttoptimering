@@ -148,40 +148,91 @@ function isTimeWindowFeasible(stop: StopData, arrivalTime: Date): boolean {
 
 interface CWRoute {
   stops: StopData[];
-  vehicleId: string | null;
   totalWeight: number;
   totalVolume: number;
 }
 
-function computeRouteDistance(stops: StopData[], depotLat: number, depotLon: number): number {
-  let dist = 0;
-  let prevLat = depotLat;
-  let prevLon = depotLon;
-  for (const s of stops) {
-    dist += haversineDistance(prevLat, prevLon, s.latitude, s.longitude);
-    prevLat = s.latitude;
-    prevLon = s.longitude;
-  }
-  dist += haversineDistance(prevLat, prevLon, depotLat, depotLon);
-  return dist;
+interface RouteSimResult {
+  feasible: boolean;
+  totalDistanceKm: number;
+  endTime: Date;
+  rangeUsedKm: number;
+  chargingStops: ChargingStopInserted[];
 }
 
-function simulateRouteSchedule(
+function simulateRouteWithCharging(
   stops: StopData[],
+  vehicle: VehicleData | null,
   depotLat: number,
   depotLon: number,
   startTime: Date
-): { feasible: boolean; endTime: Date } {
+): RouteSimResult {
   let currentTime = new Date(startTime);
   let prevLat = depotLat;
   let prevLon = depotLon;
-  for (const stop of stops) {
+  let totalDist = 0;
+  let rangeUsed = 0;
+  const chargingStops: ChargingStopInserted[] = [];
+
+  for (let i = 0; i < stops.length; i++) {
+    const stop = stops[i];
     const dist = haversineDistance(prevLat, prevLon, stop.latitude, stop.longitude);
+
+    if (vehicle?.rangeKm) {
+      const returnDist = haversineDistance(stop.latitude, stop.longitude, depotLat, depotLon);
+      if (rangeUsed + dist + returnDist > vehicle.rangeKm * 0.9) {
+        const station = findNearestChargingStation(prevLat, prevLon);
+        const distToStation = haversineDistance(prevLat, prevLon, station.latitude, station.longitude);
+        const distFromStation = haversineDistance(station.latitude, station.longitude, stop.latitude, stop.longitude);
+        const returnAfterCharge = haversineDistance(stop.latitude, stop.longitude, depotLat, depotLon);
+
+        if (distFromStation + returnAfterCharge > vehicle.rangeKm * 0.9) {
+          return { feasible: false, totalDistanceKm: totalDist, endTime: currentTime, rangeUsedKm: rangeUsed, chargingStops };
+        }
+
+        const travelToStationMin = estimateDurationMin(distToStation);
+        const travelFromStationMin = estimateDurationMin(distFromStation);
+        const chargedArrival = new Date(
+          currentTime.getTime() +
+          travelToStationMin * 60000 +
+          CHARGING_DURATION_MIN * 60000 +
+          travelFromStationMin * 60000
+        );
+
+        if (!isTimeWindowFeasible(stop, chargedArrival)) {
+          return { feasible: false, totalDistanceKm: totalDist, endTime: currentTime, rangeUsedKm: rangeUsed, chargingStops };
+        }
+
+        chargingStops.push({
+          stationId: station.id,
+          stationName: station.name,
+          latitude: station.latitude,
+          longitude: station.longitude,
+          insertedAfterStopIndex: i,
+        });
+
+        totalDist += distToStation + distFromStation;
+        currentTime = chargedArrival;
+        const effectiveStart = stop.timeWindowStart && stop.timeWindowStart.getTime() > chargedArrival.getTime()
+          ? stop.timeWindowStart
+          : chargedArrival;
+        currentTime = new Date(effectiveStart.getTime() + stop.serviceDurationMin * 60000);
+        rangeUsed = distFromStation;
+        prevLat = stop.latitude;
+        prevLon = stop.longitude;
+        continue;
+      }
+    }
+
+    totalDist += dist;
+    rangeUsed += dist;
     const travelMin = estimateDurationMin(dist);
     const arrival = new Date(currentTime.getTime() + travelMin * 60000);
+
     if (!isTimeWindowFeasible(stop, arrival)) {
-      return { feasible: false, endTime: arrival };
+      return { feasible: false, totalDistanceKm: totalDist, endTime: arrival, rangeUsedKm: rangeUsed, chargingStops };
     }
+
     const effectiveStart = stop.timeWindowStart && stop.timeWindowStart.getTime() > arrival.getTime()
       ? stop.timeWindowStart
       : arrival;
@@ -189,7 +240,8 @@ function simulateRouteSchedule(
     prevLat = stop.latitude;
     prevLon = stop.longitude;
   }
-  return { feasible: true, endTime: currentTime };
+
+  return { feasible: true, totalDistanceKm: totalDist, endTime: currentTime, rangeUsedKm: rangeUsed, chargingStops };
 }
 
 function clarkeWrightSavingsAssignment(
@@ -216,9 +268,12 @@ function clarkeWrightSavingsAssignment(
     return { assigned, unassigned: [] as StopData[] };
   }
 
+  const maxStopsPerRoute = Math.max(2, Math.ceil(stops.length / Math.max(1, vehicles.length)) + 2);
+  const maxCapacityKg = Math.max(...vehicles.map((v) => v.capacityKg));
+  const maxCapacityVol = Math.max(...vehicles.map((v) => v.capacityVolume));
+
   const cwRoutes: CWRoute[] = stops.map((s) => ({
     stops: [s],
-    vehicleId: null,
     totalWeight: s.weightKg ?? 0,
     totalVolume: s.volumeM3 ?? 0,
   }));
@@ -233,11 +288,7 @@ function clarkeWrightSavingsAssignment(
     distFromDepot.set(s.id, haversineDistance(depotLat, depotLon, s.latitude, s.longitude));
   }
 
-  interface Saving {
-    i: number;
-    j: number;
-    value: number;
-  }
+  interface Saving { i: number; j: number; value: number; }
   const savings: Saving[] = [];
   for (let i = 0; i < stops.length; i++) {
     for (let j = i + 1; j < stops.length; j++) {
@@ -252,26 +303,17 @@ function clarkeWrightSavingsAssignment(
   }
   savings.sort((a, b) => b.value - a.value);
 
-  const sortedVehicles = [...vehicles].sort((a, b) => b.capacityKg - a.capacityKg);
-
-  function canFitVehicle(route: CWRoute, v: VehicleData): boolean {
-    if (route.totalWeight > v.capacityKg || route.totalVolume > v.capacityVolume) {
-      return false;
-    }
-    if (v.rangeKm) {
-      const routeDist = computeRouteDistance(route.stops, depotLat, depotLon);
-      if (routeDist > v.rangeKm * 1.5) {
-        return false;
-      }
-    }
-    return true;
+  function capacityFitsAnyVehicle(weight: number, volume: number): boolean {
+    return weight <= maxCapacityKg && volume <= maxCapacityVol;
   }
 
-  function anyVehicleFits(route: CWRoute): boolean {
+  function isFullyFeasibleForSomeVehicle(routeStops: StopData[]): boolean {
     for (const v of vehicles) {
-      if (canFitVehicle(route, v)) return true;
+      const sim = simulateRouteWithCharging(routeStops, v, depotLat, depotLon, startTime);
+      if (sim.feasible) return true;
     }
-    return false;
+    const simNoRange = simulateRouteWithCharging(routeStops, null, depotLat, depotLon, startTime);
+    return simNoRange.feasible;
   }
 
   for (const saving of savings) {
@@ -285,61 +327,55 @@ function clarkeWrightSavingsAssignment(
 
     if (routeI.stops.length === 0 || routeJ.stops.length === 0) continue;
 
+    const mergedLen = routeI.stops.length + routeJ.stops.length;
+    if (mergedLen > maxStopsPerRoute) continue;
+
+    const mergedWeight = routeI.totalWeight + routeJ.totalWeight;
+    const mergedVolume = routeI.totalVolume + routeJ.totalVolume;
+    if (!capacityFitsAnyVehicle(mergedWeight, mergedVolume)) continue;
+
     const lastOfI = routeI.stops[routeI.stops.length - 1];
     const firstOfJ = routeJ.stops[0];
     const firstOfI = routeI.stops[0];
     const lastOfJ = routeJ.stops[routeJ.stops.length - 1];
-
     const stopI = stops[saving.i];
     const stopJ = stops[saving.j];
 
-    let mergedStops: StopData[] | null = null;
+    const candidates: StopData[][] = [];
 
     if (lastOfI.id === stopI.id && firstOfJ.id === stopJ.id) {
-      mergedStops = [...routeI.stops, ...routeJ.stops];
+      candidates.push([...routeI.stops, ...routeJ.stops]);
     } else if (lastOfJ.id === stopJ.id && firstOfI.id === stopI.id) {
-      mergedStops = [...routeJ.stops, ...routeI.stops];
+      candidates.push([...routeJ.stops, ...routeI.stops]);
     } else if (lastOfI.id === stopJ.id && firstOfJ.id === stopI.id) {
-      mergedStops = [...routeI.stops, ...routeJ.stops];
+      candidates.push([...routeI.stops, ...routeJ.stops]);
     } else if (lastOfJ.id === stopI.id && firstOfI.id === stopJ.id) {
-      mergedStops = [...routeJ.stops, ...routeI.stops];
+      candidates.push([...routeJ.stops, ...routeI.stops]);
     } else if (lastOfI.id === stopI.id && lastOfJ.id === stopJ.id) {
-      mergedStops = [...routeI.stops, ...[...routeJ.stops].reverse()];
+      candidates.push([...routeI.stops, ...[...routeJ.stops].reverse()]);
     } else if (firstOfI.id === stopI.id && firstOfJ.id === stopJ.id) {
-      mergedStops = [...[...routeI.stops].reverse(), ...routeJ.stops];
+      candidates.push([...[...routeI.stops].reverse(), ...routeJ.stops]);
     } else if (lastOfI.id === stopJ.id && lastOfJ.id === stopI.id) {
-      mergedStops = [...routeI.stops, ...[...routeJ.stops].reverse()];
+      candidates.push([...routeI.stops, ...[...routeJ.stops].reverse()]);
     } else if (firstOfI.id === stopJ.id && firstOfJ.id === stopI.id) {
-      mergedStops = [...[...routeI.stops].reverse(), ...routeJ.stops];
+      candidates.push([...[...routeI.stops].reverse(), ...routeJ.stops]);
     }
 
-    if (!mergedStops) continue;
-
-    const mergedWeight = routeI.totalWeight + routeJ.totalWeight;
-    const mergedVolume = routeI.totalVolume + routeJ.totalVolume;
-
-    const candidateRoute: CWRoute = {
-      stops: mergedStops,
-      vehicleId: null,
-      totalWeight: mergedWeight,
-      totalVolume: mergedVolume,
-    };
-
-    if (!anyVehicleFits(candidateRoute)) continue;
-
-    const { feasible } = simulateRouteSchedule(mergedStops, depotLat, depotLon, startTime);
-    if (!feasible) continue;
-
-    routeI.stops = mergedStops;
-    routeI.totalWeight = mergedWeight;
-    routeI.totalVolume = mergedVolume;
-
-    routeJ.stops = [];
-    routeJ.totalWeight = 0;
-    routeJ.totalVolume = 0;
-
-    for (const s of mergedStops) {
-      stopToRoute.set(s.id, routeIdxI);
+    let merged = false;
+    for (const candidateStops of candidates) {
+      if (isFullyFeasibleForSomeVehicle(candidateStops)) {
+        routeI.stops = candidateStops;
+        routeI.totalWeight = mergedWeight;
+        routeI.totalVolume = mergedVolume;
+        routeJ.stops = [];
+        routeJ.totalWeight = 0;
+        routeJ.totalVolume = 0;
+        for (const s of candidateStops) {
+          stopToRoute.set(s.id, routeIdxI);
+        }
+        merged = true;
+        break;
+      }
     }
   }
 
@@ -348,19 +384,25 @@ function clarkeWrightSavingsAssignment(
 
   const unassigned: StopData[] = [];
   const usedVehicles = new Set<string>();
+  const sortedVehicles = [...vehicles].sort((a, b) => b.capacityKg - a.capacityKg);
 
   for (const route of activeRoutes) {
     let bestVehicle: VehicleData | null = null;
+    let bestSim: RouteSimResult | null = null;
 
     for (const v of sortedVehicles) {
       if (usedVehicles.has(v.id)) continue;
-      if (canFitVehicle(route, v)) {
+      if (route.totalWeight > v.capacityKg || route.totalVolume > v.capacityVolume) continue;
+
+      const sim = simulateRouteWithCharging(route.stops, v, depotLat, depotLon, startTime);
+      if (sim.feasible) {
         bestVehicle = v;
+        bestSim = sim;
         break;
       }
     }
 
-    if (!bestVehicle) {
+    if (!bestVehicle || !bestSim) {
       unassigned.push(...route.stops);
       continue;
     }
@@ -371,71 +413,10 @@ function clarkeWrightSavingsAssignment(
     va.stops = route.stops;
     va.totalWeight = route.totalWeight;
     va.totalVolume = route.totalVolume;
-
-    let prevLat = depotLat;
-    let prevLon = depotLon;
-    let currentTime = new Date(startTime);
-    let totalDist = 0;
-    let rangeUsed = 0;
-
-    for (let i = 0; i < route.stops.length; i++) {
-      const stop = route.stops[i];
-      const dist = haversineDistance(prevLat, prevLon, stop.latitude, stop.longitude);
-      totalDist += dist;
-      rangeUsed += dist;
-
-      if (bestVehicle.rangeKm) {
-        const returnDist = haversineDistance(stop.latitude, stop.longitude, depotLat, depotLon);
-        if (rangeUsed + returnDist > bestVehicle.rangeKm * 0.9) {
-          const station = findNearestChargingStation(prevLat, prevLon);
-          const distToStation = haversineDistance(prevLat, prevLon, station.latitude, station.longitude);
-          const distFromStation = haversineDistance(station.latitude, station.longitude, stop.latitude, stop.longitude);
-
-          va.chargingStops.push({
-            stationId: station.id,
-            stationName: station.name,
-            latitude: station.latitude,
-            longitude: station.longitude,
-            insertedAfterStopIndex: i,
-          });
-
-          totalDist += distToStation + distFromStation - dist;
-          const travelToStationMin = estimateDurationMin(distToStation);
-          currentTime = new Date(currentTime.getTime() + travelToStationMin * 60000 + CHARGING_DURATION_MIN * 60000);
-
-          const travelFromStationMin = estimateDurationMin(distFromStation);
-          const arrival = new Date(currentTime.getTime() + travelFromStationMin * 60000);
-          if (!isTimeWindowFeasible(stop, arrival)) {
-            va.chargingStops.pop();
-            totalDist -= distToStation + distFromStation - dist;
-          } else {
-            const effectiveStart = stop.timeWindowStart && stop.timeWindowStart.getTime() > arrival.getTime()
-              ? stop.timeWindowStart
-              : arrival;
-            currentTime = new Date(effectiveStart.getTime() + stop.serviceDurationMin * 60000);
-
-            rangeUsed = distFromStation;
-            prevLat = stop.latitude;
-            prevLon = stop.longitude;
-            continue;
-          }
-        }
-      }
-
-      const travelMin = estimateDurationMin(dist);
-      const arrival = new Date(currentTime.getTime() + travelMin * 60000);
-      const effectiveStart = stop.timeWindowStart && stop.timeWindowStart.getTime() > arrival.getTime()
-        ? stop.timeWindowStart
-        : arrival;
-      currentTime = new Date(effectiveStart.getTime() + stop.serviceDurationMin * 60000);
-
-      prevLat = stop.latitude;
-      prevLon = stop.longitude;
-    }
-
-    va.totalDistanceKm = totalDist;
-    va.rangeUsedKm = rangeUsed;
-    va.currentTime = currentTime;
+    va.totalDistanceKm = bestSim.totalDistanceKm;
+    va.rangeUsedKm = bestSim.rangeUsedKm;
+    va.currentTime = bestSim.endTime;
+    va.chargingStops = bestSim.chargingStops;
   }
 
   return { assigned, unassigned };
