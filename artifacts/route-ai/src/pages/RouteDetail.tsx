@@ -144,10 +144,12 @@ export default function RouteDetail({ id }: RouteDetailProps) {
 
           if (allTerminal) {
             const allCompleted = updatedStops.every((s) => s.status === "completed");
-            updateRoute.mutate({
-              id: route.id,
-              data: { status: allCompleted ? "completed" : "completed" },
-            });
+            if (allCompleted) {
+              updateRoute.mutate({
+                id: route.id,
+                data: { status: "completed" },
+              });
+            }
           } else if (anyNonPending && route.status !== "in_progress") {
             updateRoute.mutate({
               id: route.id,

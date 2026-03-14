@@ -1,13 +1,13 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import {
   useListRoutes as useGeneratedListRoutes,
-  useGetRoute as useGeneratedGetRoute,
   useGetRouteStops as useGeneratedGetRouteStops,
   useOptimizeRoutes as useGeneratedOptimizeRoutes,
   useCreateRoute as useGeneratedCreateRoute,
   useDeleteRoute as useGeneratedDeleteRoute,
   useUpdateRoute as useGeneratedUpdateRoute,
 } from "@workspace/api-client-react";
+import type { Route } from "@workspace/api-client-react";
 import { ORG_ID } from "@/lib/constants";
 
 export function useRoutes() {
@@ -15,8 +15,14 @@ export function useRoutes() {
 }
 
 export function useRoute(routeId: string) {
-  return useGeneratedGetRoute(routeId, {
-    query: { enabled: !!routeId, queryKey: ["/api/routes", routeId] },
+  return useQuery<Route>({
+    queryKey: ["/api/routes", routeId],
+    queryFn: async () => {
+      const res = await fetch(`/api/routes/${routeId}?organizationId=${ORG_ID}`);
+      if (!res.ok) throw new Error("Route not found");
+      return res.json();
+    },
+    enabled: !!routeId,
   });
 }
 
