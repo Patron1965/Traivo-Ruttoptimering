@@ -1,15 +1,35 @@
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useListRoutes as useGeneratedListRoutes,
+  useGetRoute as useGeneratedGetRoute,
   useGetRouteStops as useGeneratedGetRouteStops,
   useOptimizeRoutes as useGeneratedOptimizeRoutes,
   useCreateRoute as useGeneratedCreateRoute,
   useDeleteRoute as useGeneratedDeleteRoute,
+  useUpdateRoute as useGeneratedUpdateRoute,
 } from "@workspace/api-client-react";
 import { ORG_ID } from "@/lib/constants";
 
 export function useRoutes() {
   return useGeneratedListRoutes({ organizationId: ORG_ID });
+}
+
+export function useRoute(routeId: string) {
+  return useGeneratedGetRoute(routeId, {
+    query: { enabled: !!routeId, queryKey: ["/api/routes", routeId] },
+  });
+}
+
+export function useUpdateRoute() {
+  const queryClient = useQueryClient();
+  return useGeneratedUpdateRoute({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["/api/routes"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      },
+    },
+  });
 }
 
 export function useRouteStops(routeId: string) {

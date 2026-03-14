@@ -4,7 +4,7 @@ import { useVehicles } from "@/hooks/use-vehicles";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { Route as RouteIcon, Trash2, MapPin, Clock, Gauge, Download, User, Plus } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { format } from "date-fns";
 import { sv, enUS } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,7 @@ export default function Routes() {
   const deleteRoute = useDeleteRoute();
   const updateDriver = useUpdateDriver();
   const { t, i18n } = useTranslation();
+  const [, navigate] = useLocation();
   const dateLocale = i18n.language === "sv" ? sv : enUS;
 
   const activeDrivers = useMemo(() => drivers?.filter((d) => d.isActive) || [], [drivers]);
@@ -102,7 +103,8 @@ export default function Routes() {
               return (
                 <div
                   key={route.id}
-                  className="p-5 rounded-xl border border-border bg-card hover:bg-card/80 transition-colors"
+                  className="p-5 rounded-xl border border-border bg-card hover:bg-card/80 transition-colors cursor-pointer"
+                  onClick={(e) => { if ((e.target as HTMLElement).closest('button, a, [role="combobox"]')) return; navigate(`/routes/${route.id}`); }}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
@@ -110,7 +112,7 @@ export default function Routes() {
                         <RouteIcon className="h-5 w-5 text-primary" />
                       </div>
                       <div>
-                        <h3 className="font-semibold">{route.name}</h3>
+                        <h3 className="font-semibold text-primary hover:underline">{route.name}</h3>
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           <span>{route.date ? format(new Date(route.date), "PPP", { locale: dateLocale }) : t("common.noDate")}</span>
                           {route.vehicleId && (

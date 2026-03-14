@@ -15,6 +15,7 @@ import CreateRoute from "@/pages/CreateRoute";
 import Sustainability from "@/pages/Sustainability";
 import RouteHistory from "@/pages/RouteHistory";
 import Drivers from "@/pages/Drivers";
+import RouteDetail from "@/pages/RouteDetail";
 import TrackingPage from "@/pages/TrackingPage";
 import NotFound from "@/pages/not-found";
 import { ChatPanel } from "@/components/chat/ChatPanel";
@@ -39,6 +40,9 @@ function AppRouter() {
       <Route path="/dispatch" component={Dispatch} />
       <Route path="/routes" component={Routes} />
       <Route path="/routes/create" component={CreateRoute} />
+      <Route path="/routes/:id">
+        {(params) => <RouteDetail id={params.id} />}
+      </Route>
       <Route path="/sustainability" component={Sustainability} />
       <Route path="/history" component={RouteHistory} />
       <Route path="/drivers" component={Drivers} />

@@ -428,6 +428,24 @@
     "poweredBy": "Drivs av RouteAI",
     "updatesAutomatically": "Uppdateras automatiskt"
   },
+  "routeDetail": {
+    "loading": "Laddar ruttdetaljer...",
+    "notFound": "Rutten hittades inte",
+    "backToRoutes": "Tillbaka till rutter",
+    "driver": "Förare",
+    "progress": "Leveransförlopp",
+    "delivered": "levererade",
+    "stopList": "Stopplista",
+    "noStops": "Inga stopp på denna rutt",
+    "markDelivered": "Markera som levererad",
+    "markFailed": "Markera som misslyckad",
+    "markSkipped": "Hoppa över detta stopp",
+    "stop_pending": "Väntande",
+    "stop_in_progress": "Pågående",
+    "stop_completed": "Levererad",
+    "stop_failed": "Misslyckad",
+    "stop_skipped": "Överhoppad"
+  },
   "notFound": {
     "title": "404",
     "message": "Sidan du letar efter finns inte eller har flyttats.",

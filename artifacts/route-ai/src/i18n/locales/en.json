@@ -428,6 +428,24 @@
     "poweredBy": "Powered by RouteAI",
     "updatesAutomatically": "Updates automatically"
   },
+  "routeDetail": {
+    "loading": "Loading route details...",
+    "notFound": "Route not found",
+    "backToRoutes": "Back to Routes",
+    "driver": "Driver",
+    "progress": "Delivery Progress",
+    "delivered": "delivered",
+    "stopList": "Stop List",
+    "noStops": "No stops on this route",
+    "markDelivered": "Mark as delivered",
+    "markFailed": "Mark as failed",
+    "markSkipped": "Skip this stop",
+    "stop_pending": "Pending",
+    "stop_in_progress": "In Progress",
+    "stop_completed": "Delivered",
+    "stop_failed": "Failed",
+    "stop_skipped": "Skipped"
+  },
   "notFound": {
     "title": "404",
     "message": "The page you're looking for doesn't exist or has been moved.",
