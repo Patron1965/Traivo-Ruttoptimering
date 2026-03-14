@@ -268,10 +268,6 @@ function clarkeWrightSavingsAssignment(
     return { assigned, unassigned: [] as StopData[] };
   }
 
-  const maxStopsPerRoute = Math.max(2, Math.ceil(stops.length / Math.max(1, vehicles.length)) + 2);
-  const maxCapacityKg = Math.max(...vehicles.map((v) => v.capacityKg));
-  const maxCapacityVol = Math.max(...vehicles.map((v) => v.capacityVolume));
-
   const cwRoutes: CWRoute[] = stops.map((s) => ({
     stops: [s],
     totalWeight: s.weightKg ?? 0,
@@ -303,17 +299,17 @@ function clarkeWrightSavingsAssignment(
   }
   savings.sort((a, b) => b.value - a.value);
 
-  function capacityFitsAnyVehicle(weight: number, volume: number): boolean {
-    return weight <= maxCapacityKg && volume <= maxCapacityVol;
+  function isFeasibleForVehicle(routeStops: StopData[], weight: number, volume: number, v: VehicleData): boolean {
+    if (weight > v.capacityKg || volume > v.capacityVolume) return false;
+    const sim = simulateRouteWithCharging(routeStops, v, depotLat, depotLon, startTime);
+    return sim.feasible;
   }
 
-  function isFullyFeasibleForSomeVehicle(routeStops: StopData[]): boolean {
+  function isFeasibleForAnyVehicle(routeStops: StopData[], weight: number, volume: number): boolean {
     for (const v of vehicles) {
-      const sim = simulateRouteWithCharging(routeStops, v, depotLat, depotLon, startTime);
-      if (sim.feasible) return true;
+      if (isFeasibleForVehicle(routeStops, weight, volume, v)) return true;
     }
-    const simNoRange = simulateRouteWithCharging(routeStops, null, depotLat, depotLon, startTime);
-    return simNoRange.feasible;
+    return false;
   }
 
   for (const saving of savings) {
@@ -327,12 +323,8 @@ function clarkeWrightSavingsAssignment(
 
     if (routeI.stops.length === 0 || routeJ.stops.length === 0) continue;
 
-    const mergedLen = routeI.stops.length + routeJ.stops.length;
-    if (mergedLen > maxStopsPerRoute) continue;
-
     const mergedWeight = routeI.totalWeight + routeJ.totalWeight;
     const mergedVolume = routeI.totalVolume + routeJ.totalVolume;
-    if (!capacityFitsAnyVehicle(mergedWeight, mergedVolume)) continue;
 
     const lastOfI = routeI.stops[routeI.stops.length - 1];
     const firstOfJ = routeJ.stops[0];
@@ -361,9 +353,8 @@ function clarkeWrightSavingsAssignment(
       candidates.push([...[...routeI.stops].reverse(), ...routeJ.stops]);
     }
 
-    let merged = false;
     for (const candidateStops of candidates) {
-      if (isFullyFeasibleForSomeVehicle(candidateStops)) {
+      if (isFeasibleForAnyVehicle(candidateStops, mergedWeight, mergedVolume)) {
         routeI.stops = candidateStops;
         routeI.totalWeight = mergedWeight;
         routeI.totalVolume = mergedVolume;
@@ -373,7 +364,6 @@ function clarkeWrightSavingsAssignment(
         for (const s of candidateStops) {
           stopToRoute.set(s.id, routeIdxI);
         }
-        merged = true;
         break;
       }
     }
@@ -389,6 +379,7 @@ function clarkeWrightSavingsAssignment(
   for (const route of activeRoutes) {
     let bestVehicle: VehicleData | null = null;
     let bestSim: RouteSimResult | null = null;
+    let bestScore = Infinity;
 
     for (const v of sortedVehicles) {
       if (usedVehicles.has(v.id)) continue;
@@ -396,9 +387,13 @@ function clarkeWrightSavingsAssignment(
 
       const sim = simulateRouteWithCharging(route.stops, v, depotLat, depotLon, startTime);
       if (sim.feasible) {
-        bestVehicle = v;
-        bestSim = sim;
-        break;
+        const capacityUsage = route.totalWeight / v.capacityKg;
+        const score = Math.abs(capacityUsage - 0.7) + sim.totalDistanceKm * 0.01;
+        if (score < bestScore) {
+          bestVehicle = v;
+          bestSim = sim;
+          bestScore = score;
+        }
       }
     }
 
