@@ -8,3 +8,5 @@ export * from "./drivers";
 export * from "./geofenceEvents";
 export * from "./notifications";
 export * from "./users";
+export * from "./routeTemplates";
+export * from "./deliveryNotifications";

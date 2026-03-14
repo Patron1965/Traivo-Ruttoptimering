@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Map as MapIcon, Truck, MapPin, Route as RouteIcon, Command, Cpu, Leaf, Clock, Users, PlusCircle, CalendarClock, Shield, ChevronDown, Smartphone } from "lucide-react";
+import { LayoutDashboard, Map as MapIcon, Truck, MapPin, Route as RouteIcon, Command, Cpu, Leaf, Clock, Users, PlusCircle, CalendarClock, Shield, ChevronDown, Smartphone, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { LanguageSwitcher } from "./LanguageSwitcher";
@@ -24,6 +24,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/drivers", labelKey: "sidebar.drivers", icon: Users, roles: ["admin"] },
   { href: "/stops", labelKey: "sidebar.stops", icon: MapPin, roles: ["admin", "dispatcher"] },
   { href: "/sustainability", labelKey: "sidebar.co2Dashboard", icon: Leaf },
+  { href: "/analytics", labelKey: "sidebar.analytics", icon: BarChart3, roles: ["admin", "dispatcher"] },
   { href: "/history", labelKey: "sidebar.routeHistory", icon: Clock },
   { href: "/driver-view", labelKey: "sidebar.driverView", icon: Smartphone, roles: ["driver"] },
 ];

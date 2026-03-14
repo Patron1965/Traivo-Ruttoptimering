@@ -3,7 +3,8 @@ import { useDrivers, useCreateDriver, useUpdateDriver, useDeleteDriver } from "@
 import { useVehicles } from "@/hooks/use-vehicles";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2, Edit2, User, Phone, Mail, Truck, ToggleLeft } from "lucide-react";
+import { Plus, Trash2, Edit2, User, Phone, Mail, Truck, ToggleLeft, BarChart3 } from "lucide-react";
+import { Link } from "wouter";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -87,7 +88,7 @@ export default function Drivers() {
                         <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
                           <User className="h-5 w-5 text-primary" />
                         </div>
-                        <p className="font-bold text-foreground">{d.name}</p>
+                        <Link href={`/drivers/${d.id}`} className="font-bold text-foreground hover:text-primary transition-colors">{d.name}</Link>
                       </div>
                     </td>
                     <td className="p-4 text-sm">

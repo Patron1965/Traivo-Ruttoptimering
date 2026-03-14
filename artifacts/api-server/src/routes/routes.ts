@@ -195,4 +195,66 @@ router.get("/routes/:id/export", async (req, res) => {
   }
 });
 
+router.put("/routes/:id/reorder-stops", async (req, res) => {
+  try {
+    const { id } = parseUuidParam(req.params);
+    const orgId = req.query.organizationId as string;
+    if (!orgId) {
+      res.status(400).json({ error: "organizationId is required" });
+      return;
+    }
+
+    const [route] = await db
+      .select()
+      .from(routesTable)
+      .where(and(eq(routesTable.id, id), eq(routesTable.organizationId, orgId)));
+    if (!route) {
+      res.status(404).json({ error: "Route not found" });
+      return;
+    }
+
+    const { stopIds } = req.body as { stopIds: string[] };
+    if (!Array.isArray(stopIds) || stopIds.length === 0) {
+      res.status(400).json({ error: "stopIds array is required" });
+      return;
+    }
+
+    const uniqueIds = new Set(stopIds);
+    if (uniqueIds.size !== stopIds.length) {
+      res.status(400).json({ error: "stopIds must not contain duplicates" });
+      return;
+    }
+
+    const existingStops = await db
+      .select({ id: stopsTable.id })
+      .from(stopsTable)
+      .where(eq(stopsTable.routeId, id));
+    const existingIds = new Set(existingStops.map((s) => s.id));
+
+    if (uniqueIds.size !== existingIds.size || !stopIds.every((sid) => existingIds.has(sid))) {
+      res.status(400).json({ error: "stopIds must match all stops in the route" });
+      return;
+    }
+
+    await db.transaction(async (tx) => {
+      for (let i = 0; i < stopIds.length; i++) {
+        await tx
+          .update(stopsTable)
+          .set({ sequenceOrder: i + 1 })
+          .where(and(eq(stopsTable.id, stopIds[i]), eq(stopsTable.routeId, id)));
+      }
+    });
+
+    const updatedStops = await db
+      .select()
+      .from(stopsTable)
+      .where(eq(stopsTable.routeId, id))
+      .orderBy(stopsTable.sequenceOrder);
+
+    res.json(updatedStops);
+  } catch (err) {
+    handleError(res, err);
+  }
+});
+
 export default router;

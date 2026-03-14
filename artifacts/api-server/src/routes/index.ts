@@ -14,6 +14,10 @@ import notificationsRouter from "./notifications";
 import publicTrackingRouter from "./public-tracking";
 import osrmRouter from "./osrm";
 import usersRouter from "./users";
+import driverStatsRouter from "./driver-stats";
+import routeTemplatesRouter from "./route-templates";
+import deliveryNotificationsRouter from "./delivery-notifications";
+import analyticsRouter from "./analytics";
 
 const router: IRouter = Router();
 
@@ -29,8 +33,12 @@ router.use(sustainabilityRouter);
 router.use(aiChatRouter);
 router.use(insightsRouter);
 router.use(driversRouter);
+router.use(driverStatsRouter);
 router.use(notificationsRouter);
 router.use(publicTrackingRouter);
 router.use(osrmRouter);
+router.use(routeTemplatesRouter);
+router.use(deliveryNotificationsRouter);
+router.use(analyticsRouter);
 
 export default router;

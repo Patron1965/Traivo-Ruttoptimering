@@ -18,6 +18,8 @@ import Drivers from "@/pages/Drivers";
 import RouteDetail from "@/pages/RouteDetail";
 import TrackingPage from "@/pages/TrackingPage";
 import DriverView from "@/pages/DriverView";
+import DriverPerformance from "@/pages/DriverPerformance";
+import Analytics from "@/pages/Analytics";
 import NotFound from "@/pages/not-found";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { CommandPalette } from "@/components/CommandPalette";
@@ -49,6 +51,10 @@ function AppRouter() {
       <Route path="/sustainability" component={Sustainability} />
       <Route path="/history" component={RouteHistory} />
       <Route path="/drivers" component={Drivers} />
+      <Route path="/drivers/:id">
+        {(params) => <DriverPerformance id={params.id} />}
+      </Route>
+      <Route path="/analytics" component={Analytics} />
       <Route path="/driver-view" component={DriverView} />
       <Route path="/track/:code">
         {(params) => <TrackingPage code={params.code} />}

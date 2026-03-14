@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useRoute, useRouteStops, useUpdateRoute } from "@/hooks/use-routes";
 import { useVehicles } from "@/hooks/use-vehicles";
 import { useDrivers } from "@/hooks/use-drivers";
@@ -8,15 +8,17 @@ import { LoadingState } from "@/components/ui/LoadingState";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
 import { useLocation } from "wouter";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { sv, enUS } from "date-fns/locale";
-import { ROUTE_COLORS, DEPOT_LOCATION } from "@/lib/constants";
+import { ROUTE_COLORS, DEPOT_LOCATION, ORG_ID } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { MapContainer, TileLayer, Marker, Polyline, Popup, ZoomControl } from "react-leaflet";
 import L from "leaflet";
 import { renderToString } from "react-dom/server";
 import { fetchRouteGeometry } from "@/lib/osrm";
+import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
+import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft,
   MapPin,
@@ -30,6 +32,9 @@ import {
   SkipForward,
   Package,
   Warehouse,
+  GripVertical,
+  Save,
+  BookTemplate,
 } from "lucide-react";
 
 const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
@@ -89,11 +94,54 @@ export default function RouteDetail({ id }: RouteDetailProps) {
   const { data: drivers } = useDrivers();
   const updateStop = useUpdateStop();
   const updateRoute = useUpdateRoute();
+  const { toast } = useToast();
+
+  const reorderMutation = useMutation({
+    mutationFn: async (stopIds: string[]) => {
+      const res = await fetch(`/api/routes/${id}/reorder-stops?organizationId=${ORG_ID}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stopIds }),
+      });
+      if (!res.ok) throw new Error("Reorder failed");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/routes", id, "stops"] });
+    },
+  });
+
+  const saveTemplateMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/route-templates/from-route/${id}?organizationId=${ORG_ID}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: route?.name ? `${route.name} (mall)` : "Mall" }),
+      });
+      if (!res.ok) throw new Error("Failed to save template");
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: t("routeDetail.templateSaved"), description: t("routeDetail.templateSavedDesc") });
+    },
+  });
 
   const sortedStops = useMemo(() => {
     if (!stops) return [];
     return [...stops].sort((a, b) => (a.sequenceOrder || 0) - (b.sequenceOrder || 0));
   }, [stops]);
+
+  const [localStops, setLocalStops] = useState(sortedStops);
+  useEffect(() => { setLocalStops(sortedStops); }, [sortedStops]);
+
+  const handleDragEnd = useCallback((result: DropResult) => {
+    if (!result.destination) return;
+    const items = Array.from(localStops);
+    const [moved] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, moved);
+    setLocalStops(items);
+    reorderMutation.mutate(items.map((s) => s.id));
+  }, [localStops, reorderMutation]);
 
   const vehicle = useMemo(() => {
     if (!route?.vehicleId || !vehicles) return null;
@@ -222,6 +270,16 @@ export default function RouteDetail({ id }: RouteDetailProps) {
               {route.date ? format(new Date(route.date), "PPP", { locale: dateLocale }) : t("common.noDate")}
             </p>
           </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={() => saveTemplateMutation.mutate()}
+            disabled={saveTemplateMutation.isPending}
+          >
+            <BookTemplate className="h-4 w-4" />
+            {t("routeDetail.saveAsTemplate")}
+          </Button>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
@@ -334,81 +392,104 @@ export default function RouteDetail({ id }: RouteDetailProps) {
           </div>
 
           <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
-            <h2 className="text-lg font-semibold mb-3 sticky top-0 bg-background py-1">{t("routeDetail.stopList")}</h2>
-            {sortedStops.map((stop, idx) => {
-              const stopStyle = STOP_STATUS_STYLES[stop.status] || STOP_STATUS_STYLES.pending;
-              const isTerminal = stop.status === "completed" || stop.status === "failed" || stop.status === "skipped";
-              return (
-                <div key={stop.id} className="p-3 rounded-xl border border-border bg-card hover:bg-card/80 transition-colors">
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold" style={{ backgroundColor: `${routeColor}20`, color: routeColor }}>
-                      {idx + 1}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <p className="font-medium text-sm truncate">{stop.notes || stop.address}</p>
-                        <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-medium uppercase", stopStyle.bg, stopStyle.text)}>
-                          {t(`routeDetail.stop_${stop.status}`)}
-                        </span>
-                      </div>
-                      <p className="text-xs text-muted-foreground truncate">{stop.address}</p>
-                      <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
-                        {stop.timeWindowStart && stop.timeWindowEnd && (
-                          <span className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            {format(new Date(stop.timeWindowStart), "HH:mm")} - {format(new Date(stop.timeWindowEnd), "HH:mm")}
-                          </span>
-                        )}
-                        {(stop.weightKg != null || stop.volumeM3 != null) && (
-                          <span className="flex items-center gap-1">
-                            <Package className="h-3 w-3" />
-                            {stop.weightKg != null && `${stop.weightKg}kg`}
-                            {stop.weightKg != null && stop.volumeM3 != null && " / "}
-                            {stop.volumeM3 != null && `${stop.volumeM3}m³`}
-                          </span>
-                        )}
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {stop.serviceDurationMin} {t("common.mins")}
-                        </span>
-                      </div>
-                    </div>
-                    {!isTerminal && (
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 px-2 text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10"
-                          onClick={() => handleStatusChange(stop.id, "completed")}
-                          title={t("routeDetail.markDelivered")}
-                        >
-                          <CheckCircle2 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => handleStatusChange(stop.id, "failed")}
-                          title={t("routeDetail.markFailed")}
-                        >
-                          <XCircle className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 px-2 text-orange-500 hover:text-orange-400 hover:bg-orange-500/10"
-                          onClick={() => handleStatusChange(stop.id, "skipped")}
-                          title={t("routeDetail.markSkipped")}
-                        >
-                          <SkipForward className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )}
+            <h2 className="text-lg font-semibold mb-3 sticky top-0 bg-background py-1 z-10">{t("routeDetail.stopList")}</h2>
+            <DragDropContext onDragEnd={handleDragEnd}>
+              <Droppable droppableId="stop-list">
+                {(provided) => (
+                  <div ref={provided.innerRef} {...provided.droppableProps} className="space-y-2">
+                    {localStops.map((stop, idx) => {
+                      const stopStyle = STOP_STATUS_STYLES[stop.status] || STOP_STATUS_STYLES.pending;
+                      const isTerminal = stop.status === "completed" || stop.status === "failed" || stop.status === "skipped";
+                      return (
+                        <Draggable key={stop.id} draggableId={stop.id} index={idx}>
+                          {(dragProvided, snapshot) => (
+                            <div
+                              ref={dragProvided.innerRef}
+                              {...dragProvided.draggableProps}
+                              className={cn(
+                                "p-3 rounded-xl border border-border bg-card hover:bg-card/80 transition-colors",
+                                snapshot.isDragging && "shadow-lg shadow-primary/20 border-primary/40"
+                              )}
+                            >
+                              <div className="flex items-start gap-3">
+                                <div {...dragProvided.dragHandleProps} className="flex-shrink-0 mt-1 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground">
+                                  <GripVertical className="h-4 w-4" />
+                                </div>
+                                <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold" style={{ backgroundColor: `${routeColor}20`, color: routeColor }}>
+                                  {idx + 1}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <p className="font-medium text-sm truncate">{stop.notes || stop.address}</p>
+                                    <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-medium uppercase", stopStyle.bg, stopStyle.text)}>
+                                      {t(`routeDetail.stop_${stop.status}`)}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground truncate">{stop.address}</p>
+                                  <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
+                                    {stop.timeWindowStart && stop.timeWindowEnd && (
+                                      <span className="flex items-center gap-1">
+                                        <Clock className="h-3 w-3" />
+                                        {format(new Date(stop.timeWindowStart), "HH:mm")} - {format(new Date(stop.timeWindowEnd), "HH:mm")}
+                                      </span>
+                                    )}
+                                    {(stop.weightKg != null || stop.volumeM3 != null) && (
+                                      <span className="flex items-center gap-1">
+                                        <Package className="h-3 w-3" />
+                                        {stop.weightKg != null && `${stop.weightKg}kg`}
+                                        {stop.weightKg != null && stop.volumeM3 != null && " / "}
+                                        {stop.volumeM3 != null && `${stop.volumeM3}m³`}
+                                      </span>
+                                    )}
+                                    <span className="flex items-center gap-1">
+                                      <Clock className="h-3 w-3" />
+                                      {stop.serviceDurationMin} {t("common.mins")}
+                                    </span>
+                                  </div>
+                                </div>
+                                {!isTerminal && (
+                                  <div className="flex items-center gap-1 flex-shrink-0">
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-8 px-2 text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10"
+                                      onClick={() => handleStatusChange(stop.id, "completed")}
+                                      title={t("routeDetail.markDelivered")}
+                                    >
+                                      <CheckCircle2 className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-8 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                      onClick={() => handleStatusChange(stop.id, "failed")}
+                                      title={t("routeDetail.markFailed")}
+                                    >
+                                      <XCircle className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-8 px-2 text-orange-500 hover:text-orange-400 hover:bg-orange-500/10"
+                                      onClick={() => handleStatusChange(stop.id, "skipped")}
+                                      title={t("routeDetail.markSkipped")}
+                                    >
+                                      <SkipForward className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </Draggable>
+                      );
+                    })}
+                    {provided.placeholder}
                   </div>
-                </div>
-              );
-            })}
-            {sortedStops.length === 0 && (
+                )}
+              </Droppable>
+            </DragDropContext>
+            {localStops.length === 0 && (
               <div className="text-center py-8 text-muted-foreground">
                 <MapPin className="h-8 w-8 mx-auto mb-2 opacity-30" />
                 <p>{t("routeDetail.noStops")}</p>

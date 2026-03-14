@@ -102,6 +102,7 @@
     "co2Dashboard": "CO\u2082 Dashboard",
     "routeHistory": "Route History",
     "driverView": "Driver View",
+    "analytics": "Analytics",
     "orgName": "Stockholm Logistics AB"
   },
   "dashboard": {
@@ -448,7 +449,10 @@
     "stop_in_progress": "In Progress",
     "stop_completed": "Delivered",
     "stop_failed": "Failed",
-    "stop_skipped": "Skipped"
+    "stop_skipped": "Skipped",
+    "saveAsTemplate": "Save as Template",
+    "templateSaved": "Template Saved",
+    "templateSavedDesc": "The route has been saved as a template and can be reused."
   },
   "commandPalette": {
     "placeholder": "Search routes, vehicles, drivers, pages...",
@@ -464,12 +468,52 @@
     "message": "The page you're looking for doesn't exist or has been moved.",
     "backToDashboard": "Back to Dashboard"
   },
-  "commandPalette": {
-    "placeholder": "Search routes, vehicles, drivers, pages...",
-    "noResults": "No results found.",
-    "pages": "Pages",
-    "routes": "Routes",
-    "vehicles": "Vehicles",
-    "drivers": "Drivers"
+  "driverPerformance": {
+    "backToDrivers": "Back to Drivers",
+    "noContact": "No contact info",
+    "totalDeliveries": "Total Deliveries",
+    "completed": "Completed",
+    "failed": "Failed",
+    "skipped": "Skipped",
+    "pending": "Pending",
+    "onTimeRate": "On-Time Rate",
+    "completionRate": "Completion Rate",
+    "routeCompletion": "Route Completion",
+    "avgServiceTime": "Avg Service Time",
+    "totalDistance": "Total Distance",
+    "deliveryBreakdown": "Delivery Breakdown",
+    "performanceMetrics": "Performance Metrics",
+    "noData": "No data available",
+    "routes": "Routes (completed/total)",
+    "status": "Status",
+    "active": "Active",
+    "inactive": "Inactive"
+  },
+  "analytics": {
+    "title": "Route Analytics",
+    "subtitle": "Historical trends and performance metrics",
+    "range_7d": "7 Days",
+    "range_30d": "30 Days",
+    "range_90d": "90 Days",
+    "range_all": "All",
+    "totalRoutes": "Total Routes",
+    "totalStops": "Total Stops",
+    "onTimeRate": "On-Time Rate",
+    "totalDistance": "Total Distance",
+    "completedStops": "Completed Stops",
+    "totalCo2": "Total CO₂",
+    "avgStopsPerRoute": "Avg Stops/Route",
+    "failedStops": "Failed Stops",
+    "dailyVolume": "Daily Volume (stops)",
+    "co2Trend": "CO₂ Trend",
+    "routeStatus": "Route Status",
+    "vehicleTypeBreakdown": "Vehicle Type Breakdown",
+    "distanceKm": "Distance (km)",
+    "noData": "No data for selected period",
+    "status_draft": "Draft",
+    "status_optimized": "Optimized",
+    "status_in_progress": "In Progress",
+    "status_completed": "Completed",
+    "status_cancelled": "Cancelled"
   }
 }
