@@ -124,21 +124,6 @@ interface VehicleAssignment {
   rangeUsedKm: number;
 }
 
-function computeArrivalTime(
-  assignment: VehicleAssignment,
-  stop: StopData,
-  depotLat: number,
-  depotLon: number
-): { arrivalTime: Date; travelDistKm: number } {
-  const lastStop = assignment.stops[assignment.stops.length - 1];
-  const fromLat = lastStop ? lastStop.latitude : depotLat;
-  const fromLon = lastStop ? lastStop.longitude : depotLon;
-  const dist = haversineDistance(fromLat, fromLon, stop.latitude, stop.longitude);
-  const travelMinutes = estimateDurationMin(dist);
-  const arrivalTime = new Date(assignment.currentTime.getTime() + travelMinutes * 60000);
-  return { arrivalTime, travelDistKm: dist };
-}
-
 function isTimeWindowFeasible(stop: StopData, arrivalTime: Date): boolean {
   if (stop.timeWindowEnd && arrivalTime.getTime() > stop.timeWindowEnd.getTime()) {
     return false;
