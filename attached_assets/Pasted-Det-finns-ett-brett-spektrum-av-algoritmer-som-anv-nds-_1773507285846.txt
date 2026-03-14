@@ -1,0 +1,25 @@
+Det finns ett brett spektrum av algoritmer som används för planering och ruttoptimering, beroende på problemets komplexitet och specifika krav (som tidsfönster, fordonskapacitet eller trafik). Man brukar dela upp dem i några huvudkategorier:
+
+Exakta algoritmer
+Dessa garanterar att de hittar den absolut bästa (optimala) lösningen, men de blir extremt långsamma när antalet stopp ökar. De används främst för mindre problem.
+
+Dijkstras algoritm: Den mest klassiska algoritmen för att hitta den kortaste vägen mellan två punkter i en graf.
+A (A-star):* En vidareutveckling av Dijkstra som använder heuristik (en kvalificerad gissning) för att snabbare hitta målet, vilket gör den mycket effektiv för navigering.
+Branch and Bound: Används ofta för att lösa "Traveling Salesperson Problem" (TSP) genom att systematiskt utforska och utesluta lösningar som inte kan vara optimala.
+Linjärprogrammering (LP) och Heltalsprogrammering (IP): Matematiska modeller där man definierar målfunktioner och begränsningar för att hitta den optimala ruttstrukturen.
+Heuristiska algoritmer
+När problemen blir stora (som vid ruttplanering för hundratals lastbilar) tar det för lång tid att hitta den perfekta lösningen. Heuristiker hittar en "tillräckligt bra" lösning mycket snabbt.
+
+Närmaste granne (Nearest Neighbor): En enkel metod där man alltid väljer det närmaste obesökta stoppet som nästa steg.
+Clarke-Wright Savings Algorithm: En av de mest kända metoderna för fordonsruttning (VRP). Den börjar med att varje stopp har en egen rutt och slår sedan ihop dem för att maximera "besparingen" i körsträcka.
+Metaheuristiker
+Dessa är mer avancerade ramverk som kan "hoppa ut" ur lokala optimeringsfällor för att hitta ännu bättre lösningar än vanliga heuristiker.
+
+Genetiska algoritmer (GA): Inspirerade av evolutionen. Man skapar en "population" av rutter, låter de bästa "para sig" och mutera för att över tid få fram effektivare rutter.
+Tabu Search: En sökstrategi som håller koll på tidigare testade lösningar (en "tabu-lista") för att tvinga algoritmen att utforska nya områden i sökrymden.
+Simulated Annealing: Inspirerad av metallurgi (härdning). Algoritmen tillåter sämre lösningar i början för att undvika att fastna, men blir mer selektiv ju längre processen går.
+Ant Colony Optimization (ACO): Simulerar hur myror lämnar feromonspår. Rutter som används ofta får starkare spår, vilket leder till att systemet konvergerar mot de kortaste vägarna.
+Moderna och AI-baserade metoder
+Reinforcement Learning (RL): En form av maskininlärning där en agent lär sig att ta optimala beslut genom att få belöningar för effektiva rutter.
+Dynamisk ruttoptimering: Algoritmer som kan räkna om rutter i realtid baserat på nya order, trafikolyckor eller väderförhållanden.
+Valet av algoritm beror oftast på balansen mellan hur snabbt man behöver ett svar och hur nära det teoretiska optimumet man måste komma. För de flesta kommersiella system används idag en kombination av metaheuristiker och realtidsdata.
