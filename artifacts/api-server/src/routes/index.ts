@@ -13,10 +13,12 @@ import trackingRouter from "./tracking";
 import notificationsRouter from "./notifications";
 import publicTrackingRouter from "./public-tracking";
 import osrmRouter from "./osrm";
+import usersRouter from "./users";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use(usersRouter);
 router.use(trackingRouter);
 router.use(vehiclesRouter);
 router.use(stopsRouter);

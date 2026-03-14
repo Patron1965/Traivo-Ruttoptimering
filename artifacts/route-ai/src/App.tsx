@@ -17,9 +17,11 @@ import RouteHistory from "@/pages/RouteHistory";
 import Drivers from "@/pages/Drivers";
 import RouteDetail from "@/pages/RouteDetail";
 import TrackingPage from "@/pages/TrackingPage";
+import DriverView from "@/pages/DriverView";
 import NotFound from "@/pages/not-found";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { CommandPalette } from "@/components/CommandPalette";
+import { AuthProvider } from "@/lib/auth-context";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -47,6 +49,7 @@ function AppRouter() {
       <Route path="/sustainability" component={Sustainability} />
       <Route path="/history" component={RouteHistory} />
       <Route path="/drivers" component={Drivers} />
+      <Route path="/driver-view" component={DriverView} />
       <Route path="/track/:code">
         {(params) => <TrackingPage code={params.code} />}
       </Route>
@@ -57,16 +60,18 @@ function AppRouter() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <AppRouter />
-        </WouterRouter>
-        <ChatPanel />
-        <CommandPalette />
-        <Toaster />
-      </TooltipProvider>
-    </QueryClientProvider>
+    <AuthProvider>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <AppRouter />
+          </WouterRouter>
+          <ChatPanel />
+          <CommandPalette />
+          <Toaster />
+        </TooltipProvider>
+      </QueryClientProvider>
+    </AuthProvider>
   );
 }
 

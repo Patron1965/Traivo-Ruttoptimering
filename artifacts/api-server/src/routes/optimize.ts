@@ -4,6 +4,7 @@ import { db, vehiclesTable, stopsTable, routesTable, notificationsTable } from "
 import { OptimizeRoutesBody } from "@workspace/api-zod";
 import { handleError } from "../lib/errors";
 import crypto from "crypto";
+import { estimateDurationMinPredictive, getTrafficDescription } from "../services/eta";
 
 function generateTrackingCodeRaw(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -85,7 +86,10 @@ function haversineDistance(
   return R * c;
 }
 
-function estimateDurationMin(distanceKm: number): number {
+function estimateDurationMin(distanceKm: number, departureTime?: Date): number {
+  if (departureTime) {
+    return estimateDurationMinPredictive(distanceKm, departureTime);
+  }
   const avgSpeedKmH = 35;
   return (distanceKm / avgSpeedKmH) * 60;
 }
@@ -498,7 +502,7 @@ router.post("/optimize", async (req, res) => {
           const prevLat = i === 0 ? depotLatitude : va.stops[i - 1].latitude;
           const prevLon = i === 0 ? depotLongitude : va.stops[i - 1].longitude;
           const distToStation = haversineDistance(prevLat, prevLon, chargingBefore.latitude, chargingBefore.longitude);
-          const durToStation = estimateDurationMin(distToStation);
+          const durToStation = estimateDurationMin(distToStation, currentTime);
 
           routeDistance += distToStation;
           routeDuration += durToStation + CHARGING_DURATION_MIN;
@@ -517,7 +521,7 @@ router.post("/optimize", async (req, res) => {
           currentTime = new Date(stationArrival.getTime() + CHARGING_DURATION_MIN * 60000);
 
           const distFromStation = haversineDistance(chargingBefore.latitude, chargingBefore.longitude, va.stops[i].latitude, va.stops[i].longitude);
-          const durFromStation = estimateDurationMin(distFromStation);
+          const durFromStation = estimateDurationMin(distFromStation, currentTime);
           routeDistance += distFromStation;
           routeDuration += durFromStation + va.stops[i].serviceDurationMin;
 
@@ -546,7 +550,7 @@ router.post("/optimize", async (req, res) => {
           const prevLat = i === 0 ? depotLatitude : va.stops[i - 1].latitude;
           const prevLon = i === 0 ? depotLongitude : va.stops[i - 1].longitude;
           const dist = haversineDistance(prevLat, prevLon, stop.latitude, stop.longitude);
-          const dur = estimateDurationMin(dist);
+          const dur = estimateDurationMin(dist, currentTime);
 
           routeDistance += dist;
           routeDuration += dur + stop.serviceDurationMin;
@@ -599,11 +603,14 @@ router.post("/optimize", async (req, res) => {
       });
     }
 
+    const routeDate = body.date ? new Date(body.date) : new Date();
     res.json({
       routes: optimizedRoutes,
       totalDistanceKm: Math.round(totalDistanceKm * 100) / 100,
       totalDurationMin: Math.round(totalDurationMin * 100) / 100,
       unassignedStopIds: unassigned.map((s) => s.id),
+      trafficCondition: getTrafficDescription(routeDate),
+      etaModel: "predictive",
     });
   } catch (err) {
     handleError(res, err);

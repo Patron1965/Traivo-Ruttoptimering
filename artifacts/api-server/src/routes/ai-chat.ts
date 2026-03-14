@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { db, routesTable, vehiclesTable, stopsTable } from "@workspace/db";
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { handleError } from "../lib/errors";
-import { generateInsights } from "./insights";
+import { generateInsights } from "../services/insights";
 
 const router: IRouter = Router();
 

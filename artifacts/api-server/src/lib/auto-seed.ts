@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { db, organizationsTable, vehiclesTable, customersTable, stopsTable, routesTable, driversTable } from "@workspace/db";
+import { db, organizationsTable, vehiclesTable, customersTable, stopsTable, routesTable, driversTable, usersTable } from "@workspace/db";
 
 const FIXED_ORG_ID = "63e7175d-af1d-4dc3-be62-842a8b3dc9f8";
 
@@ -150,6 +150,15 @@ export async function autoSeed() {
       .set({ routeId: route2.id, sequenceOrder: i - 3, status: "pending" })
       .where(eq(stopsTable.id, stops[i].id));
   }
+
+  const userData = [
+    { id: "a1000000-0000-0000-0000-000000000001", organizationId: org.id, name: "Admin User", email: "admin@stockholm-logistics.se", role: "admin" as const },
+    { id: "a1000000-0000-0000-0000-000000000002", organizationId: org.id, name: "Dispatch User", email: "dispatch@stockholm-logistics.se", role: "dispatcher" as const },
+    { id: "a1000000-0000-0000-0000-000000000003", organizationId: org.id, name: "Tomas Björnberg", email: "tomas@stockholm-logistics.se", role: "driver" as const, driverProfileId: drivers[0].id },
+  ];
+
+  const users = await db.insert(usersTable).values(userData).returning();
+  console.log(`Created ${users.length} users`);
 
   console.log("Auto-seed complete!");
 }
