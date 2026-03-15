@@ -97,6 +97,9 @@ export function subscribePredictions() {
 
 export function unsubscribePredictions() {
   predictionsSubscribed = false;
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: "unsubscribe-predictions" }));
+  }
 }
 
 export function isWsConnected(): boolean {

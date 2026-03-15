@@ -351,6 +351,8 @@ export function setupWebSocket(server: Server) {
         } else if (msg.type === "subscribe-predictions" && client) {
           client.subscribedPredictions = true;
           ws.send(JSON.stringify({ type: "subscribed-predictions" }));
+        } else if (msg.type === "unsubscribe-predictions" && client) {
+          client.subscribedPredictions = false;
         } else if (msg.type === "disruption" && msg.disruptionType && client) {
           debouncedReoptimize({
             type: "disruption",
