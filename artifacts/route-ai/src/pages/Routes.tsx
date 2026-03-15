@@ -14,6 +14,7 @@ import { ORG_ID } from "@/lib/constants";
 import { useTranslation } from "react-i18next";
 import { useMemo } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ContinuousOptimization } from "@/components/ContinuousOptimization";
 
 const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
   draft: { bg: "bg-muted/50", text: "text-muted-foreground" },
@@ -85,6 +86,8 @@ export default function Routes() {
             </Button>
           </Link>
         </div>
+
+        <ContinuousOptimization />
 
         {isLoading && <LoadingState message={t("routes.loadingRoutes")} />}
         {error && <p className="text-destructive">{t("routes.failedToLoad")}</p>}

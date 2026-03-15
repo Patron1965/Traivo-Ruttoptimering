@@ -551,5 +551,22 @@
     "compare": "Jämför",
     "backToRoute": "Tillbaka till rutt",
     "noData": "Ingen jämförelsedata tillgänglig"
+  },
+  "continuousOpt": {
+    "title": "Live-optimering",
+    "runningDesc": "ALNS-motorn förbättrar rutterna i bakgrunden",
+    "idleDesc": "Starta för att kontinuerligt förbättra befintliga rutter",
+    "start": "Starta",
+    "stop": "Stoppa",
+    "iterations": "Iterationer",
+    "improvement": "Förbättring",
+    "elapsed": "Tid",
+    "recentImprovements": "Senaste förbättringar",
+    "costValue": "Kostnad: {{value}}",
+    "significantImprovement": "Stor förbättring hittad!",
+    "costReduced": "Kostnaden minskade med {{percent}}%",
+    "stopped": "Optimering stoppad",
+    "stoppedDesc": "{{iterations}} iterationer — total förbättring {{percent}}%",
+    "startError": "Kunde inte starta optimering"
   }
 }

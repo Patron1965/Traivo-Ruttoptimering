@@ -551,5 +551,22 @@
     "compare": "Compare",
     "backToRoute": "Back to route",
     "noData": "No comparison data available"
+  },
+  "continuousOpt": {
+    "title": "Live Optimization",
+    "runningDesc": "ALNS engine is improving routes in the background",
+    "idleDesc": "Start to continuously improve existing routes",
+    "start": "Start",
+    "stop": "Stop",
+    "iterations": "Iterations",
+    "improvement": "Improvement",
+    "elapsed": "Elapsed",
+    "recentImprovements": "Recent improvements",
+    "costValue": "Cost: {{value}}",
+    "significantImprovement": "Significant improvement found!",
+    "costReduced": "Cost reduced by {{percent}}%",
+    "stopped": "Optimization stopped",
+    "stoppedDesc": "{{iterations}} iterations — total improvement {{percent}}%",
+    "startError": "Could not start optimization"
   }
 }

@@ -20,6 +20,12 @@ import {
   type OptimizationWeights,
 } from "../services/alns";
 import { broadcast } from "../ws";
+import {
+  ContinuousOptimizer,
+  getActiveOptimizer,
+  setActiveOptimizer,
+  removeActiveOptimizer,
+} from "../services/continuous-optimizer";
 
 function generateTrackingCodeRaw(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -593,6 +599,198 @@ router.post("/optimize/reoptimize", async (req, res) => {
       reason: reason ?? disruptionType ?? "disruption",
       optimizer: "alns-incremental",
     });
+  } catch (err) {
+    handleError(res, err);
+  }
+});
+
+const ContinuousStartBody = z.object({
+  organizationId: z.string().uuid(),
+  routeIds: z.array(z.string().uuid()).optional(),
+  depotLatitude: z.number().optional().default(59.3293),
+  depotLongitude: z.number().optional().default(18.0686),
+  microIterationMs: z.number().min(50).max(500).optional().default(100),
+  maxIdleMinutes: z.number().min(1).max(60).optional().default(5),
+});
+
+router.post("/optimize/continuous/start", async (req, res) => {
+  try {
+    const parsed = ContinuousStartBody.parse(req.body);
+    const { organizationId, routeIds, depotLatitude, depotLongitude, microIterationMs, maxIdleMinutes } = parsed;
+
+    const existing = getActiveOptimizer(organizationId);
+    if (existing?.isRunning()) {
+      res.status(409).json({ error: "Continuous optimization already running for this organization" });
+      return;
+    }
+
+    let targetRouteIds = routeIds;
+    if (!targetRouteIds || targetRouteIds.length === 0) {
+      const optimizedRoutes = await db
+        .select()
+        .from(routesTable)
+        .where(
+          and(
+            eq(routesTable.organizationId, organizationId),
+            eq(routesTable.status, "optimized")
+          )
+        );
+      targetRouteIds = optimizedRoutes.map((r) => r.id);
+    }
+
+    if (targetRouteIds.length === 0) {
+      res.status(400).json({ error: "No optimized routes found to improve" });
+      return;
+    }
+
+    const routes = await db
+      .select()
+      .from(routesTable)
+      .where(
+        and(
+          inArray(routesTable.id, targetRouteIds),
+          eq(routesTable.organizationId, organizationId)
+        )
+      );
+
+    const allStops: ALNSNode[] = [];
+    for (const route of routes) {
+      const routeStops = await db
+        .select()
+        .from(stopsTable)
+        .where(
+          and(eq(stopsTable.routeId, route.id), eq(stopsTable.organizationId, organizationId))
+        );
+      for (const s of routeStops) {
+        if (s.status === "pending") {
+          allStops.push({
+            id: s.id,
+            latitude: s.latitude,
+            longitude: s.longitude,
+            timeWindowStart: s.timeWindowStart,
+            timeWindowEnd: s.timeWindowEnd,
+            serviceDurationMin: s.serviceDurationMin,
+            weightKg: Number(s.weightKg) || 0,
+            volumeM3: Number(s.volumeM3) || 0,
+          });
+        }
+      }
+    }
+
+    if (allStops.length === 0) {
+      res.status(400).json({ error: "No pending stops found in the selected routes" });
+      return;
+    }
+
+    const allVehicles = await db
+      .select()
+      .from(vehiclesTable)
+      .where(eq(vehiclesTable.organizationId, organizationId));
+
+    const alnsVehicles: ALNSVehicle[] = allVehicles.map((v) => ({
+      id: v.id,
+      vehicleType: v.vehicleType,
+      capacityKg: v.capacityKg,
+      capacityVolume: v.capacityVolume,
+      rangeKm: v.rangeKm,
+    }));
+
+    const optimizer = new ContinuousOptimizer(
+      organizationId,
+      allStops,
+      alnsVehicles,
+      depotLatitude,
+      depotLongitude,
+      { microIterationMs, maxIdleMinutes }
+    );
+
+    optimizer.on("improvement", (event, status) => {
+      broadcast(organizationId, "optimization:improvement", {
+        iteration: event.iteration,
+        cost: Math.round(event.cost * 100) / 100,
+        previousCost: Math.round(event.previousCost * 100) / 100,
+        deltaPercent: Math.round(event.deltaPercent * 100) / 100,
+        totalImprovementPercent: Math.round(status.totalImprovementPercent * 100) / 100,
+        costBreakdown: event.costBreakdown,
+      });
+    });
+
+    optimizer.on("stopped", (status) => {
+      broadcast(organizationId, "optimization:stopped", {
+        totalImprovementPercent: Math.round(status.totalImprovementPercent * 100) / 100,
+        iterations: status.iteration,
+        bestCost: Math.round(status.bestCost * 100) / 100,
+      });
+    });
+
+    optimizer.on("idle-timeout", (status) => {
+      broadcast(organizationId, "optimization:stopped", {
+        reason: "idle-timeout",
+        totalImprovementPercent: Math.round(status.totalImprovementPercent * 100) / 100,
+        iterations: status.iteration,
+        bestCost: Math.round(status.bestCost * 100) / 100,
+      });
+      removeActiveOptimizer(organizationId);
+    });
+
+    optimizer.on("timeout", (status) => {
+      broadcast(organizationId, "optimization:stopped", {
+        reason: "max-time",
+        totalImprovementPercent: Math.round(status.totalImprovementPercent * 100) / 100,
+        iterations: status.iteration,
+        bestCost: Math.round(status.bestCost * 100) / 100,
+      });
+      removeActiveOptimizer(organizationId);
+    });
+
+    setActiveOptimizer(organizationId, optimizer);
+    optimizer.start();
+
+    res.json({
+      message: "Continuous optimization started",
+      status: optimizer.getStatus(),
+    });
+  } catch (err) {
+    handleError(res, err);
+  }
+});
+
+router.post("/optimize/continuous/stop", async (req, res) => {
+  try {
+    const { organizationId } = z
+      .object({ organizationId: z.string().uuid() })
+      .parse(req.body);
+
+    const optimizer = getActiveOptimizer(organizationId);
+    if (!optimizer || !optimizer.isRunning()) {
+      res.status(404).json({ error: "No active continuous optimization found" });
+      return;
+    }
+
+    const finalStatus = optimizer.getStatus();
+    optimizer.stop();
+    removeActiveOptimizer(organizationId);
+
+    res.json({
+      message: "Continuous optimization stopped",
+      status: finalStatus,
+    });
+  } catch (err) {
+    handleError(res, err);
+  }
+});
+
+router.get("/optimize/continuous/status", async (req, res) => {
+  try {
+    const organizationId = z.string().uuid().parse(req.query.organizationId);
+
+    const optimizer = getActiveOptimizer(organizationId);
+    if (!optimizer) {
+      res.json({ running: false, organizationId });
+      return;
+    }
+
+    res.json(optimizer.getStatus());
   } catch (err) {
     handleError(res, err);
   }
