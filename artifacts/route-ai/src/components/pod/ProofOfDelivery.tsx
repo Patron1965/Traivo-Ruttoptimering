@@ -39,7 +39,31 @@ export function ProofOfDelivery({ stopId, onClose, onComplete }: ProofOfDelivery
     },
   });
 
-  const submitProof = useMutation({
+  const onProofSuccess = (proofType: string) => {
+    setCollected((prev) => {
+      const existing = prev.find((c) => c.type === proofType);
+      if (existing) return prev.map((c) => c.type === proofType ? { ...c, count: c.count + 1 } : c);
+      return [...prev, { type: proofType, count: 1 }];
+    });
+    setMode(null);
+    queryClient.invalidateQueries({ queryKey: ["proofs", stopId] });
+  };
+
+  const submitPhotoProof = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append("photo", file);
+      const res = await fetch(`${API_BASE}/api/stops/${stopId}/proof/photo`, {
+        method: "POST",
+        body: formData,
+      });
+      if (!res.ok) throw new Error("Upload failed");
+      return res.json();
+    },
+    onSuccess: () => onProofSuccess("photo"),
+  });
+
+  const submitJsonProof = useMutation({
     mutationFn: async ({ proofType, data }: { proofType: string; data: string }) => {
       const res = await fetch(`${API_BASE}/api/stops/${stopId}/proof`, {
         method: "POST",
@@ -49,22 +73,11 @@ export function ProofOfDelivery({ stopId, onClose, onComplete }: ProofOfDelivery
       if (!res.ok) throw new Error("Upload failed");
       return res.json();
     },
-    onSuccess: (_data, vars) => {
-      setCollected((prev) => {
-        const existing = prev.find((c) => c.type === vars.proofType);
-        if (existing) return prev.map((c) => c.type === vars.proofType ? { ...c, count: c.count + 1 } : c);
-        return [...prev, { type: vars.proofType, count: 1 }];
-      });
-      setMode(null);
-      queryClient.invalidateQueries({ queryKey: ["proofs", stopId] });
-    },
+    onSuccess: (_data, vars) => onProofSuccess(vars.proofType),
   });
 
+  const isPending = submitPhotoProof.isPending || submitJsonProof.isPending;
   const totalProofs = existingProofs.length + collected.reduce((s, c) => s + c.count, 0);
-
-  const handleCapture = (proofType: string, data: string) => {
-    submitProof.mutate({ proofType, data });
-  };
 
   return (
     <div className="bg-card border border-border rounded-xl p-4 space-y-4">
@@ -75,7 +88,7 @@ export function ProofOfDelivery({ stopId, onClose, onComplete }: ProofOfDelivery
         </button>
       </div>
 
-      {submitProof.isPending && (
+      {isPending && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
           {t("pod.uploading")}
@@ -128,21 +141,21 @@ export function ProofOfDelivery({ stopId, onClose, onComplete }: ProofOfDelivery
 
       {mode === "photo" && (
         <PhotoCapture
-          onCapture={(data) => handleCapture("photo", data)}
+          onCapture={(file) => submitPhotoProof.mutate(file)}
           onCancel={() => setMode(null)}
         />
       )}
 
       {mode === "signature" && (
         <SignaturePad
-          onCapture={(data) => handleCapture("signature", data)}
+          onCapture={(data) => submitJsonProof.mutate({ proofType: "signature", data })}
           onCancel={() => setMode(null)}
         />
       )}
 
       {mode === "barcode" && (
         <BarcodeInput
-          onCapture={(data) => handleCapture("barcode", data)}
+          onCapture={(data) => submitJsonProof.mutate({ proofType: "barcode", data })}
           onCancel={() => setMode(null)}
         />
       )}

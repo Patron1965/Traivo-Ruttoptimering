@@ -1900,6 +1900,30 @@ components:
         vehicleName:
           type: string
           nullable: true
+        proofs:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              proofType:
+                type: string
+                enum: [photo, signature, barcode]
+              fileUrl:
+                type: string
+                nullable: true
+              data:
+                type: string
+                nullable: true
+              capturedAt:
+                type: string
+                format: date-time
+                nullable: true
+            required:
+              - id
+              - proofType
       required:
         - trackingCode
         - status

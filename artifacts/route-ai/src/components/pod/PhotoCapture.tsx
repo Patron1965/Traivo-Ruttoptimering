@@ -3,13 +3,14 @@ import { useTranslation } from "react-i18next";
 import { Camera, X, Check } from "lucide-react";
 
 interface PhotoCaptureProps {
-  onCapture: (dataUrl: string) => void;
+  onCapture: (file: File, previewUrl: string) => void;
   onCancel: () => void;
 }
 
 export function PhotoCapture({ onCapture, onCancel }: PhotoCaptureProps) {
   const { t } = useTranslation();
   const [preview, setPreview] = useState<string | null>(null);
+  const [capturedFile, setCapturedFile] = useState<File | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -37,7 +38,17 @@ export function PhotoCapture({ onCapture, onCancel }: PhotoCaptureProps) {
         canvas.height = h;
         const ctx = canvas.getContext("2d");
         ctx?.drawImage(img, 0, 0, w, h);
-        setPreview(canvas.toDataURL("image/jpeg", 0.8));
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+        setPreview(dataUrl);
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              setCapturedFile(new File([blob], file.name || "photo.jpg", { type: "image/jpeg" }));
+            }
+          },
+          "image/jpeg",
+          0.8,
+        );
       };
       img.src = reader.result as string;
     };
@@ -77,14 +88,14 @@ export function PhotoCapture({ onCapture, onCancel }: PhotoCaptureProps) {
           </div>
           <div className="flex gap-2">
             <button
-              onClick={() => { setPreview(null); if (inputRef.current) inputRef.current.value = ""; }}
+              onClick={() => { setPreview(null); setCapturedFile(null); if (inputRef.current) inputRef.current.value = ""; }}
               className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl border border-border text-sm font-medium hover:bg-muted/50 transition-colors"
             >
               <X className="h-4 w-4" />
               {t("pod.retake")}
             </button>
             <button
-              onClick={() => preview && onCapture(preview)}
+              onClick={() => capturedFile && preview && onCapture(capturedFile, preview)}
               className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-bold transition-colors"
             >
               <Check className="h-4 w-4" />

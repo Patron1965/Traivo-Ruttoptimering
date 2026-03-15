@@ -882,4 +882,15 @@ export const TrackDeliveryResponse = zod.object({
   timeWindowEnd: zod.date().nullish(),
   vehicleType: zod.string().nullish(),
   vehicleName: zod.string().nullish(),
+  proofs: zod
+    .array(
+      zod.object({
+        id: zod.string().uuid(),
+        proofType: zod.enum(["photo", "signature", "barcode"]),
+        fileUrl: zod.string().nullish(),
+        data: zod.string().nullish(),
+        capturedAt: zod.date().nullish(),
+      }),
+    )
+    .optional(),
 });

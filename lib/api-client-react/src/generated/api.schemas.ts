@@ -525,6 +525,23 @@ export const TrackingInfoStatus = {
   failed: "failed",
 } as const;
 
+export type TrackingInfoProofsItemProofType =
+  (typeof TrackingInfoProofsItemProofType)[keyof typeof TrackingInfoProofsItemProofType];
+
+export const TrackingInfoProofsItemProofType = {
+  photo: "photo",
+  signature: "signature",
+  barcode: "barcode",
+} as const;
+
+export type TrackingInfoProofsItem = {
+  id: string;
+  proofType: TrackingInfoProofsItemProofType;
+  fileUrl?: string | null;
+  data?: string | null;
+  capturedAt?: string | null;
+};
+
 export interface TrackingInfo {
   trackingCode: string;
   status: TrackingInfoStatus;
@@ -535,6 +552,7 @@ export interface TrackingInfo {
   timeWindowEnd?: string | null;
   vehicleType?: string | null;
   vehicleName?: string | null;
+  proofs?: TrackingInfoProofsItem[];
 }
 
 export type ListVehiclesParams = {

@@ -5,6 +5,7 @@
  * RouteAI API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { TrackingInfoProofsItem } from "./trackingInfoProofsItem";
 import type { TrackingInfoStatus } from "./trackingInfoStatus";
 
 export interface TrackingInfo {
@@ -17,4 +18,5 @@ export interface TrackingInfo {
   timeWindowEnd?: Date | null;
   vehicleType?: string | null;
   vehicleName?: string | null;
+  proofs?: TrackingInfoProofsItem[];
 }

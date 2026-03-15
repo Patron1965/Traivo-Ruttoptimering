@@ -65,6 +65,8 @@ export * from "./sustainabilityStatsEmissionProfiles";
 export * from "./sustainabilityStatsEtaMetrics";
 export * from "./sustainabilityStatsRouteBreakdownItem";
 export * from "./trackingInfo";
+export * from "./trackingInfoProofsItem";
+export * from "./trackingInfoProofsItemProofType";
 export * from "./trackingInfoStatus";
 export * from "./updateDriverBody";
 export * from "./updateDriverParams";
