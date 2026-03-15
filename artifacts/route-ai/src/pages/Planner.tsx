@@ -14,6 +14,7 @@ import { formatDistance } from "@/lib/utils";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 import { type Stop, type Vehicle, type Route } from "@workspace/api-client-react";
 import { useTranslation } from "react-i18next";
+import { ContinuousOptimization } from "@/components/ContinuousOptimization";
 
 interface OptimizedStopRef {
   stopId: string;
@@ -184,6 +185,8 @@ export default function Planner() {
           </div>
 
           <div className="flex-1 overflow-y-auto p-6 space-y-8">
+            <ContinuousOptimization />
+
             {dndRoutes ? (
               <DragDropContext onDragEnd={handleDragEnd}>
                 <div className="space-y-6">
