@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
-import { db, stopsTable, routesTable, vehiclesTable } from "@workspace/db";
+import { db, stopsTable, routesTable, vehiclesTable, deliveryProofsTable } from "@workspace/db";
 import { handleError } from "../lib/errors";
 
 const router: IRouter = Router();
@@ -59,6 +59,14 @@ router.get("/track/:code", async (req, res) => {
       deliveryStatus = "on_the_way";
     }
 
+    let proofs: any[] = [];
+    if (deliveryStatus === "delivered") {
+      proofs = await db
+        .select()
+        .from(deliveryProofsTable)
+        .where(eq(deliveryProofsTable.stopId, stop.id));
+    }
+
     res.json({
       trackingCode: code,
       status: deliveryStatus,
@@ -69,6 +77,13 @@ router.get("/track/:code", async (req, res) => {
       timeWindowEnd: stop.timeWindowEnd?.toISOString() ?? null,
       vehicleType,
       vehicleName,
+      proofs: proofs.map((p) => ({
+        id: p.id,
+        proofType: p.proofType,
+        fileUrl: p.fileUrl,
+        data: p.proofType === "barcode" ? p.data : null,
+        capturedAt: p.capturedAt?.toISOString() ?? null,
+      })),
     });
   } catch (err) {
     handleError(res, err);

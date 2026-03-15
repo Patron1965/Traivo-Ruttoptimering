@@ -12,3 +12,4 @@ export * from "./routeTemplates";
 export * from "./deliveryNotifications";
 export * from "./driver-preferences";
 export * from "./energy-prices";
+export * from "./delivery-proofs";

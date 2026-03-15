@@ -637,5 +637,22 @@
     "pm25Includes": "Includes:",
     "evParticles": "EV: tyre & brake wear only",
     "fossilParticles": "Fossil: tyre + brake + exhaust"
+  },
+  "pod": {
+    "title": "Proof",
+    "photo": "Photo",
+    "signature": "Signature",
+    "barcode": "Barcode",
+    "takePhoto": "Take a photo or choose from gallery",
+    "retake": "Retake",
+    "confirm": "Confirm",
+    "clear": "Clear",
+    "signatureInstruction": "Ask the recipient to sign below",
+    "barcodeInstruction": "Scan or enter the barcode/QR code",
+    "barcodePlaceholder": "Enter barcode value...",
+    "uploading": "Uploading proof...",
+    "proofsCollected": "{{count}} proof(s) collected",
+    "done": "Done",
+    "proofOfDelivery": "Proof of Delivery"
   }
 }

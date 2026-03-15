@@ -273,6 +273,58 @@ paths:
         "204":
           description: Deleted
 
+  /stops/{id}/proof:
+    post:
+      operationId: submitProof
+      tags: [stops]
+      summary: Submit proof of delivery for a stop
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitProofBody"
+      responses:
+        "201":
+          description: Created proof
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeliveryProof"
+        "400":
+          description: Invalid request
+        "404":
+          description: Stop not found
+
+  /stops/{id}/proofs:
+    get:
+      operationId: getStopProofs
+      tags: [stops]
+      summary: Get all proofs of delivery for a stop
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: List of proofs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DeliveryProof"
+
   /routes:
     get:
       operationId: listRoutes
@@ -986,6 +1038,54 @@ components:
         - serviceDurationMin
         - status
         - createdAt
+
+    DeliveryProof:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        stopId:
+          type: string
+          format: uuid
+        proofType:
+          type: string
+          enum: [photo, signature, barcode]
+        fileUrl:
+          type: string
+          nullable: true
+        data:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        capturedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - stopId
+        - proofType
+        - capturedAt
+        - createdAt
+
+    SubmitProofBody:
+      type: object
+      properties:
+        proofType:
+          type: string
+          enum: [photo, signature, barcode]
+        data:
+          type: string
+          description: Base64 data for photo/signature, text value for barcode
+        notes:
+          type: string
+      required:
+        - proofType
 
     CreateStopBody:
       type: object

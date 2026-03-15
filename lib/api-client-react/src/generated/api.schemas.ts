@@ -106,6 +106,42 @@ export interface Stop {
   createdAt: string;
 }
 
+export type DeliveryProofProofType =
+  (typeof DeliveryProofProofType)[keyof typeof DeliveryProofProofType];
+
+export const DeliveryProofProofType = {
+  photo: "photo",
+  signature: "signature",
+  barcode: "barcode",
+} as const;
+
+export interface DeliveryProof {
+  id: string;
+  stopId: string;
+  proofType: DeliveryProofProofType;
+  fileUrl?: string | null;
+  data?: string | null;
+  notes?: string | null;
+  capturedAt: string;
+  createdAt: string;
+}
+
+export type SubmitProofBodyProofType =
+  (typeof SubmitProofBodyProofType)[keyof typeof SubmitProofBodyProofType];
+
+export const SubmitProofBodyProofType = {
+  photo: "photo",
+  signature: "signature",
+  barcode: "barcode",
+} as const;
+
+export interface SubmitProofBody {
+  proofType: SubmitProofBodyProofType;
+  /** Base64 data for photo/signature, text value for barcode */
+  data?: string;
+  notes?: string;
+}
+
 export interface CreateStopBody {
   organizationId: string;
   routeId?: string | null;

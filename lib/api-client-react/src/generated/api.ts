@@ -24,6 +24,7 @@ import type {
   CreateVehicleBody,
   DashboardStats,
   DeleteDriverParams,
+  DeliveryProof,
   Driver,
   Error,
   GeofenceEvent,
@@ -51,6 +52,7 @@ import type {
   OptimizeResponse,
   Route,
   Stop,
+  SubmitProofBody,
   SustainabilityStats,
   TrackingInfo,
   UpdateDriverBody,
@@ -1097,6 +1099,180 @@ export const useDeleteStop = <
 > => {
   return useMutation(getDeleteStopMutationOptions(options));
 };
+
+/**
+ * @summary Submit proof of delivery for a stop
+ */
+export const getSubmitProofUrl = (id: string) => {
+  return `/api/stops/${id}/proof`;
+};
+
+export const submitProof = async (
+  id: string,
+  submitProofBody: SubmitProofBody,
+  options?: RequestInit,
+): Promise<DeliveryProof> => {
+  return customFetch<DeliveryProof>(getSubmitProofUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(submitProofBody),
+  });
+};
+
+export const getSubmitProofMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitProof>>,
+    TError,
+    { id: string; data: BodyType<SubmitProofBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof submitProof>>,
+  TError,
+  { id: string; data: BodyType<SubmitProofBody> },
+  TContext
+> => {
+  const mutationKey = ["submitProof"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof submitProof>>,
+    { id: string; data: BodyType<SubmitProofBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return submitProof(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SubmitProofMutationResult = NonNullable<
+  Awaited<ReturnType<typeof submitProof>>
+>;
+export type SubmitProofMutationBody = BodyType<SubmitProofBody>;
+export type SubmitProofMutationError = ErrorType<void>;
+
+/**
+ * @summary Submit proof of delivery for a stop
+ */
+export const useSubmitProof = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitProof>>,
+    TError,
+    { id: string; data: BodyType<SubmitProofBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof submitProof>>,
+  TError,
+  { id: string; data: BodyType<SubmitProofBody> },
+  TContext
+> => {
+  return useMutation(getSubmitProofMutationOptions(options));
+};
+
+/**
+ * @summary Get all proofs of delivery for a stop
+ */
+export const getGetStopProofsUrl = (id: string) => {
+  return `/api/stops/${id}/proofs`;
+};
+
+export const getStopProofs = async (
+  id: string,
+  options?: RequestInit,
+): Promise<DeliveryProof[]> => {
+  return customFetch<DeliveryProof[]>(getGetStopProofsUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetStopProofsQueryKey = (id: string) => {
+  return [`/api/stops/${id}/proofs`] as const;
+};
+
+export const getGetStopProofsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getStopProofs>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getStopProofs>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetStopProofsQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getStopProofs>>> = ({
+    signal,
+  }) => getStopProofs(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getStopProofs>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetStopProofsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getStopProofs>>
+>;
+export type GetStopProofsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get all proofs of delivery for a stop
+ */
+
+export function useGetStopProofs<
+  TData = Awaited<ReturnType<typeof getStopProofs>>,
+  TError = ErrorType<unknown>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getStopProofs>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetStopProofsQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary List all routes

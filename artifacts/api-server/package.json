@@ -9,6 +9,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@google-cloud/storage": "^7.19.0",
     "@types/multer": "^2.1.0",
     "@workspace/api-zod": "workspace:*",
     "@workspace/db": "workspace:*",
@@ -18,6 +19,7 @@
     "drizzle-orm": "catalog:",
     "express": "^5",
     "express-rate-limit": "^8.3.1",
+    "google-auth-library": "^10.6.1",
     "helmet": "^8.1.0",
     "multer": "^2.1.1",
     "ws": "^8.19.0",

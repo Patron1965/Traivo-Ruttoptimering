@@ -278,6 +278,41 @@ export const DeleteStopParams = zod.object({
 });
 
 /**
+ * @summary Submit proof of delivery for a stop
+ */
+export const SubmitProofParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const SubmitProofBody = zod.object({
+  proofType: zod.enum(["photo", "signature", "barcode"]),
+  data: zod
+    .string()
+    .optional()
+    .describe("Base64 data for photo\/signature, text value for barcode"),
+  notes: zod.string().optional(),
+});
+
+/**
+ * @summary Get all proofs of delivery for a stop
+ */
+export const GetStopProofsParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const GetStopProofsResponseItem = zod.object({
+  id: zod.string().uuid(),
+  stopId: zod.string().uuid(),
+  proofType: zod.enum(["photo", "signature", "barcode"]),
+  fileUrl: zod.string().nullish(),
+  data: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  capturedAt: zod.date(),
+  createdAt: zod.date(),
+});
+export const GetStopProofsResponse = zod.array(GetStopProofsResponseItem);
+
+/**
  * @summary List all routes
  */
 export const ListRoutesQueryParams = zod.object({

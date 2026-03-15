@@ -48,6 +48,7 @@ The frontend, `artifacts/route-ai`, is a React + Vite application featuring a da
 - **Route Comparison:** Planned vs actual route comparison page with KPI delta cards, dual-polyline Leaflet map, and stop breakdown charts.
 - **PDF Reports:** Client-side PDF export (jspdf + jspdf-autotable) for analytics summaries and driver performance reports.
 - **Return Handling:** Reschedule failed delivery stops into a new draft route for the next day via POST `/api/routes/:id/reschedule-failed`.
+- **Proof of Delivery (PoD):** Drivers can capture photo, signature, or barcode proof at each stop. `delivery_proofs` table stores proof records linked to stops. API endpoints: `POST /api/stops/:id/proof` (JSON with proofType, data, notes; 10MB body limit for base64 images), `GET /api/stops/:id/proofs`. Photos/signatures upload to object storage via presigned URLs; barcodes stored as text. Frontend components: `SignaturePad` (canvas-based touch drawing), `PhotoCapture` (camera/file input with preview), `BarcodeInput` (text input). DriverView shows a 4-button grid (PoD + Delivered/Failed/Skip) for the active stop. RouteDetail shows proof count badges per stop. Public tracking page displays proofs when delivery status is completed. i18n keys for SV/EN included.
 
 **System Design Choices:**
 - **Rate Limiting:** Per-tenant rate limiting implemented in the API server.

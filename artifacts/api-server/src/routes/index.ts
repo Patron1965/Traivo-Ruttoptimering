@@ -22,10 +22,14 @@ import driverPreferencesRouter from "./driver-preferences";
 import predictionsRouter from "./predictions";
 import energyRouter from "./energy";
 import voiceRouter from "./voice";
+import storageRouter from "./storage";
+import proofRouter from "./proof";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use(storageRouter);
+router.use(proofRouter);
 router.use(usersRouter);
 router.use(trackingRouter);
 router.use(vehiclesRouter);

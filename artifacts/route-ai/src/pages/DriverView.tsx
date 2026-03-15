@@ -7,10 +7,11 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline } from "react-leaflet"
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { MapPin, Navigation, Clock, Package, CheckCircle2, XCircle, SkipForward, Truck, Phone, Smile, Settings, Save } from "lucide-react";
+import { MapPin, Navigation, Clock, Package, CheckCircle2, XCircle, SkipForward, Truck, Phone, Smile, Settings, Save, FileCheck } from "lucide-react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { cn } from "@/lib/utils";
+import { ProofOfDelivery } from "@/components/pod/ProofOfDelivery";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -58,6 +59,7 @@ export default function DriverView() {
   const [updatingStop, setUpdatingStop] = useState<string | null>(null);
   const [showPrefs, setShowPrefs] = useState(false);
   const [prefsForm, setPrefsForm] = useState<Partial<DriverPreferences>>({});
+  const [podStopId, setPodStopId] = useState<string | null>(null);
 
   const driverId = user?.driverId;
 
@@ -305,7 +307,14 @@ export default function DriverView() {
                     )}
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-4 gap-2">
+                    <button
+                      onClick={() => setPodStopId(nextStop.id)}
+                      className="flex flex-col items-center gap-1 py-3 px-2 rounded-xl bg-primary text-white font-bold text-xs active:scale-95 transition-transform"
+                    >
+                      <FileCheck className="h-6 w-6" />
+                      {t("pod.title")}
+                    </button>
                     <button
                       onClick={() => updateStopStatus(nextStop.id, "completed")}
                       disabled={updatingStop === nextStop.id}
@@ -331,6 +340,16 @@ export default function DriverView() {
                       {t("driverView.skip")}
                     </button>
                   </div>
+
+                  {podStopId === nextStop.id && (
+                    <div className="mt-3">
+                      <ProofOfDelivery
+                        stopId={nextStop.id}
+                        onClose={() => setPodStopId(null)}
+                        onComplete={() => setPodStopId(null)}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
 

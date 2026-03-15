@@ -5,8 +5,17 @@ import "leaflet/dist/leaflet.css";
 import { renderToString } from "react-dom/server";
 import { MapPin, Package, Truck, Check, AlertTriangle, Clock, Zap, Fuel } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { ProofDisplay } from "@/components/pod/ProofDisplay";
 
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "") + "/";
+
+interface TrackingProof {
+  id: string;
+  proofType: string;
+  fileUrl: string | null;
+  data: string | null;
+  capturedAt: string;
+}
 
 interface TrackingInfo {
   trackingCode: string;
@@ -18,6 +27,7 @@ interface TrackingInfo {
   timeWindowEnd: string | null;
   vehicleType: string | null;
   vehicleName: string | null;
+  proofs?: TrackingProof[];
 }
 
 const createDestinationIcon = () => {
@@ -209,6 +219,12 @@ export default function TrackingPage({ code }: { code: string }) {
             </MapContainer>
           </div>
         </div>
+
+        {data.status === "delivered" && data.proofs && data.proofs.length > 0 && (
+          <div className="bg-card rounded-2xl border border-card-border p-6 shadow-lg">
+            <ProofDisplay proofs={data.proofs} />
+          </div>
+        )}
 
         <div className="text-center text-xs text-muted-foreground pb-8">
           {t("tracking.poweredBy")} &middot; {t("tracking.updatesAutomatically")}

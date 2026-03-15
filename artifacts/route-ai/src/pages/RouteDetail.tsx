@@ -8,7 +8,7 @@ import { LoadingState } from "@/components/ui/LoadingState";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
 import { useLocation } from "wouter";
-import { useQueryClient, useMutation } from "@tanstack/react-query";
+import { useQueryClient, useMutation, useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { sv, enUS } from "date-fns/locale";
 import { ROUTE_COLORS, DEPOT_LOCATION, ORG_ID } from "@/lib/constants";
@@ -37,7 +37,9 @@ import {
   BookTemplate,
   BarChart3,
   RotateCcw,
+  FileCheck,
 } from "lucide-react";
+import { ProofDisplay } from "@/components/pod/ProofDisplay";
 
 const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
   draft: { bg: "bg-muted/50", text: "text-muted-foreground", label: "routes.statusDraft" },
@@ -154,6 +156,27 @@ export default function RouteDetail({ id }: RouteDetailProps) {
     if (!stops) return [];
     return [...stops].sort((a, b) => (a.sequenceOrder || 0) - (b.sequenceOrder || 0));
   }, [stops]);
+
+  const { data: allProofs = {} } = useQuery<Record<string, any[]>>({
+    queryKey: ["route-proofs", id],
+    queryFn: async () => {
+      if (!stops || stops.length === 0) return {};
+      const results: Record<string, any[]> = {};
+      await Promise.all(
+        stops.map(async (stop) => {
+          try {
+            const res = await fetch(`/api/stops/${stop.id}/proofs`);
+            if (res.ok) {
+              const proofs = await res.json();
+              if (proofs.length > 0) results[stop.id] = proofs;
+            }
+          } catch {}
+        })
+      );
+      return results;
+    },
+    enabled: !!stops && stops.length > 0,
+  });
 
   const [localStops, setLocalStops] = useState(sortedStops);
   useEffect(() => { setLocalStops(sortedStops); }, [sortedStops]);
@@ -495,7 +518,18 @@ export default function RouteDetail({ id }: RouteDetailProps) {
                                       <Clock className="h-3 w-3" />
                                       {stop.serviceDurationMin} {t("common.mins")}
                                     </span>
+                                    {allProofs[stop.id] && allProofs[stop.id].length > 0 && (
+                                      <span className="flex items-center gap-1 text-primary">
+                                        <FileCheck className="h-3 w-3" />
+                                        {t("pod.title")} ({allProofs[stop.id].length})
+                                      </span>
+                                    )}
                                   </div>
+                                  {allProofs[stop.id] && allProofs[stop.id].length > 0 && (
+                                    <div className="mt-2">
+                                      <ProofDisplay proofs={allProofs[stop.id]} compact />
+                                    </div>
+                                  )}
                                 </div>
                                 {!isTerminal && (
                                   <div className="flex items-center gap-1 flex-shrink-0">

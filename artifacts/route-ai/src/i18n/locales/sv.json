@@ -637,5 +637,22 @@
     "pm25Includes": "Inkluderar:",
     "evParticles": "Elbil: d\u00e4ck- & bromsslitage",
     "fossilParticles": "Fossil: d\u00e4ck + bromsar + avgaser"
+  },
+  "pod": {
+    "title": "Bevis",
+    "photo": "Foto",
+    "signature": "Signatur",
+    "barcode": "Streckkod",
+    "takePhoto": "Ta ett foto eller v\u00e4lj fr\u00e5n galleri",
+    "retake": "Ta om",
+    "confirm": "Bekr\u00e4fta",
+    "clear": "Rensa",
+    "signatureInstruction": "Be mottagaren signera nedan",
+    "barcodeInstruction": "Skanna eller ange streckkod/QR-kod",
+    "barcodePlaceholder": "Ange streckkodsv\u00e4rde...",
+    "uploading": "Laddar upp bevis...",
+    "proofsCollected": "{{count}} bevis insamlade",
+    "done": "Klar",
+    "proofOfDelivery": "Leveransbevis"
   }
 }
