@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useState, useMemo } from "react";
 import { ORG_ID, DEPOT_LOCATION } from "@/lib/constants";
-import { Cpu, CheckCircle2, AlertCircle, Truck, MapPin, GripVertical, Zap, BatteryCharging, User, SlidersHorizontal } from "lucide-react";
+import { Cpu, CheckCircle2, AlertCircle, Truck, MapPin, GripVertical, Zap, BatteryCharging, User, SlidersHorizontal, Thermometer } from "lucide-react";
 import { RouteMap } from "@/components/map/RouteMap";
 import { formatDistance } from "@/lib/utils";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
@@ -54,6 +54,7 @@ export default function Planner() {
   const [selectedStopIds, setSelectedStopIds] = useState<Set<string>>(new Set());
   const [dndRoutes, setDndRoutes] = useState<OptimizedRouteResult[] | null>(null);
   const [showWeights, setShowWeights] = useState(false);
+  const [showPredictions, setShowPredictions] = useState(false);
   const [distanceWeight, setDistanceWeight] = useState(0.5);
   const [co2Weight, setCo2Weight] = useState(0.3);
   const [etaPrecisionWeight, setEtaPrecisionWeight] = useState(0.2);
@@ -440,7 +441,19 @@ export default function Planner() {
                  routes={mapRoutes}
                  unassignedStops={mapRoutes ? [] : unassignedStops} 
                  interactive={true}
+                 showPredictions={showPredictions}
                />
+               <button
+                 onClick={() => setShowPredictions(!showPredictions)}
+                 className={`absolute top-4 right-4 z-[1000] flex items-center gap-2 px-3 py-2 rounded-xl shadow-lg border backdrop-blur-md transition-all text-xs font-semibold ${
+                   showPredictions
+                     ? "bg-orange-500 text-white border-orange-600 shadow-orange-500/30"
+                     : "bg-card/90 text-foreground border-border hover:border-primary/50"
+                 }`}
+               >
+                 <Thermometer className="h-3.5 w-3.5" />
+                 {t("predictions.heatmap")}
+               </button>
                {!dndRoutes && !optimizeMutation.isSuccess && (
                  <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000]">
                    <div className="bg-background/90 backdrop-blur-md px-6 py-3 rounded-full border border-border shadow-xl text-sm font-medium">

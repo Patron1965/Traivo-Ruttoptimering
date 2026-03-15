@@ -6,8 +6,8 @@ import { useVehiclePositions, useGeofenceEvents } from "@/hooks/use-tracking";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { useQueries } from "@tanstack/react-query";
 import { getGetRouteStopsQueryOptions } from "@workspace/api-client-react";
-import { useMemo } from "react";
-import { Truck, MapPin, Radio, Battery, Navigation, Clock } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Truck, MapPin, Radio, Battery, Navigation, Clock, Thermometer } from "lucide-react";
 import { ROUTE_COLORS } from "@/lib/constants";
 import { formatDistance, formatDuration } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
@@ -18,6 +18,7 @@ export default function MapPage() {
   const { data: positions } = useVehiclePositions();
   const { data: geofenceEvents } = useGeofenceEvents(20);
   const { t } = useTranslation();
+  const [showPredictions, setShowPredictions] = useState(false);
 
   const routeQueries = useQueries({
     queries: (routes || []).map(route => getGetRouteStopsQueryOptions(route.id))
@@ -174,8 +175,20 @@ export default function MapPage() {
               routes={fullRoutesData}
               unassignedStops={unassignedStops}
               vehiclePositions={positions || undefined}
+              showPredictions={showPredictions}
             />
           </div>
+          <button
+            onClick={() => setShowPredictions(!showPredictions)}
+            className={`absolute top-8 right-8 z-20 flex items-center gap-2 px-4 py-2.5 rounded-xl shadow-lg border backdrop-blur-md transition-all text-sm font-semibold ${
+              showPredictions
+                ? "bg-orange-500 text-white border-orange-600 shadow-orange-500/30"
+                : "bg-card/90 text-foreground border-border hover:border-primary/50"
+            }`}
+          >
+            <Thermometer className="h-4 w-4" />
+            {t("predictions.heatmap")}
+          </button>
         </div>
       </div>
     </AppLayout>

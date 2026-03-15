@@ -10,6 +10,7 @@ import { MapPin, Truck, Warehouse, Battery, Navigation, Clock, Zap, Fuel } from 
 import { renderToString } from "react-dom/server";
 import { useTranslation } from "react-i18next";
 import { fetchRouteGeometry } from "@/lib/osrm";
+import { PredictionLayer } from "./PredictionLayer";
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "#9CA3AF",
@@ -60,6 +61,7 @@ interface RouteMapProps {
   highlightedRouteId?: string | null;
   onHighlightRoute?: (routeId: string) => void;
   focusStopId?: string | null;
+  showPredictions?: boolean;
 }
 
 function MapFlyTo({ routes, unassignedStops, focusStopId }: { routes: RouteData[]; unassignedStops: Stop[]; focusStopId: string | null }) {
@@ -227,6 +229,7 @@ export function RouteMap({
   highlightedRouteId = null,
   onHighlightRoute,
   focusStopId = null,
+  showPredictions = false,
 }: RouteMapProps) {
   const [mounted, setMounted] = useState(false);
   const { t } = useTranslation();
@@ -257,6 +260,8 @@ export function RouteMap({
         url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>'
       />
+
+      <PredictionLayer visible={showPredictions} />
 
       <Marker position={[DEPOT_LOCATION.lat, DEPOT_LOCATION.lng]} icon={createCustomIcon("#06B6D4", undefined, true)}>
         <Popup className="rounded-xl overflow-hidden shadow-2xl border-0">

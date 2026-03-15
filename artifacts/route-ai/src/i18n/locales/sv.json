@@ -591,5 +591,15 @@
     "of": "av",
     "routeCompleted": "Rutt slutförd!",
     "allDeliveriesDone": "Alla {{count}} leveranser är klara."
+  },
+  "predictions": {
+    "heatmap": "Trafikprediktion",
+    "levelLow": "Låg trängsel",
+    "levelModerate": "Måttlig trängsel",
+    "levelHigh": "Hög trängsel",
+    "levelVeryHigh": "Mycket hög trängsel",
+    "levelExtreme": "Extrem trängsel",
+    "delay": "Beräknad fördröjning",
+    "confidence": "Konfidens"
   }
 }

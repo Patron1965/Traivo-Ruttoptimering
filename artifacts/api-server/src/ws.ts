@@ -24,6 +24,8 @@ const DEPOT_LAT = 59.3293;
 const DEPOT_LON = 18.0686;
 const AVG_SPEED_KMH = 35;
 const GEOFENCE_RADIUS_KM = 0.5;
+import { getDefaultBoundsPredictions } from "./services/prediction";
+
 const BROADCAST_INTERVAL_MS = 2000;
 
 function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -322,6 +324,21 @@ async function broadcastPositions() {
   }
 }
 
+function broadcastPredictions() {
+  const orgIds = new Set<string>();
+  for (const client of clients) {
+    if (client.ws.readyState === WebSocket.OPEN) {
+      orgIds.add(client.organizationId);
+    }
+  }
+  if (orgIds.size === 0) return;
+
+  const predictions = getDefaultBoundsPredictions();
+  for (const orgId of orgIds) {
+    broadcast(orgId, "traffic:predictions", predictions);
+  }
+}
+
 export function setupWebSocket(server: Server) {
   const wss = new WebSocketServer({ server, path: "/ws" });
 
@@ -359,6 +376,7 @@ export function setupWebSocket(server: Server) {
   });
 
   broadcastTimer = setInterval(broadcastPositions, BROADCAST_INTERVAL_MS);
+  setInterval(broadcastPredictions, 30_000);
 
   console.log("WebSocket server ready on /ws");
   return wss;

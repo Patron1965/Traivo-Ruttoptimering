@@ -591,5 +591,15 @@
     "of": "of",
     "routeCompleted": "Route Completed!",
     "allDeliveriesDone": "All {{count}} deliveries are done."
+  },
+  "predictions": {
+    "heatmap": "Traffic Prediction",
+    "levelLow": "Low congestion",
+    "levelModerate": "Moderate congestion",
+    "levelHigh": "High congestion",
+    "levelVeryHigh": "Very high congestion",
+    "levelExtreme": "Extreme congestion",
+    "delay": "Predicted delay",
+    "confidence": "Confidence"
   }
 }
