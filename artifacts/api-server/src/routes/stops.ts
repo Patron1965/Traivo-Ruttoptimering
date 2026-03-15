@@ -9,6 +9,7 @@ import {
 } from "@workspace/api-zod";
 import { handleError, parseUuidParam } from "../lib/errors";
 import { getDistanceCache } from "../services/alns";
+import { sendFailedNotification } from "../services/email";
 
 const router: IRouter = Router();
 
@@ -33,7 +34,7 @@ router.post("/stops/import", async (req, res) => {
   try {
     const data = ImportStopsBody.parse(req.body);
     const { organizationId, stops: stopRows } = data;
-    const values = stopRows.map((row) => ({
+    const values = stopRows.map((row: any) => ({
       organizationId,
       address: row.address,
       latitude: row.latitude,
@@ -44,6 +45,8 @@ router.post("/stops/import", async (req, res) => {
       notes: row.notes ?? null,
       weightKg: row.weightKg ?? null,
       volumeM3: row.volumeM3 ?? null,
+      contactName: row.contactName ?? null,
+      contactEmail: row.contactEmail ?? null,
     }));
     const created = await db.transaction(async (tx) => {
       return tx.insert(stopsTable).values(values).returning();
@@ -81,7 +84,10 @@ router.get("/stops/:id", async (req, res) => {
 router.post("/stops", async (req, res) => {
   try {
     const data = CreateStopBody.parse(req.body);
-    const [stop] = await db.insert(stopsTable).values(data).returning();
+    const contactFields: Record<string, string> = {};
+    if (typeof req.body.contactName === "string") contactFields.contactName = req.body.contactName;
+    if (typeof req.body.contactEmail === "string") contactFields.contactEmail = req.body.contactEmail;
+    const [stop] = await db.insert(stopsTable).values({ ...data, ...contactFields }).returning();
     getDistanceCache().invalidate(stop.latitude, stop.longitude);
     res.status(201).json(stop);
   } catch (err) {
@@ -93,6 +99,9 @@ router.put("/stops/:id", async (req, res) => {
   try {
     const { id } = parseUuidParam(req.params);
     const data = UpdateStopBody.parse(req.body);
+    const contactFields: Record<string, string | null> = {};
+    if (typeof req.body.contactName === "string" || req.body.contactName === null) contactFields.contactName = req.body.contactName;
+    if (typeof req.body.contactEmail === "string" || req.body.contactEmail === null) contactFields.contactEmail = req.body.contactEmail;
     const orgId = req.query.organizationId as string | undefined;
     const conditions = [eq(stopsTable.id, id)];
     if (orgId) conditions.push(eq(stopsTable.organizationId, orgId));
@@ -104,7 +113,7 @@ router.put("/stops/:id", async (req, res) => {
 
     const [stop] = await db
       .update(stopsTable)
-      .set(data)
+      .set({ ...data, ...contactFields })
       .where(and(...conditions))
       .returning();
     if (!stop) {
@@ -139,6 +148,15 @@ router.put("/stops/:id", async (req, res) => {
         message: `${vehicleName} failed delivery at ${stop.address}`,
         relatedEntityId: stop.id,
       });
+
+      if (stop.routeId) {
+        const [failRoute] = await db.select().from(routesTable).where(eq(routesTable.id, stop.routeId));
+        if (failRoute?.notifyFailed) {
+          sendFailedNotification(stop.id, stop.routeId, vehicleName).catch((err) =>
+            console.error("[EMAIL] Failed to send failed notification:", err)
+          );
+        }
+      }
     }
 
     res.json(stop);

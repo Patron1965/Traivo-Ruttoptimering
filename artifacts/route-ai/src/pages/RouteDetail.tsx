@@ -38,6 +38,8 @@ import {
   BarChart3,
   RotateCcw,
   FileCheck,
+  Bell,
+  Mail,
 } from "lucide-react";
 import { ProofDisplay } from "@/components/pod/ProofDisplay";
 
@@ -80,6 +82,127 @@ function createDepotIcon() {
     </div>
   );
   return L.divIcon({ html, className: "custom-leaflet-icon", iconSize: [32, 32], iconAnchor: [16, 32], popupAnchor: [0, -32] });
+}
+
+interface NotificationEvent {
+  id: string;
+  type: string;
+  message: string | null;
+  sentAt: string;
+  stopAddress?: string;
+}
+
+function NotificationSettingsPanel({ routeId, route, t, toast, queryClient }: {
+  routeId: string;
+  route: { notifyApproaching?: boolean; notifyDelivered?: boolean; notifyFailed?: boolean };
+  t: (key: string) => string;
+  toast: (opts: { title: string; description?: string }) => void;
+  queryClient: ReturnType<typeof useQueryClient>;
+}) {
+  const [approaching, setApproaching] = useState(route.notifyApproaching !== false);
+  const [delivered, setDelivered] = useState(route.notifyDelivered !== false);
+  const [failed, setFailed] = useState(route.notifyFailed !== false);
+  const [saving, setSaving] = useState(false);
+
+  const updateRoute = useUpdateRoute();
+
+  const save = async (field: string, value: boolean) => {
+    setSaving(true);
+    try {
+      await updateRoute.mutateAsync({ id: routeId, data: { [field]: value } as any });
+      queryClient.invalidateQueries({ queryKey: ["/api/routes", routeId] });
+      toast({ title: t("routeDetail.notificationsSaved") });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const { data: notificationHistory = [] } = useQuery<NotificationEvent[]>({
+    queryKey: ["route-notifications", routeId],
+    queryFn: async () => {
+      const res = await fetch(`/api/delivery-notifications?routeId=${routeId}&organizationId=${ORG_ID}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  const toggles = [
+    { key: "notifyApproaching", label: t("routeDetail.notifyApproaching"), desc: t("routeDetail.notifyApproachingDesc"), value: approaching, set: setApproaching, color: "bg-blue-500" },
+    { key: "notifyDelivered", label: t("routeDetail.notifyDelivered"), desc: t("routeDetail.notifyDeliveredDesc"), value: delivered, set: setDelivered, color: "bg-emerald-500" },
+    { key: "notifyFailed", label: t("routeDetail.notifyFailed"), desc: t("routeDetail.notifyFailedDesc"), value: failed, set: setFailed, color: "bg-red-500" },
+  ];
+
+  const typeColors: Record<string, string> = {
+    approaching: "bg-blue-500/20 text-blue-400",
+    delivered: "bg-emerald-500/20 text-emerald-400",
+    failed: "bg-red-500/20 text-red-400",
+    delayed: "bg-amber-500/20 text-amber-400",
+  };
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="p-4 rounded-xl border border-border bg-card">
+        <div className="flex items-center gap-2 mb-4">
+          <Bell className="h-4 w-4 text-primary" />
+          <h3 className="font-semibold text-sm">{t("routeDetail.notifications")}</h3>
+        </div>
+        <div className="space-y-3">
+          {toggles.map((tog) => (
+            <div key={tog.key} className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={cn("w-2 h-2 rounded-full", tog.color)} />
+                <div>
+                  <p className="text-sm font-medium">{tog.label}</p>
+                  <p className="text-xs text-muted-foreground">{tog.desc}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  const newVal = !tog.value;
+                  tog.set(newVal);
+                  save(tog.key, newVal);
+                }}
+                disabled={saving}
+                className={cn(
+                  "relative w-10 h-5 rounded-full transition-colors",
+                  tog.value ? "bg-primary" : "bg-muted"
+                )}
+              >
+                <div className={cn(
+                  "absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform",
+                  tog.value ? "translate-x-5" : "translate-x-0.5"
+                )} />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="p-4 rounded-xl border border-border bg-card">
+        <div className="flex items-center gap-2 mb-4">
+          <Mail className="h-4 w-4 text-primary" />
+          <h3 className="font-semibold text-sm">{t("routeDetail.notificationHistory")}</h3>
+        </div>
+        {notificationHistory.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t("routeDetail.noNotifications")}</p>
+        ) : (
+          <div className="space-y-2 max-h-[200px] overflow-y-auto">
+            {notificationHistory.map((n) => (
+              <div key={n.id} className="flex items-start gap-2 text-xs">
+                <span className={cn("px-1.5 py-0.5 rounded font-medium uppercase", typeColors[n.type] || "bg-muted text-muted-foreground")}>
+                  {t(`routeDetail.notificationType.${n.type}`)}
+                </span>
+                <span className="flex-1 text-muted-foreground truncate">{n.message}</span>
+                <span className="text-muted-foreground whitespace-nowrap">
+                  {new Date(n.sentAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 interface RouteDetailProps {
@@ -430,6 +553,8 @@ export default function RouteDetail({ id }: RouteDetailProps) {
             </div>
           </div>
         )}
+
+        <NotificationSettingsPanel routeId={route.id} route={route} t={t} toast={toast} queryClient={queryClient} />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="rounded-xl border border-border bg-card overflow-hidden" style={{ height: 400 }}>

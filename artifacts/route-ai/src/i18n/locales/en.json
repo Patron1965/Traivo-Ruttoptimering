@@ -439,7 +439,17 @@
     "timeWindow": "Time Window",
     "vehicle": "Vehicle",
     "poweredBy": "Powered by RouteAI",
-    "updatesAutomatically": "Updates automatically"
+    "updatesAutomatically": "Updates automatically",
+    "estimatedArrival": "Estimated Arrival",
+    "eta": "Estimated Arrival",
+    "routeProgress": "Route: {{completed}}/{{total}} stops completed",
+    "timeline": "Delivery Timeline",
+    "event": {
+      "approaching": "Driver approaching",
+      "delivered": "Package delivered",
+      "failed": "Delivery failed",
+      "delayed": "Delivery delayed"
+    }
   },
   "routeDetail": {
     "loading": "Loading route details...",
@@ -460,7 +470,24 @@
     "stop_skipped": "Skipped",
     "saveAsTemplate": "Save as Template",
     "templateSaved": "Template Saved",
-    "templateSavedDesc": "The route has been saved as a template and can be reused."
+    "templateSavedDesc": "The route has been saved as a template and can be reused.",
+    "notifications": "Customer Notifications",
+    "notifyApproaching": "Approaching",
+    "notifyDelivered": "Delivered",
+    "notifyFailed": "Failed",
+    "notifyApproachingDesc": "Notify when driver is nearby",
+    "notifyDeliveredDesc": "Notify when delivered",
+    "notifyFailedDesc": "Notify on failed delivery",
+    "notificationsSaved": "Notification settings saved",
+    "notificationHistory": "Notification History",
+    "noNotifications": "No notifications sent yet",
+    "notificationSentAt": "Sent",
+    "notificationType": {
+      "approaching": "Approaching",
+      "delivered": "Delivered",
+      "failed": "Failed",
+      "delayed": "Delayed"
+    }
   },
   "commandPalette": {
     "placeholder": "Search routes, vehicles, drivers, pages...",

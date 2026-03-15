@@ -24,6 +24,8 @@ export const stopsTable = pgTable("stops", {
   sequenceOrder: integer("sequence_order"),
   notes: text("notes"),
   trackingCode: text("tracking_code"),
+  contactName: text("contact_name"),
+  contactEmail: text("contact_email"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => [
   uniqueIndex("stops_tracking_code_unique").on(table.trackingCode),

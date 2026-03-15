@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Marker, ZoomControl } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { renderToString } from "react-dom/server";
-import { MapPin, Package, Truck, Check, AlertTriangle, Clock, Zap, Fuel } from "lucide-react";
+import { MapPin, Package, Truck, Check, AlertTriangle, Clock, Zap, Fuel, Bell, Timer, Activity } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ProofDisplay } from "@/components/pod/ProofDisplay";
 
@@ -17,6 +17,13 @@ interface TrackingProof {
   capturedAt: string;
 }
 
+interface TimelineEvent {
+  id: string;
+  type: "approaching" | "delivered" | "failed" | "delayed";
+  message: string | null;
+  sentAt: string;
+}
+
 interface TrackingInfo {
   trackingCode: string;
   status: "scheduled" | "on_the_way" | "arriving_soon" | "delivered" | "failed";
@@ -27,6 +34,9 @@ interface TrackingInfo {
   timeWindowEnd: string | null;
   vehicleType: string | null;
   vehicleName: string | null;
+  estimatedArrival: string | null;
+  stopsProgress: { completed: number; total: number } | null;
+  timeline?: TimelineEvent[];
   proofs?: TrackingProof[];
 }
 
@@ -43,11 +53,59 @@ const createDestinationIcon = () => {
   return L.divIcon({ html, className: "custom-leaflet-icon", iconSize: [36, 36], iconAnchor: [18, 36] });
 };
 
+function useCountdown(targetIso: string | null) {
+  const [remaining, setRemaining] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!targetIso) { setRemaining(null); return; }
+    const update = () => {
+      const diff = new Date(targetIso).getTime() - Date.now();
+      if (diff <= 0) { setRemaining(null); return; }
+      const mins = Math.floor(diff / 60000);
+      const secs = Math.floor((diff % 60000) / 1000);
+      if (mins >= 60) {
+        const h = Math.floor(mins / 60);
+        const m = mins % 60;
+        setRemaining(`${h}h ${m}m`);
+      } else {
+        setRemaining(`${mins}m ${secs.toString().padStart(2, "0")}s`);
+      }
+    };
+    update();
+    const iv = setInterval(update, 1000);
+    return () => clearInterval(iv);
+  }, [targetIso]);
+
+  return remaining;
+}
+
+function TimelineIcon({ type }: { type: string }) {
+  switch (type) {
+    case "approaching": return <Truck className="h-4 w-4" />;
+    case "delivered": return <Check className="h-4 w-4" />;
+    case "failed": return <AlertTriangle className="h-4 w-4" />;
+    case "delayed": return <Clock className="h-4 w-4" />;
+    default: return <Bell className="h-4 w-4" />;
+  }
+}
+
+function timelineColor(type: string) {
+  switch (type) {
+    case "approaching": return "bg-blue-500 text-white";
+    case "delivered": return "bg-emerald-500 text-white";
+    case "failed": return "bg-red-500 text-white";
+    case "delayed": return "bg-amber-500 text-white";
+    default: return "bg-muted text-muted-foreground";
+  }
+}
+
 export default function TrackingPage({ code }: { code: string }) {
   const { t } = useTranslation();
   const [data, setData] = useState<TrackingInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const countdown = useCountdown(data?.estimatedArrival ?? null);
 
   const STATUS_STEPS = [
     { key: "scheduled", label: t("tracking.scheduled"), icon: Clock },
@@ -118,6 +176,25 @@ export default function TrackingPage({ code }: { code: string }) {
       </header>
 
       <div className="max-w-4xl mx-auto p-4 space-y-6 mt-4">
+        {countdown && !isFailed && (
+          <div className="bg-gradient-to-r from-primary/10 to-emerald-500/10 rounded-2xl border border-primary/20 p-6 shadow-lg">
+            <div className="flex items-center gap-4">
+              <div className="h-14 w-14 rounded-full bg-primary/20 flex items-center justify-center">
+                <Timer className="h-7 w-7 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground font-medium">{t("tracking.estimatedArrival")}</p>
+                <p className="text-3xl font-bold text-primary tabular-nums">{countdown}</p>
+                {data.stopsProgress && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {t("tracking.routeProgress", { completed: data.stopsProgress.completed, total: data.stopsProgress.total })}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="bg-card rounded-2xl border border-card-border p-6 shadow-lg">
           <h2 className="text-xl font-bold mb-6">{t("tracking.deliveryStatus")}</h2>
 
@@ -182,6 +259,14 @@ export default function TrackingPage({ code }: { code: string }) {
                   </p>
                 </div>
               )}
+              {data.estimatedArrival && !isFailed && (
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("tracking.eta")}</p>
+                  <p className="font-medium mt-1">
+                    {new Date(data.estimatedArrival).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </p>
+                </div>
+              )}
               {data.vehicleName && (
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider">{t("tracking.vehicle")}</p>
@@ -219,6 +304,33 @@ export default function TrackingPage({ code }: { code: string }) {
             </MapContainer>
           </div>
         </div>
+
+        {data.timeline && data.timeline.length > 0 && (
+          <div className="bg-card rounded-2xl border border-card-border p-6 shadow-lg">
+            <h3 className="font-bold text-lg flex items-center gap-2 mb-4">
+              <Activity className="h-5 w-5 text-primary" />
+              {t("tracking.timeline")}
+            </h3>
+            <div className="space-y-3">
+              {data.timeline.map((event, i) => (
+                <div key={event.id} className="flex items-start gap-3">
+                  <div className="flex flex-col items-center">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${timelineColor(event.type)}`}>
+                      <TimelineIcon type={event.type} />
+                    </div>
+                    {i < data.timeline!.length - 1 && <div className="w-0.5 h-6 bg-border mt-1" />}
+                  </div>
+                  <div className="flex-1 pt-1">
+                    <p className="font-medium text-sm">{t(`tracking.event.${event.type}`)}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {new Date(event.sentAt).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {data.status === "delivered" && data.proofs && data.proofs.length > 0 && (
           <div className="bg-card rounded-2xl border border-card-border p-6 shadow-lg">

@@ -439,7 +439,17 @@
     "timeWindow": "Tidsf\u00f6nster",
     "vehicle": "Fordon",
     "poweredBy": "Drivs av RouteAI",
-    "updatesAutomatically": "Uppdateras automatiskt"
+    "updatesAutomatically": "Uppdateras automatiskt",
+    "estimatedArrival": "Beräknad ankomst",
+    "eta": "Beräknad ankomst",
+    "routeProgress": "Rutt: {{completed}}/{{total}} stopp klara",
+    "timeline": "Leveranstidslinje",
+    "event": {
+      "approaching": "Förare närmar sig",
+      "delivered": "Paket levererat",
+      "failed": "Leverans misslyckades",
+      "delayed": "Leverans försenad"
+    }
   },
   "routeDetail": {
     "loading": "Laddar ruttdetaljer...",
@@ -460,7 +470,24 @@
     "stop_skipped": "Överhoppad",
     "saveAsTemplate": "Spara som mall",
     "templateSaved": "Mall sparad",
-    "templateSavedDesc": "Rutten har sparats som mall och kan återanvändas."
+    "templateSavedDesc": "Rutten har sparats som mall och kan återanvändas.",
+    "notifications": "Kundnotifikationer",
+    "notifyApproaching": "Närmar sig",
+    "notifyDelivered": "Levererad",
+    "notifyFailed": "Misslyckad",
+    "notifyApproachingDesc": "Notifiera när föraren är nära",
+    "notifyDeliveredDesc": "Notifiera vid leverans",
+    "notifyFailedDesc": "Notifiera vid misslyckad leverans",
+    "notificationsSaved": "Notifikationsinställningar sparade",
+    "notificationHistory": "Notifikationshistorik",
+    "noNotifications": "Inga notifikationer skickade ännu",
+    "notificationSentAt": "Skickad",
+    "notificationType": {
+      "approaching": "Närmar sig",
+      "delivered": "Levererad",
+      "failed": "Misslyckad",
+      "delayed": "Försenad"
+    }
   },
   "commandPalette": {
     "placeholder": "Sök rutter, fordon, förare, sidor...",

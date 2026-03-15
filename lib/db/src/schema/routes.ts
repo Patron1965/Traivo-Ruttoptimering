@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, real, integer, pgEnum, index } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, real, integer, boolean, pgEnum, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { organizationsTable } from "./organizations";
@@ -17,6 +17,9 @@ export const routesTable = pgTable("routes", {
   totalDurationMin: real("total_duration_min"),
   totalStops: integer("total_stops").notNull().default(0),
   co2EmissionsKg: real("co2_emissions_kg"),
+  notifyApproaching: boolean("notify_approaching").notNull().default(true),
+  notifyDelivered: boolean("notify_delivered").notNull().default(true),
+  notifyFailed: boolean("notify_failed").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => [

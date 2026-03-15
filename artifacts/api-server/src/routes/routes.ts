@@ -62,12 +62,18 @@ router.put("/routes/:id", async (req, res) => {
   try {
     const { id } = parseUuidParam(req.params);
     const data = UpdateRouteBody.parse(req.body);
+
+    const notifyFields: Record<string, boolean> = {};
+    if (typeof req.body.notifyApproaching === "boolean") notifyFields.notifyApproaching = req.body.notifyApproaching;
+    if (typeof req.body.notifyDelivered === "boolean") notifyFields.notifyDelivered = req.body.notifyDelivered;
+    if (typeof req.body.notifyFailed === "boolean") notifyFields.notifyFailed = req.body.notifyFailed;
+
     const orgId = req.query.organizationId as string | undefined;
     const conditions = [eq(routesTable.id, id)];
     if (orgId) conditions.push(eq(routesTable.organizationId, orgId));
     const [route] = await db
       .update(routesTable)
-      .set({ ...data, updatedAt: new Date() })
+      .set({ ...data, ...notifyFields, updatedAt: new Date() })
       .where(and(...conditions))
       .returning();
     if (!route) {

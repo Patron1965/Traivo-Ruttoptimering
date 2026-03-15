@@ -19,6 +19,7 @@ import {
   type ALNSRoute,
 } from "./services/alns";
 import { getActiveOptimizer } from "./services/continuous-optimizer";
+import { sendApproachingNotification, sendDeliveredNotification } from "./services/email";
 
 const DEPOT_LAT = 59.3293;
 const DEPOT_LON = 18.0686;
@@ -209,6 +210,14 @@ async function computePositions(organizationId: string) {
             relatedEntityId: stop.id,
           });
 
+          if (route.notifyApproaching) {
+            const distToStop = haversineDistance(pos.latitude, pos.longitude, stop.latitude, stop.longitude);
+            const stopEta = Math.round((distToStop / AVG_SPEED_KMH) * 60);
+            sendApproachingNotification(stop.id, route.id, vehicle.name, stopEta).catch((err) =>
+              console.error("[EMAIL] Failed to send approaching notification:", err)
+            );
+          }
+
           const isFirstActive = stops.every(
             (s) => s.id === stop.id || s.status === "pending"
           );
@@ -267,6 +276,12 @@ async function computePositions(organizationId: string) {
             message: `${vehicle.name} completed delivery at ${stop.address}`,
             relatedEntityId: stop.id,
           });
+
+          if (route.notifyDelivered) {
+            sendDeliveredNotification(stop.id, route.id, vehicle.name).catch((err) =>
+              console.error("[EMAIL] Failed to send delivered notification:", err)
+            );
+          }
 
           broadcast(organizationId, "stop:completed", { stopId: stop.id, address: stop.address });
 

@@ -1,9 +1,37 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
-import { db, stopsTable, routesTable, vehiclesTable, deliveryProofsTable } from "@workspace/db";
+import { eq, asc } from "drizzle-orm";
+import { db, stopsTable, routesTable, vehiclesTable, deliveryProofsTable, deliveryNotificationsTable } from "@workspace/db";
 import { handleError } from "../lib/errors";
 
 const router: IRouter = Router();
+
+function computeEta(stop: typeof stopsTable.$inferSelect, allStops: (typeof stopsTable.$inferSelect)[], routeStatus: string | null): string | null {
+  if (stop.status === "completed" || stop.status === "failed") return null;
+  if (routeStatus !== "in_progress" && routeStatus !== "optimized") return null;
+
+  if (stop.timeWindowStart) {
+    const now = new Date();
+    const eta = new Date(stop.timeWindowStart);
+    if (eta > now) return eta.toISOString();
+  }
+
+  const completedStops = allStops.filter((s) => s.status === "completed").length;
+  const totalStops = allStops.length;
+  if (totalStops === 0) return null;
+
+  const stopIdx = allStops.findIndex((s) => s.id === stop.id);
+  const remainingStops = stopIdx - completedStops;
+  if (remainingStops <= 0) {
+    const eta = new Date(Date.now() + 5 * 60 * 1000);
+    return eta.toISOString();
+  }
+
+  const avgServiceMin = 15;
+  const avgTravelMin = 10;
+  const etaMin = remainingStops * (avgServiceMin + avgTravelMin);
+  const eta = new Date(Date.now() + etaMin * 60 * 1000);
+  return eta.toISOString();
+}
 
 router.get("/track/:code", async (req, res) => {
   try {
@@ -26,6 +54,7 @@ router.get("/track/:code", async (req, res) => {
     let vehicleType: string | null = null;
     let vehicleName: string | null = null;
     let routeStatus: string | null = null;
+    let allStops: (typeof stopsTable.$inferSelect)[] = [];
 
     if (stop.routeId) {
       const [route] = await db
@@ -45,6 +74,12 @@ router.get("/track/:code", async (req, res) => {
             vehicleName = vehicle.name;
           }
         }
+
+        allStops = await db
+          .select()
+          .from(stopsTable)
+          .where(eq(stopsTable.routeId, stop.routeId))
+          .orderBy(asc(stopsTable.sequenceOrder));
       }
     }
 
@@ -67,6 +102,18 @@ router.get("/track/:code", async (req, res) => {
         .where(eq(deliveryProofsTable.stopId, stop.id));
     }
 
+    const notifications = await db
+      .select()
+      .from(deliveryNotificationsTable)
+      .where(eq(deliveryNotificationsTable.stopId, stop.id))
+      .orderBy(asc(deliveryNotificationsTable.sentAt));
+
+    const estimatedArrival = computeEta(stop, allStops, routeStatus);
+
+    const stopsProgress = allStops.length > 0
+      ? { completed: allStops.filter((s) => s.status === "completed").length, total: allStops.length }
+      : null;
+
     res.json({
       trackingCode: code,
       status: deliveryStatus,
@@ -77,6 +124,14 @@ router.get("/track/:code", async (req, res) => {
       timeWindowEnd: stop.timeWindowEnd?.toISOString() ?? null,
       vehicleType,
       vehicleName,
+      estimatedArrival,
+      stopsProgress,
+      timeline: notifications.map((n) => ({
+        id: n.id,
+        type: n.type,
+        message: n.message,
+        sentAt: n.sentAt.toISOString(),
+      })),
       proofs: proofs.map((p) => ({
         id: p.id,
         proofType: p.proofType,
