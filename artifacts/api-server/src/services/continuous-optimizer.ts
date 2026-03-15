@@ -141,7 +141,7 @@ export class ContinuousOptimizer extends EventEmitter {
       bestCost: this.bestCost,
       initialCost: this.initialCost,
       totalImprovementPercent:
-        this.initialCost > 0
+        this.initialCost > 0 && isFinite(this.bestCost)
           ? ((this.initialCost - this.bestCost) / this.initialCost) * 100
           : 0,
       lastImprovementAt: this.lastImprovementAt,
