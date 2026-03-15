@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "MWPtyMlMLd50D09bJak29"
+uri = "file://RouteAI_Systemrapport.md"
+type = "text"
+title = "RouteAI — Fullständig Systemrapport"
