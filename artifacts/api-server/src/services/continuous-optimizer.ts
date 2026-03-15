@@ -227,7 +227,7 @@ export class ContinuousOptimizer extends EventEmitter {
 
       if (result.cost < this.bestCost) {
         const deltaPercent =
-          previousCost > 0
+          previousCost > 0 && isFinite(previousCost)
             ? ((previousCost - result.cost) / previousCost) * 100
             : 0;
 
