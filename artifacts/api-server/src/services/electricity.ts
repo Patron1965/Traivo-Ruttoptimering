@@ -203,9 +203,11 @@ export async function getOptimalChargingWindow(
   const windowSlots = Math.ceil(durationMin / 60);
   if (windowSlots >= prices.length) {
     const avgPrice = prices.reduce((s, p) => s + p.priceEurMwh, 0) / prices.length;
+    const startTs = new Date(prices[0].timestamp);
+    const endTs = new Date(startTs.getTime() + durationMin * 60000);
     return {
       start: prices[0].timestamp,
-      end: prices[prices.length - 1].timestamp,
+      end: endTs.toISOString(),
       avgPriceEurMwh: Math.round(avgPrice * 100) / 100,
       avgPriceSekKwh: Math.round((avgPrice / 1000) * EUR_TO_SEK * 100) / 100,
       savingsPercent: 0,
@@ -232,7 +234,7 @@ export async function getOptimalChargingWindow(
 
   return {
     start: prices[bestStart].timestamp,
-    end: prices[bestStart + windowSlots - 1].timestamp,
+    end: new Date(new Date(prices[bestStart].timestamp).getTime() + durationMin * 60000).toISOString(),
     avgPriceEurMwh: Math.round(bestAvg * 100) / 100,
     avgPriceSekKwh: Math.round((bestAvg / 1000) * EUR_TO_SEK * 100) / 100,
     savingsPercent: Math.max(0, savingsPercent),

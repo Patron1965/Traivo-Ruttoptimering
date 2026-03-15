@@ -2,9 +2,15 @@ import { Router, type IRouter } from "express";
 import { getCurrentPrice, getPrices, getOptimalChargingWindow } from "../services/electricity";
 
 const router: IRouter = Router();
+const VALID_AREAS = ["SE1", "SE2", "SE3", "SE4"];
+
+function validateArea(area: string): string {
+  const upper = area.toUpperCase();
+  return VALID_AREAS.includes(upper) ? upper : "SE3";
+}
 
 router.get("/energy/prices", async (req, res) => {
-  const area = (req.query.area as string) || "SE3";
+  const area = validateArea((req.query.area as string) || "SE3");
   const hours = Math.min(168, Math.max(1, parseInt(req.query.hours as string) || 24));
 
   const prices = await getPrices(area, hours);
@@ -12,13 +18,13 @@ router.get("/energy/prices", async (req, res) => {
 });
 
 router.get("/energy/current", async (req, res) => {
-  const area = (req.query.area as string) || "SE3";
+  const area = validateArea((req.query.area as string) || "SE3");
   const price = await getCurrentPrice(area);
   res.json(price);
 });
 
 router.get("/energy/optimal-window", async (req, res) => {
-  const area = (req.query.area as string) || "SE3";
+  const area = validateArea((req.query.area as string) || "SE3");
   const duration = Math.max(15, parseInt(req.query.duration as string) || 60);
   const deadlineStr = req.query.deadline as string;
 
