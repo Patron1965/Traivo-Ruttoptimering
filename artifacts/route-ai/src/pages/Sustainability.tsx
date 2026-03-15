@@ -1,7 +1,7 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useSustainabilityStats } from "@/hooks/use-sustainability";
 import { LoadingState, ErrorState } from "@/components/ui/LoadingState";
-import { Leaf, TreePine, TrendingDown, Zap, Fuel, Car, Target, Clock, CheckCircle2, AlertTriangle, BatteryCharging, DollarSign } from "lucide-react";
+import { Leaf, TreePine, TrendingDown, Zap, Fuel, Car, Target, Clock, CheckCircle2, AlertTriangle, BatteryCharging, DollarSign, Volume2, Wind, Shield, Moon } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -173,6 +173,8 @@ export default function Sustainability() {
             </div>
           </div>
         )}
+
+        <EnvironmentalImpactSection stats={stats} />
 
         <div className="bg-card rounded-2xl border border-card-border p-6 shadow-xl shadow-black/5">
           <h2 className="text-lg font-bold mb-1">{t("sustainability.treesEquivalent")}</h2>
@@ -506,6 +508,130 @@ function EnergyPriceSection() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function EnvironmentalScoreGauge({ score }: { score: number }) {
+  const { t } = useTranslation();
+  const radius = 70;
+  const circumference = Math.PI * radius;
+  const offset = circumference - (score / 100) * circumference;
+  const color = score >= 70 ? "#22c55e" : score >= 40 ? "#eab308" : "#ef4444";
+  const label = score >= 70 ? t("env.excellent") : score >= 40 ? t("env.moderate") : t("env.needsWork");
+
+  return (
+    <div className="flex flex-col items-center">
+      <svg width="180" height="110" viewBox="0 0 180 110">
+        <path
+          d="M 15 95 A 70 70 0 0 1 165 95"
+          fill="none"
+          stroke="var(--color-border)"
+          strokeWidth="12"
+          strokeLinecap="round"
+        />
+        <path
+          d="M 15 95 A 70 70 0 0 1 165 95"
+          fill="none"
+          stroke={color}
+          strokeWidth="12"
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          style={{ transition: "stroke-dashoffset 1s ease-in-out" }}
+        />
+        <text x="90" y="80" textAnchor="middle" className="fill-foreground text-3xl font-bold" fontSize="36">{score}</text>
+        <text x="90" y="100" textAnchor="middle" className="fill-muted-foreground text-xs" fontSize="12">{label}</text>
+      </svg>
+    </div>
+  );
+}
+
+function NoiseLevelBar({ score }: { score: number }) {
+  const bars = 10;
+  return (
+    <div className="flex items-end gap-1 h-8">
+      {Array.from({ length: bars }, (_, i) => {
+        const threshold = (i + 1) * 10;
+        const active = score >= threshold;
+        const color = threshold <= 30 ? "bg-emerald-500" : threshold <= 60 ? "bg-yellow-500" : "bg-red-500";
+        return (
+          <div
+            key={i}
+            className={`w-3 rounded-sm transition-all duration-300 ${active ? color : "bg-muted"}`}
+            style={{ height: `${40 + i * 6}%` }}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function EnvironmentalImpactSection({ stats }: { stats: Record<string, unknown> }) {
+  const { t } = useTranslation();
+  const envScore = (stats.environmentalScore as number) ?? 0;
+  const noiseScore = (stats.noiseImpactScore as number) ?? 0;
+  const nightRoutes = (stats.nightRouteCount as number) ?? 0;
+  const avgPm25 = (stats.avgParticlePm25 as number) ?? 0;
+
+  const pm25Level = avgPm25 < 0.5 ? t("env.pm25Low") : avgPm25 < 2 ? t("env.pm25Moderate") : t("env.pm25High");
+  const pm25Color = avgPm25 < 0.5 ? "text-emerald-500" : avgPm25 < 2 ? "text-yellow-500" : "text-red-500";
+
+  return (
+    <div className="bg-card rounded-2xl border border-card-border p-6 shadow-xl shadow-black/5">
+      <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+        <Shield className="h-5 w-5 text-emerald-500" /> {t("env.title")}
+      </h2>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="flex flex-col items-center rounded-xl bg-muted/30 p-5 border border-border/50">
+          <p className="text-sm font-medium text-muted-foreground mb-3">{t("env.envScore")}</p>
+          <EnvironmentalScoreGauge score={envScore} />
+          <p className="text-xs text-muted-foreground mt-2 text-center">
+            CO₂ 50% · {t("env.noise")} 25% · PM2.5 25%
+          </p>
+        </div>
+
+        <div className="rounded-xl bg-muted/30 p-5 border border-border/50">
+          <div className="flex items-center gap-2 mb-3">
+            <Volume2 className="h-5 w-5 text-blue-500" />
+            <p className="text-sm font-medium text-muted-foreground">{t("env.noiseImpact")}</p>
+          </div>
+          <div className="flex items-center gap-4 mb-3">
+            <NoiseLevelBar score={noiseScore} />
+            <span className="text-2xl font-bold">{noiseScore}<span className="text-sm text-muted-foreground">/100</span></span>
+          </div>
+          <div className="flex items-center gap-2 mt-3">
+            <Moon className="h-4 w-4 text-indigo-400" />
+            <span className="text-sm text-muted-foreground">
+              {nightRoutes} {t("env.nightRoutes")}
+            </span>
+            {nightRoutes > 0 && (
+              <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-medium">
+                {t("env.nightWarning")}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-xl bg-muted/30 p-5 border border-border/50">
+          <div className="flex items-center gap-2 mb-3">
+            <Wind className="h-5 w-5 text-orange-500" />
+            <p className="text-sm font-medium text-muted-foreground">{t("env.particleEmissions")}</p>
+          </div>
+          <p className="text-2xl font-bold">{avgPm25.toFixed(3)} <span className="text-sm text-muted-foreground font-normal">g/route</span></p>
+          <p className={`text-sm font-medium mt-1 ${pm25Color}`}>{pm25Level}</p>
+          <div className="mt-3 text-xs text-muted-foreground space-y-1">
+            <p>{t("env.pm25Includes")}</p>
+            <p className="flex items-center gap-1">
+              <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" /> {t("env.evParticles")}
+            </p>
+            <p className="flex items-center gap-1">
+              <span className="inline-block w-2 h-2 rounded-full bg-amber-500" /> {t("env.fossilParticles")}
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

@@ -3,7 +3,7 @@ import { useDrivers, useUpdateDriver } from "@/hooks/use-drivers";
 import { useVehicles } from "@/hooks/use-vehicles";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { LoadingState } from "@/components/ui/LoadingState";
-import { Route as RouteIcon, Trash2, MapPin, Clock, Gauge, Download, User, Plus } from "lucide-react";
+import { Route as RouteIcon, Trash2, MapPin, Clock, Gauge, Download, User, Plus, Shield } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { format } from "date-fns";
 import { sv, enUS } from "date-fns/locale";
@@ -15,6 +15,7 @@ import { useTranslation } from "react-i18next";
 import { useMemo } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ContinuousOptimization } from "@/components/ContinuousOptimization";
+import { useSustainabilityStats } from "@/hooks/use-sustainability";
 
 const STATUS_STYLES: Record<string, { bg: string; text: string }> = {
   draft: { bg: "bg-muted/50", text: "text-muted-foreground" },
@@ -28,11 +29,19 @@ export default function Routes() {
   const { data: routes, isLoading, error } = useRoutes();
   const { data: drivers } = useDrivers();
   const { data: vehicles } = useVehicles();
+  const { data: sustainabilityStats } = useSustainabilityStats();
   const deleteRoute = useDeleteRoute();
   const updateDriver = useUpdateDriver();
   const { t, i18n } = useTranslation();
   const [, navigate] = useLocation();
   const dateLocale = i18n.language === "sv" ? sv : enUS;
+
+  const envScoreByRouteId = useMemo(() => {
+    const map = new Map<string, { score: number; isNight: boolean }>();
+    const scores = (sustainabilityStats as Record<string, unknown>)?.routeEnvironmentalScores as Array<{ routeId: string; environmentalScore: number; isNightRoute: boolean }> | undefined;
+    scores?.forEach((s) => map.set(s.routeId, { score: s.environmentalScore, isNight: s.isNightRoute }));
+    return map;
+  }, [sustainabilityStats]);
 
   const activeDrivers = useMemo(() => drivers?.filter((d) => d.isActive) || [], [drivers]);
 
@@ -156,6 +165,17 @@ export default function Routes() {
                           <span>{Math.floor(route.totalDurationMin / 60)}h {Math.round(route.totalDurationMin % 60)}m</span>
                         </div>
                       )}
+
+                      {envScoreByRouteId.has(route.id) && (() => {
+                        const env = envScoreByRouteId.get(route.id)!;
+                        const color = env.score >= 70 ? "text-emerald-500 bg-emerald-500/10" : env.score >= 40 ? "text-yellow-500 bg-yellow-500/10" : "text-red-500 bg-red-500/10";
+                        return (
+                          <div className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium ${color}`} title={t("env.envScore")}>
+                            <Shield className="h-3.5 w-3.5" />
+                            {env.score}
+                          </div>
+                        );
+                      })()}
 
                       {route.vehicleId && (route.status === "draft" || route.status === "optimized") && (
                         <Select

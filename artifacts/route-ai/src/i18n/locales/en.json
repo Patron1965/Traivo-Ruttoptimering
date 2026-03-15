@@ -619,5 +619,23 @@
     "clickToTalk": "Click to talk",
     "listening": "Listening...",
     "transcribing": "Transcribing..."
+  },
+  "env": {
+    "title": "Environmental Impact Beyond CO\u2082",
+    "envScore": "Environmental Score",
+    "excellent": "Excellent",
+    "moderate": "Moderate",
+    "needsWork": "Needs Work",
+    "noise": "Noise",
+    "noiseImpact": "Noise Impact",
+    "nightRoutes": "night route(s)",
+    "nightWarning": "Residential impact",
+    "particleEmissions": "Particle Emissions (PM2.5)",
+    "pm25Low": "Low — below WHO guidelines",
+    "pm25Moderate": "Moderate — within limits",
+    "pm25High": "High — above recommended",
+    "pm25Includes": "Includes:",
+    "evParticles": "EV: tyre & brake wear only",
+    "fossilParticles": "Fossil: tyre + brake + exhaust"
   }
 }

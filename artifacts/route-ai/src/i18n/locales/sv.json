@@ -619,5 +619,23 @@
     "clickToTalk": "Klicka för att prata",
     "listening": "Lyssnar...",
     "transcribing": "Transkriberar..."
+  },
+  "env": {
+    "title": "Milj\u00f6p\u00e5verkan ut\u00f6ver CO\u2082",
+    "envScore": "Milj\u00f6po\u00e4ng",
+    "excellent": "Utm\u00e4rkt",
+    "moderate": "M\u00e5ttlig",
+    "needsWork": "Beh\u00f6ver f\u00f6rb\u00e4ttras",
+    "noise": "Buller",
+    "noiseImpact": "Bullerp\u00e5verkan",
+    "nightRoutes": "nattrutter",
+    "nightWarning": "Bostadsomr\u00e5de",
+    "particleEmissions": "Partikelutsl\u00e4pp (PM2.5)",
+    "pm25Low": "L\u00e5g \u2014 under WHO:s riktlinjer",
+    "pm25Moderate": "M\u00e5ttlig \u2014 inom gr\u00e4nsv\u00e4rden",
+    "pm25High": "H\u00f6g \u2014 \u00f6ver rekommenderat",
+    "pm25Includes": "Inkluderar:",
+    "evParticles": "Elbil: d\u00e4ck- & bromsslitage",
+    "fossilParticles": "Fossil: d\u00e4ck + bromsar + avgaser"
   }
 }
