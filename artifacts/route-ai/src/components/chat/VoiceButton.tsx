@@ -8,7 +8,7 @@ type VoiceState = "idle" | "recording" | "transcribing";
 interface VoiceButtonProps {
   onTranscription: (text: string) => void;
   disabled?: boolean;
-  size?: "sm" | "lg";
+  size?: "sm" | "lg" | "responsive";
 }
 
 export function VoiceButton({ onTranscription, disabled, size = "sm" }: VoiceButtonProps) {
@@ -93,7 +93,17 @@ export function VoiceButton({ onTranscription, disabled, size = "sm" }: VoiceBut
     }
   }, [state, startRecording, stopRecording]);
 
-  const isLg = size === "lg";
+  const sizeClasses = size === "lg"
+    ? "h-14 w-14"
+    : size === "responsive"
+      ? "h-10 w-10 sm:h-10 sm:w-10 max-[640px]:h-12 max-[640px]:w-12"
+      : "h-10 w-10";
+
+  const iconClasses = size === "lg"
+    ? "h-6 w-6"
+    : size === "responsive"
+      ? "h-4 w-4 max-[640px]:h-5 max-[640px]:w-5"
+      : "h-4 w-4";
 
   return (
     <button
@@ -109,7 +119,7 @@ export function VoiceButton({ onTranscription, disabled, size = "sm" }: VoiceBut
       }
       className={cn(
         "relative flex items-center justify-center rounded-xl transition-all duration-200",
-        isLg ? "h-14 w-14" : "h-10 w-10",
+        sizeClasses,
         state === "recording"
           ? "bg-red-500 text-white hover:bg-red-600"
           : state === "transcribing"
@@ -122,9 +132,9 @@ export function VoiceButton({ onTranscription, disabled, size = "sm" }: VoiceBut
         <span className="absolute inset-0 rounded-xl border-2 border-red-400 animate-ping opacity-50" />
       )}
       {state === "transcribing" ? (
-        <Loader2 className={cn("animate-spin", isLg ? "h-6 w-6" : "h-4 w-4")} />
+        <Loader2 className={cn("animate-spin", iconClasses)} />
       ) : (
-        <Mic className={cn(isLg ? "h-6 w-6" : "h-4 w-4")} />
+        <Mic className={iconClasses} />
       )}
     </button>
   );
