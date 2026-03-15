@@ -9,7 +9,7 @@ import type { SubmitProofBodyProofType } from "./submitProofBodyProofType";
 
 export interface SubmitProofBody {
   proofType: SubmitProofBodyProofType;
-  /** Base64 data for photo/signature, text value for barcode */
+  /** Base64 data for signature, text value for barcode */
   data?: string;
   notes?: string;
 }

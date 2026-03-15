@@ -277,7 +277,7 @@ paths:
     post:
       operationId: submitProof
       tags: [stops]
-      summary: Submit proof of delivery for a stop
+      summary: Submit signature or barcode proof of delivery for a stop
       parameters:
         - name: id
           in: path
@@ -302,6 +302,46 @@ paths:
           description: Invalid request
         "404":
           description: Stop not found
+
+  /stops/{id}/proof/photo:
+    post:
+      operationId: submitPhotoProof
+      tags: [stops]
+      summary: Upload a photo proof of delivery for a stop
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                photo:
+                  type: string
+                  format: binary
+                notes:
+                  type: string
+              required:
+                - photo
+      responses:
+        "201":
+          description: Created photo proof
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeliveryProof"
+        "400":
+          description: Invalid request or missing photo
+        "404":
+          description: Stop not found
+        "502":
+          description: Storage upload failed
 
   /stops/{id}/proofs:
     get:
@@ -1078,10 +1118,10 @@ components:
       properties:
         proofType:
           type: string
-          enum: [photo, signature, barcode]
+          enum: [signature, barcode]
         data:
           type: string
-          description: Base64 data for photo/signature, text value for barcode
+          description: Base64 data for signature, text value for barcode
         notes:
           type: string
       required:

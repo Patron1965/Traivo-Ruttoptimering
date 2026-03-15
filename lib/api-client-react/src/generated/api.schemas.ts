@@ -130,14 +130,13 @@ export type SubmitProofBodyProofType =
   (typeof SubmitProofBodyProofType)[keyof typeof SubmitProofBodyProofType];
 
 export const SubmitProofBodyProofType = {
-  photo: "photo",
   signature: "signature",
   barcode: "barcode",
 } as const;
 
 export interface SubmitProofBody {
   proofType: SubmitProofBodyProofType;
-  /** Base64 data for photo/signature, text value for barcode */
+  /** Base64 data for signature, text value for barcode */
   data?: string;
   notes?: string;
 }
@@ -562,6 +561,11 @@ export type ListVehiclesParams = {
 export type ListStopsParams = {
   organizationId: string;
   routeId?: string;
+};
+
+export type SubmitPhotoProofBody = {
+  photo: Blob;
+  notes?: string;
 };
 
 export type ListRoutesParams = {

@@ -52,6 +52,7 @@ import type {
   OptimizeResponse,
   Route,
   Stop,
+  SubmitPhotoProofBody,
   SubmitProofBody,
   SustainabilityStats,
   TrackingInfo,
@@ -1101,7 +1102,7 @@ export const useDeleteStop = <
 };
 
 /**
- * @summary Submit proof of delivery for a stop
+ * @summary Submit signature or barcode proof of delivery for a stop
  */
 export const getSubmitProofUrl = (id: string) => {
   return `/api/stops/${id}/proof`;
@@ -1165,7 +1166,7 @@ export type SubmitProofMutationBody = BodyType<SubmitProofBody>;
 export type SubmitProofMutationError = ErrorType<void>;
 
 /**
- * @summary Submit proof of delivery for a stop
+ * @summary Submit signature or barcode proof of delivery for a stop
  */
 export const useSubmitProof = <
   TError = ErrorType<void>,
@@ -1185,6 +1186,98 @@ export const useSubmitProof = <
   TContext
 > => {
   return useMutation(getSubmitProofMutationOptions(options));
+};
+
+/**
+ * @summary Upload a photo proof of delivery for a stop
+ */
+export const getSubmitPhotoProofUrl = (id: string) => {
+  return `/api/stops/${id}/proof/photo`;
+};
+
+export const submitPhotoProof = async (
+  id: string,
+  submitPhotoProofBody: SubmitPhotoProofBody,
+  options?: RequestInit,
+): Promise<DeliveryProof> => {
+  const formData = new FormData();
+  formData.append(`photo`, submitPhotoProofBody.photo);
+  if (submitPhotoProofBody.notes !== undefined) {
+    formData.append(`notes`, submitPhotoProofBody.notes);
+  }
+
+  return customFetch<DeliveryProof>(getSubmitPhotoProofUrl(id), {
+    ...options,
+    method: "POST",
+    body: formData,
+  });
+};
+
+export const getSubmitPhotoProofMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitPhotoProof>>,
+    TError,
+    { id: string; data: BodyType<SubmitPhotoProofBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof submitPhotoProof>>,
+  TError,
+  { id: string; data: BodyType<SubmitPhotoProofBody> },
+  TContext
+> => {
+  const mutationKey = ["submitPhotoProof"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof submitPhotoProof>>,
+    { id: string; data: BodyType<SubmitPhotoProofBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return submitPhotoProof(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SubmitPhotoProofMutationResult = NonNullable<
+  Awaited<ReturnType<typeof submitPhotoProof>>
+>;
+export type SubmitPhotoProofMutationBody = BodyType<SubmitPhotoProofBody>;
+export type SubmitPhotoProofMutationError = ErrorType<void>;
+
+/**
+ * @summary Upload a photo proof of delivery for a stop
+ */
+export const useSubmitPhotoProof = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitPhotoProof>>,
+    TError,
+    { id: string; data: BodyType<SubmitPhotoProofBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof submitPhotoProof>>,
+  TError,
+  { id: string; data: BodyType<SubmitPhotoProofBody> },
+  TContext
+> => {
+  return useMutation(getSubmitPhotoProofMutationOptions(options));
 };
 
 /**

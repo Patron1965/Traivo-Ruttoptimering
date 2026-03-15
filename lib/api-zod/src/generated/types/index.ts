@@ -58,6 +58,7 @@ export * from "./routeEnvScore";
 export * from "./routeStatus";
 export * from "./stop";
 export * from "./stopStatus";
+export * from "./submitPhotoProofBody";
 export * from "./submitProofBody";
 export * from "./submitProofBodyProofType";
 export * from "./sustainabilityStats";

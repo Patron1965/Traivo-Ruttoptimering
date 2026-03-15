@@ -1,5 +1,5 @@
 import { Router, json, type IRouter } from "express";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import multer from "multer";
 import { db, stopsTable, deliveryProofsTable } from "@workspace/db";
 import { handleError, parseUuidParam } from "../lib/errors";
@@ -22,15 +22,20 @@ const upload = multer({
 
 const largeJsonParser = json({ limit: "5mb" });
 
-async function verifyStopExists(id: string) {
-  const [stop] = await db.select().from(stopsTable).where(eq(stopsTable.id, id));
+async function verifyStopAccess(stopId: string, organizationId?: string) {
+  const conditions = [eq(stopsTable.id, stopId)];
+  if (organizationId) {
+    conditions.push(eq(stopsTable.organizationId, organizationId));
+  }
+  const [stop] = await db.select().from(stopsTable).where(and(...conditions));
   return stop || null;
 }
 
 router.post("/stops/:id/proof/photo", upload.single("photo"), async (req, res) => {
   try {
     const { id } = parseUuidParam(req.params);
-    const stop = await verifyStopExists(id);
+    const organizationId = req.query.organizationId as string | undefined;
+    const stop = await verifyStopAccess(id, organizationId);
     if (!stop) {
       res.status(404).json({ error: "Stop not found" });
       return;
@@ -75,7 +80,8 @@ router.post("/stops/:id/proof/photo", upload.single("photo"), async (req, res) =
 router.post("/stops/:id/proof", largeJsonParser, async (req, res) => {
   try {
     const { id } = parseUuidParam(req.params);
-    const stop = await verifyStopExists(id);
+    const organizationId = req.query.organizationId as string | undefined;
+    const stop = await verifyStopAccess(id, organizationId);
     if (!stop) {
       res.status(404).json({ error: "Stop not found" });
       return;
@@ -133,8 +139,8 @@ router.post("/stops/:id/proof", largeJsonParser, async (req, res) => {
 router.get("/stops/:id/proofs", async (req, res) => {
   try {
     const { id } = parseUuidParam(req.params);
-
-    const stop = await verifyStopExists(id);
+    const organizationId = req.query.organizationId as string | undefined;
+    const stop = await verifyStopAccess(id, organizationId);
     if (!stop) {
       res.status(404).json({ error: "Stop not found" });
       return;

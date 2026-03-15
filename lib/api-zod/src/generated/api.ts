@@ -278,18 +278,30 @@ export const DeleteStopParams = zod.object({
 });
 
 /**
- * @summary Submit proof of delivery for a stop
+ * @summary Submit signature or barcode proof of delivery for a stop
  */
 export const SubmitProofParams = zod.object({
   id: zod.coerce.string().uuid(),
 });
 
 export const SubmitProofBody = zod.object({
-  proofType: zod.enum(["photo", "signature", "barcode"]),
+  proofType: zod.enum(["signature", "barcode"]),
   data: zod
     .string()
     .optional()
-    .describe("Base64 data for photo\/signature, text value for barcode"),
+    .describe("Base64 data for signature, text value for barcode"),
+  notes: zod.string().optional(),
+});
+
+/**
+ * @summary Upload a photo proof of delivery for a stop
+ */
+export const SubmitPhotoProofParams = zod.object({
+  id: zod.coerce.string().uuid(),
+});
+
+export const SubmitPhotoProofBody = zod.object({
+  photo: zod.instanceof(File),
   notes: zod.string().optional(),
 });
 
