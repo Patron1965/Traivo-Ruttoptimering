@@ -744,7 +744,7 @@ router.post("/optimize/continuous/start", async (req, res) => {
     });
 
     setActiveOptimizer(organizationId, optimizer);
-    optimizer.start();
+    await optimizer.start();
 
     res.json({
       message: "Continuous optimization started",
@@ -767,9 +767,9 @@ router.post("/optimize/continuous/stop", async (req, res) => {
       return;
     }
 
-    const finalStatus = optimizer.getStatus();
     const bestSolution = optimizer.getSolution();
     optimizer.stop();
+    const finalStatus = optimizer.getStatus();
     removeActiveOptimizer(organizationId);
 
     res.json({
