@@ -289,6 +289,11 @@ function computeSolutionCost(
 
   const normalizedSlackPenalty = totalSlack > 0 ? totalSlack / 60 : 0;
 
+  // TODO: Integrate driver preferences into cost function.
+  // When driver preferences are loaded, add a happiness penalty term:
+  //   happinessPenalty = sum of (1 - driverHappinessScore) * happinessWeight per route
+  // This would factor in preferred start/end times, max driving hours, and break preferences.
+
   const cost =
     weights.distanceWeight * totalDist +
     weights.co2Weight * totalCo2 * 100 +

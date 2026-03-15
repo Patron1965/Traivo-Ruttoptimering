@@ -568,5 +568,28 @@
     "stopped": "Optimering stoppad",
     "stoppedDesc": "{{iterations}} iterationer — total förbättring {{percent}}%",
     "startError": "Kunde inte starta optimering"
+  },
+  "preferences": {
+    "title": "Förarpreferenser",
+    "preferredStartTime": "Önskad starttid",
+    "preferredEndTime": "Önskad sluttid",
+    "maxDrivingHours": "Max körtimmar/dag",
+    "breakFrequency": "Pausfrekvens (min)",
+    "breakDuration": "Pauslängd (min)",
+    "avoidNightDriving": "Undvik nattkörning",
+    "happinessScore": "Nöjdhetspoäng",
+    "happinessHigh": "Nöjd",
+    "happinessMedium": "Neutral",
+    "happinessLow": "Missnöjd"
+  },
+  "driverView": {
+    "noActiveRoute": "Ingen aktiv rutt",
+    "noRoutesAssigned": "Du har inga tilldelade rutter just nu.",
+    "delivered": "Levererad",
+    "failed": "Misslyckad",
+    "skip": "Hoppa",
+    "of": "av",
+    "routeCompleted": "Rutt slutförd!",
+    "allDeliveriesDone": "Alla {{count}} leveranser är klara."
   }
 }

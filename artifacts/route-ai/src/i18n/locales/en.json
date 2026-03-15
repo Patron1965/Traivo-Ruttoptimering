@@ -568,5 +568,28 @@
     "stopped": "Optimization stopped",
     "stoppedDesc": "{{iterations}} iterations — total improvement {{percent}}%",
     "startError": "Could not start optimization"
+  },
+  "preferences": {
+    "title": "Driver Preferences",
+    "preferredStartTime": "Preferred Start Time",
+    "preferredEndTime": "Preferred End Time",
+    "maxDrivingHours": "Max Driving Hours/Day",
+    "breakFrequency": "Break Frequency (min)",
+    "breakDuration": "Break Duration (min)",
+    "avoidNightDriving": "Avoid Night Driving",
+    "happinessScore": "Happiness Score",
+    "happinessHigh": "Happy",
+    "happinessMedium": "Neutral",
+    "happinessLow": "Unhappy"
+  },
+  "driverView": {
+    "noActiveRoute": "No Active Route",
+    "noRoutesAssigned": "You have no assigned routes right now.",
+    "delivered": "Delivered",
+    "failed": "Failed",
+    "skip": "Skip",
+    "of": "of",
+    "routeCompleted": "Route Completed!",
+    "allDeliveriesDone": "All {{count}} deliveries are done."
   }
 }

@@ -40,6 +40,7 @@ The frontend, `artifacts/route-ai`, is a React + Vite application featuring a da
 - **Public Tracking:** A public-facing tracking page (`/track/:code`) allows customers to monitor delivery status.
 - **Route Templates:** Functionality to save existing routes as templates and apply them to create new routes.
 - **Dispatch Gantt Timeline:** A specialized interface for dispatchers with map and timeline split, enabling drag-and-drop stop reassignment between drivers.
+- **Driver Preferences & Happiness Score:** A `driver_preferences` table stores per-driver preferences (preferred start/end time, max driving hours, break frequency/duration, avoid night driving). API endpoints `GET/PUT /api/drivers/:id/preferences` manage preferences with Zod validation and org-scoping. A Happiness Score (0-1, displayed as 0-100%) is auto-computed based on route history vs preferences (time match 60%, overtime penalty 40%). Score is exposed via `/api/drivers/:id/stats` endpoint. DriverPerformance page shows an expandable preferences form and a circular gauge for the score. DriverView (mobile) shows the score badge and a compact preferences editor.
 - **Driver Mobile View:** A simplified, touch-friendly interface for drivers to manage deliveries.
 - **Analytics:** Route analytics with date range filters and trend/breakdown charts.
 - **Theme Toggle:** Dark/light theme support with localStorage persistence and sun/moon toggle in the sidebar.

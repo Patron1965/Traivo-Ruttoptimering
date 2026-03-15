@@ -5,9 +5,9 @@ import { useAuth } from "@/lib/auth-context";
 import { ORG_ID } from "@/lib/constants";
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from "react-leaflet";
 import { useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { MapPin, Navigation, Clock, Package, CheckCircle2, XCircle, SkipForward, Truck, Phone } from "lucide-react";
+import { MapPin, Navigation, Clock, Package, CheckCircle2, XCircle, SkipForward, Truck, Phone, Smile, Settings, Save } from "lucide-react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { cn } from "@/lib/utils";
@@ -37,6 +37,18 @@ interface Stop {
   timeWindowEnd?: string | null;
 }
 
+interface DriverPreferences {
+  id: string;
+  driverId: string;
+  preferredStartTime: string | null;
+  preferredEndTime: string | null;
+  maxDrivingHoursPerDay: number;
+  breakFrequencyMinutes: number;
+  preferredBreakDurationMin: number;
+  avoidNightDriving: boolean;
+  happinessScore: number;
+}
+
 export default function DriverView() {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -44,6 +56,40 @@ export default function DriverView() {
   const { data: positions } = useVehiclePositions();
   const queryClient = useQueryClient();
   const [updatingStop, setUpdatingStop] = useState<string | null>(null);
+  const [showPrefs, setShowPrefs] = useState(false);
+  const [prefsForm, setPrefsForm] = useState<Partial<DriverPreferences>>({});
+
+  const driverId = user?.driverId;
+
+  const { data: prefs } = useQuery<DriverPreferences>({
+    queryKey: ["/api/drivers", driverId, "preferences"],
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE}/api/drivers/${driverId}/preferences?organizationId=${ORG_ID}`);
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    enabled: !!driverId,
+  });
+
+  const savePrefsMutation = useMutation({
+    mutationFn: async (data: Partial<DriverPreferences>) => {
+      const res = await fetch(`${API_BASE}/api/drivers/${driverId}/preferences?organizationId=${ORG_ID}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/drivers", driverId, "preferences"] });
+      setPrefsForm({});
+    },
+  });
+
+  const currentPrefs = { ...prefs, ...prefsForm };
+  const happinessPercent = prefs ? Math.round(prefs.happinessScore * 100) : 50;
+  const happinessColor = happinessPercent >= 70 ? "#10b981" : happinessPercent >= 40 ? "#f59e0b" : "#ef4444";
 
   const activeRoutes = (routes || []).filter(
     (r) => r.status === "in_progress" || r.status === "optimized"
@@ -136,21 +182,103 @@ export default function DriverView() {
                   <Truck className="h-4 w-4 text-primary" />
                   <span className="font-bold text-sm">{currentRoute.name}</span>
                 </div>
-                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                  {completedCount}/{totalCount}
-                </span>
+                <div className="flex items-center gap-2">
+                  {driverId && (
+                    <div className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium" style={{ backgroundColor: `${happinessColor}20`, color: happinessColor }}>
+                      <Smile className="h-3 w-3" />
+                      {happinessPercent}%
+                    </div>
+                  )}
+                  <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                    {completedCount}/{totalCount}
+                  </span>
+                </div>
               </div>
             </div>
           )}
         </div>
 
         <div className="flex-1 lg:w-96 lg:flex-none overflow-y-auto bg-background">
+          {driverId && (
+            <div className="p-4 pb-0">
+              <button
+                onClick={() => setShowPrefs(!showPrefs)}
+                className="w-full flex items-center justify-between p-3 rounded-xl border border-border bg-card hover:bg-muted/30 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <Settings className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">{t("preferences.title")}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 text-xs font-medium" style={{ color: happinessColor }}>
+                    <Smile className="h-3.5 w-3.5" />
+                    {happinessPercent}%
+                  </div>
+                </div>
+              </button>
+
+              {showPrefs && prefs && (
+                <div className="mt-2 p-3 rounded-xl border border-border bg-card space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-muted-foreground">{t("preferences.preferredStartTime")}</label>
+                      <input
+                        type="time"
+                        className="w-full mt-1 px-2 py-1.5 rounded-lg border border-border bg-background text-foreground text-sm"
+                        value={(currentPrefs.preferredStartTime ?? "07:00").substring(0, 5)}
+                        onChange={(e) => setPrefsForm({ ...prefsForm, preferredStartTime: e.target.value + ":00" })}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">{t("preferences.preferredEndTime")}</label>
+                      <input
+                        type="time"
+                        className="w-full mt-1 px-2 py-1.5 rounded-lg border border-border bg-background text-foreground text-sm"
+                        value={(currentPrefs.preferredEndTime ?? "16:00").substring(0, 5)}
+                        onChange={(e) => setPrefsForm({ ...prefsForm, preferredEndTime: e.target.value + ":00" })}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground">{t("preferences.maxDrivingHours")}</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={24}
+                      step={0.5}
+                      className="w-full mt-1 px-2 py-1.5 rounded-lg border border-border bg-background text-foreground text-sm"
+                      value={currentPrefs.maxDrivingHoursPerDay ?? 8}
+                      onChange={(e) => setPrefsForm({ ...prefsForm, maxDrivingHoursPerDay: parseFloat(e.target.value) })}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      className="rounded border-border"
+                      checked={currentPrefs.avoidNightDriving ?? false}
+                      onChange={(e) => setPrefsForm({ ...prefsForm, avoidNightDriving: e.target.checked })}
+                    />
+                    <span className="text-sm text-muted-foreground">{t("preferences.avoidNightDriving")}</span>
+                  </div>
+                  <button
+                    className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50"
+                    disabled={Object.keys(prefsForm).length === 0 || savePrefsMutation.isPending}
+                    onClick={() => savePrefsMutation.mutate(prefsForm as Partial<DriverPreferences>)}
+                  >
+                    <Save className="h-4 w-4" />
+                    {savePrefsMutation.isPending ? t("common.saving") : t("common.save")}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           {!currentRoute ? (
             <div className="flex items-center justify-center h-full p-8 text-center">
               <div>
                 <Truck className="h-12 w-12 mx-auto mb-4 text-muted-foreground/30" />
-                <h2 className="font-bold text-lg mb-1">Ingen aktiv rutt</h2>
-                <p className="text-sm text-muted-foreground">Du har inga tilldelade rutter just nu.</p>
+                <h2 className="font-bold text-lg mb-1">{t("driverView.noActiveRoute")}</h2>
+                <p className="text-sm text-muted-foreground">{t("driverView.noRoutesAssigned")}</p>
               </div>
             </div>
           ) : (
@@ -160,7 +288,7 @@ export default function DriverView() {
                   <div className="flex items-center gap-2 mb-2">
                     <Navigation className="h-5 w-5 text-primary" />
                     <span className="text-xs font-bold uppercase tracking-wider text-primary">
-                      {t("common.stop")} {sortedStops.indexOf(nextStop) + 1} av {totalCount}
+                      {t("common.stop")} {sortedStops.indexOf(nextStop) + 1} {t("driverView.of")} {totalCount}
                     </span>
                   </div>
                   <p className="font-bold text-lg mb-1">{nextStop.address}</p>
@@ -184,7 +312,7 @@ export default function DriverView() {
                       className="flex flex-col items-center gap-1 py-3 px-2 rounded-xl bg-emerald-500 text-white font-bold text-xs active:scale-95 transition-transform disabled:opacity-50"
                     >
                       <CheckCircle2 className="h-6 w-6" />
-                      Levererad
+                      {t("driverView.delivered")}
                     </button>
                     <button
                       onClick={() => updateStopStatus(nextStop.id, "failed")}
@@ -192,7 +320,7 @@ export default function DriverView() {
                       className="flex flex-col items-center gap-1 py-3 px-2 rounded-xl bg-red-500 text-white font-bold text-xs active:scale-95 transition-transform disabled:opacity-50"
                     >
                       <XCircle className="h-6 w-6" />
-                      Misslyckad
+                      {t("driverView.failed")}
                     </button>
                     <button
                       onClick={() => updateStopStatus(nextStop.id, "skipped")}
@@ -200,7 +328,7 @@ export default function DriverView() {
                       className="flex flex-col items-center gap-1 py-3 px-2 rounded-xl bg-amber-500 text-white font-bold text-xs active:scale-95 transition-transform disabled:opacity-50"
                     >
                       <SkipForward className="h-6 w-6" />
-                      Hoppa
+                      {t("driverView.skip")}
                     </button>
                   </div>
                 </div>
@@ -257,9 +385,9 @@ export default function DriverView() {
               {completedCount === totalCount && totalCount > 0 && (
                 <div className="text-center p-6 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
                   <CheckCircle2 className="h-12 w-12 mx-auto mb-3 text-emerald-500" />
-                  <h3 className="font-bold text-lg">Rutt slutförd!</h3>
+                  <h3 className="font-bold text-lg">{t("driverView.routeCompleted")}</h3>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Alla {totalCount} leveranser är klara.
+                    {t("driverView.allDeliveriesDone", { count: totalCount })}
                   </p>
                 </div>
               )}

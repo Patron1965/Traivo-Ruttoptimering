@@ -10,3 +10,4 @@ export * from "./notifications";
 export * from "./users";
 export * from "./routeTemplates";
 export * from "./deliveryNotifications";
+export * from "./driver-preferences";
