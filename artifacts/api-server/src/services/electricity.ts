@@ -58,7 +58,7 @@ async function fetchEntsoeSpotPrices(area: string, hours: number): Promise<Price
 
     const xml = await res.text();
     const prices: PricePoint[] = [];
-    const pointRegex = /<position>(\d+)<\/position>\s*<price\.amount>([\d.]+)<\/price\.amount>/g;
+    const pointRegex = /<position>(\d+)<\/position>\s*<price\.amount>(-?[\d.]+)<\/price\.amount>/g;
     const startRegex = /<start>([\dTZ:.-]+)<\/start>/;
     const startMatch = xml.match(startRegex);
     const periodStart = startMatch ? new Date(startMatch[1]) : now;
