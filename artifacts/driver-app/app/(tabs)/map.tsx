@@ -11,8 +11,8 @@ import {
 import { Feather } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import * as Haptics from "expo-haptics";
+import { useTabBarHeight } from "@/hooks/useTabBarHeight";
 import Colors from "@/constants/colors";
 import { useAuth } from "@/context/AuthContext";
 import { api, type Stop } from "@/lib/api";
@@ -29,7 +29,7 @@ export default function MapTab() {
   const c = Colors.light;
   const { driver } = useAuth();
   const insets = useSafeAreaInsets();
-  const tabBarHeight = useBottomTabBarHeight();
+  const tabBarHeight = useTabBarHeight();
 
   const { data: routes } = useQuery({
     queryKey: ["routes", driver?.id],
