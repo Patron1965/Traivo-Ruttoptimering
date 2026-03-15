@@ -48,6 +48,7 @@ export interface OptimizationWeights {
   distanceWeight: number;
   co2Weight: number;
   etaPrecisionWeight: number;
+  driverHappinessWeight?: number;
 }
 
 interface OptimizeParams {

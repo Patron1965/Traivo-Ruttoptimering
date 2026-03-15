@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, inArray } from "drizzle-orm";
-import { db, vehiclesTable, stopsTable, routesTable, notificationsTable } from "@workspace/db";
+import { db, vehiclesTable, stopsTable, routesTable, notificationsTable, driversTable, driverPreferencesTable } from "@workspace/db";
 import { OptimizeRoutesBody } from "@workspace/api-zod";
 import { handleError } from "../lib/errors";
 import crypto from "crypto";
@@ -17,6 +17,7 @@ import {
   type ALNSVehicle,
   type ALNSRoute,
   type ALNSConfig,
+  type ALNSDriverConstraints,
   type OptimizationWeights,
 } from "../services/alns";
 import { broadcast } from "../ws";
@@ -66,18 +67,20 @@ function estimateDurationMin(distanceKm: number, departureTime?: Date): number {
 }
 
 const OptimizationWeightsSchema = z.object({
-  distanceWeight: z.number().min(0).max(1).optional().default(0.5),
-  co2Weight: z.number().min(0).max(1).optional().default(0.3),
-  etaPrecisionWeight: z.number().min(0).max(1).optional().default(0.2),
+  distanceWeight: z.number().min(0).max(1).optional().default(0.45),
+  co2Weight: z.number().min(0).max(1).optional().default(0.25),
+  etaPrecisionWeight: z.number().min(0).max(1).optional().default(0.15),
+  driverHappinessWeight: z.number().min(0).max(1).optional().default(0.15),
 });
 
-function normalizeWeights(w: { distanceWeight: number; co2Weight: number; etaPrecisionWeight: number }): OptimizationWeights {
-  const sum = w.distanceWeight + w.co2Weight + w.etaPrecisionWeight;
-  if (sum === 0) return { distanceWeight: 0.5, co2Weight: 0.3, etaPrecisionWeight: 0.2 };
+function normalizeWeights(w: { distanceWeight: number; co2Weight: number; etaPrecisionWeight: number; driverHappinessWeight: number }): OptimizationWeights {
+  const sum = w.distanceWeight + w.co2Weight + w.etaPrecisionWeight + w.driverHappinessWeight;
+  if (sum === 0) return { distanceWeight: 0.45, co2Weight: 0.25, etaPrecisionWeight: 0.15, driverHappinessWeight: 0.15 };
   return {
     distanceWeight: w.distanceWeight / sum,
     co2Weight: w.co2Weight / sum,
     etaPrecisionWeight: w.etaPrecisionWeight / sum,
+    driverHappinessWeight: w.driverHappinessWeight / sum,
   };
 }
 
@@ -104,9 +107,10 @@ router.post("/optimize", async (req, res) => {
     const { organizationId, vehicleIds, stopIds, depotLatitude, depotLongitude, timeBudgetMs } = parsed;
 
     const weights = normalizeWeights({
-      distanceWeight: parsed.optimizationWeights?.distanceWeight ?? 0.5,
-      co2Weight: parsed.optimizationWeights?.co2Weight ?? 0.3,
-      etaPrecisionWeight: parsed.optimizationWeights?.etaPrecisionWeight ?? 0.2,
+      distanceWeight: parsed.optimizationWeights?.distanceWeight ?? 0.45,
+      co2Weight: parsed.optimizationWeights?.co2Weight ?? 0.25,
+      etaPrecisionWeight: parsed.optimizationWeights?.etaPrecisionWeight ?? 0.15,
+      driverHappinessWeight: parsed.optimizationWeights?.driverHappinessWeight ?? 0.15,
     });
 
     const vehicles = await db
@@ -158,6 +162,42 @@ router.post("/optimize", async (req, res) => {
       rangeKm: v.rangeKm,
     }));
 
+    const orgDrivers = await db
+      .select()
+      .from(driversTable)
+      .where(
+        and(
+          eq(driversTable.organizationId, organizationId),
+          eq(driversTable.isActive, true)
+        )
+      );
+    const drivers = orgDrivers.filter(d => d.vehicleId && vehicleIds.includes(d.vehicleId));
+
+    const driverConstraints: ALNSDriverConstraints[] = [];
+    if (drivers.length > 0) {
+      const driverIds = drivers.map(d => d.id);
+      const allPrefs = await db
+        .select()
+        .from(driverPreferencesTable)
+        .where(inArray(driverPreferencesTable.driverId, driverIds));
+
+      const prefsMap = new Map(allPrefs.map(p => [p.driverId, p]));
+      for (const driver of drivers) {
+        if (!driver.vehicleId) continue;
+        const prefs = prefsMap.get(driver.id);
+        driverConstraints.push({
+          vehicleId: driver.vehicleId,
+          driverName: driver.name,
+          preferredStartTime: prefs?.preferredStartTime ?? "07:00:00",
+          preferredEndTime: prefs?.preferredEndTime ?? "16:00:00",
+          maxDrivingHoursPerDay: prefs?.maxDrivingHoursPerDay ?? 8,
+          avoidNightDriving: prefs?.avoidNightDriving ?? false,
+          breakFrequencyMinutes: prefs?.breakFrequencyMinutes ?? 120,
+          preferredBreakDurationMin: prefs?.preferredBreakDurationMin ?? 15,
+        });
+      }
+    }
+
     const startTime = new Date();
     const result = optimizeWithALNS(
       alnsNodes,
@@ -165,7 +205,7 @@ router.post("/optimize", async (req, res) => {
       depotLatitude,
       depotLongitude,
       startTime,
-      { weights, timeLimitMs: timeBudgetMs }
+      { weights, timeLimitMs: timeBudgetMs, driverConstraints }
     );
 
     const optimizedRoutes = [];
@@ -295,10 +335,19 @@ router.post("/optimize", async (req, res) => {
       etaModel: "predictive",
       optimizer: "alns",
       optimizationWeights: weights,
+      driverConstraintsApplied: driverConstraints.map(dc => ({
+        vehicleId: dc.vehicleId,
+        driverName: dc.driverName,
+        maxHours: dc.maxDrivingHoursPerDay,
+        avoidNight: dc.avoidNightDriving,
+        preferredWindow: `${dc.preferredStartTime.slice(0, 5)} - ${dc.preferredEndTime.slice(0, 5)}`,
+      })),
       costBreakdown: {
         totalDistanceKm: Math.round(result.costBreakdown.totalDistanceKm * 100) / 100,
         totalCo2Kg: Math.round(result.costBreakdown.totalCo2Kg * 100) / 100,
         totalTimeWindowSlackMin: Math.round(result.costBreakdown.totalTimeWindowSlackMin * 100) / 100,
+        totalDriverPenalty: Math.round(result.costBreakdown.totalDriverPenalty * 100) / 100,
+        driverPenaltyCost: Math.round(result.costBreakdown.driverPenaltyCost * 100) / 100,
       },
     });
   } catch (err) {
@@ -463,6 +512,37 @@ router.post("/optimize/reoptimize", async (req, res) => {
     const depLat = depotLatitude ?? 59.3293;
     const depLon = depotLongitude ?? 18.0686;
 
+    const reoptDrivers = await db
+      .select()
+      .from(driversTable)
+      .where(
+        and(
+          eq(driversTable.organizationId, organizationId),
+          eq(driversTable.isActive, true)
+        )
+      );
+    const reoptDriversFiltered = reoptDrivers.filter(d => d.vehicleId && affectedVehicleIds.includes(d.vehicleId));
+    const reoptDriverConstraints: ALNSDriverConstraints[] = [];
+    if (reoptDriversFiltered.length > 0) {
+      const dIds = reoptDriversFiltered.map(d => d.id);
+      const dPrefs = await db.select().from(driverPreferencesTable).where(inArray(driverPreferencesTable.driverId, dIds));
+      const pMap = new Map(dPrefs.map(p => [p.driverId, p]));
+      for (const drv of reoptDriversFiltered) {
+        if (!drv.vehicleId) continue;
+        const p = pMap.get(drv.id);
+        reoptDriverConstraints.push({
+          vehicleId: drv.vehicleId,
+          driverName: drv.name,
+          preferredStartTime: p?.preferredStartTime ?? "07:00:00",
+          preferredEndTime: p?.preferredEndTime ?? "16:00:00",
+          maxDrivingHoursPerDay: p?.maxDrivingHoursPerDay ?? 8,
+          avoidNightDriving: p?.avoidNightDriving ?? false,
+          breakFrequencyMinutes: p?.breakFrequencyMinutes ?? 120,
+          preferredBreakDurationMin: p?.preferredBreakDurationMin ?? 15,
+        });
+      }
+    }
+
     const result = reoptimizeAffectedRoutes(
       currentALNSRoutes,
       affectedVehicleIds,
@@ -470,7 +550,7 @@ router.post("/optimize/reoptimize", async (req, res) => {
       depLat,
       depLon,
       startTime,
-      { timeLimitMs: 15000 }
+      { timeLimitMs: 15000, driverConstraints: reoptDriverConstraints }
     );
 
     for (const stop of pendingStops) {

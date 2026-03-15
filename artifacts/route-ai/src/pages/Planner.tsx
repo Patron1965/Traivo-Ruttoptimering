@@ -55,9 +55,10 @@ export default function Planner() {
   const [dndRoutes, setDndRoutes] = useState<OptimizedRouteResult[] | null>(null);
   const [showWeights, setShowWeights] = useState(false);
   const [showPredictions, setShowPredictions] = useState(false);
-  const [distanceWeight, setDistanceWeight] = useState(0.5);
-  const [co2Weight, setCo2Weight] = useState(0.3);
-  const [etaPrecisionWeight, setEtaPrecisionWeight] = useState(0.2);
+  const [distanceWeight, setDistanceWeight] = useState(0.45);
+  const [co2Weight, setCo2Weight] = useState(0.25);
+  const [etaPrecisionWeight, setEtaPrecisionWeight] = useState(0.15);
+  const [driverHappinessWeight, setDriverHappinessWeight] = useState(0.15);
 
   const unassignedStops = useMemo(() => stops?.filter(s => !s.routeId) || [], [stops]);
   const activeVehicles = useMemo(() => vehicles?.filter(v => v.isActive) || [], [vehicles]);
@@ -130,6 +131,7 @@ export default function Planner() {
           distanceWeight,
           co2Weight,
           etaPrecisionWeight,
+          driverHappinessWeight,
         },
       },
     }, {
@@ -377,6 +379,13 @@ export default function Planner() {
                       <span className="font-mono">{etaPrecisionWeight.toFixed(1)}</span>
                     </div>
                     <input type="range" min="0" max="1" step="0.1" value={etaPrecisionWeight} onChange={e => setEtaPrecisionWeight(Number(e.target.value))} className="w-full h-1.5 accent-blue-500" />
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span>{t("planner.driverHappinessWeight")}</span>
+                      <span className="font-mono">{driverHappinessWeight.toFixed(1)}</span>
+                    </div>
+                    <input type="range" min="0" max="1" step="0.1" value={driverHappinessWeight} onChange={e => setDriverHappinessWeight(Number(e.target.value))} className="w-full h-1.5 accent-amber-500" />
                   </div>
                 </div>
               )}

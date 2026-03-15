@@ -177,6 +177,7 @@
     "distanceWeight": "Avstånd",
     "co2Weight": "CO₂-utsläpp",
     "etaPrecisionWeight": "ETA-precision",
+    "driverHappinessWeight": "Förarnöjdhet",
     "alnsOptimizer": "ALNS Multikriterier"
   },
   "sustainability": {

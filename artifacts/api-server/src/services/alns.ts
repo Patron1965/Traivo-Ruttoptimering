@@ -22,6 +22,17 @@ export interface ALNSVehicle {
   rangeKm: number | null;
 }
 
+export interface ALNSDriverConstraints {
+  vehicleId: string;
+  driverName: string;
+  preferredStartTime: string;
+  preferredEndTime: string;
+  maxDrivingHoursPerDay: number;
+  avoidNightDriving: boolean;
+  breakFrequencyMinutes: number;
+  preferredBreakDurationMin: number;
+}
+
 export interface ALNSRoute {
   vehicleId: string;
   nodes: ALNSNode[];
@@ -40,21 +51,25 @@ export interface CostBreakdown {
   distanceCost: number;
   co2Cost: number;
   etaPrecisionCost: number;
+  driverPenaltyCost: number;
   totalDistanceKm: number;
   totalCo2Kg: number;
   totalTimeWindowSlackMin: number;
+  totalDriverPenalty: number;
 }
 
 export interface OptimizationWeights {
   distanceWeight: number;
   co2Weight: number;
   etaPrecisionWeight: number;
+  driverHappinessWeight: number;
 }
 
 const DEFAULT_WEIGHTS: OptimizationWeights = {
-  distanceWeight: 0.5,
-  co2Weight: 0.3,
-  etaPrecisionWeight: 0.2,
+  distanceWeight: 0.45,
+  co2Weight: 0.25,
+  etaPrecisionWeight: 0.15,
+  driverHappinessWeight: 0.15,
 };
 
 const CHARGING_STATIONS: ALNSNode[] = [
@@ -175,6 +190,60 @@ interface RouteEvaluation {
   endTime: Date;
   rangeUsedKm: number;
   chargingInsertions: number;
+  driverPenalty: number;
+}
+
+function parseTimeToMinutesALNS(time: string): number {
+  const parts = time.split(":");
+  return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+}
+
+function evaluateDriverConstraints(
+  startTime: Date,
+  endTime: Date,
+  constraints: ALNSDriverConstraints | undefined
+): { feasible: boolean; penalty: number } {
+  if (!constraints) return { feasible: true, penalty: 0 };
+
+  let penalty = 0;
+  const drivingMinutes = (endTime.getTime() - startTime.getTime()) / 60000;
+  const drivingHours = drivingMinutes / 60;
+  const maxHours = constraints.maxDrivingHoursPerDay;
+
+  if (drivingHours > maxHours) {
+    const overtime = drivingHours - maxHours;
+    if (overtime > 2) {
+      return { feasible: false, penalty: Infinity };
+    }
+    penalty += overtime * 50;
+  }
+
+  if (constraints.avoidNightDriving) {
+    const endHour = endTime.getHours() + endTime.getMinutes() / 60;
+    const startHour = startTime.getHours() + startTime.getMinutes() / 60;
+    if (endHour >= 21 || startHour < 5) {
+      penalty += 100;
+    } else if (endHour >= 19) {
+      penalty += (endHour - 19) * 25;
+    }
+  }
+
+  const prefStartMin = parseTimeToMinutesALNS(constraints.preferredStartTime);
+  const prefEndMin = parseTimeToMinutesALNS(constraints.preferredEndTime);
+  const actualStartMin = startTime.getHours() * 60 + startTime.getMinutes();
+  const actualEndMin = endTime.getHours() * 60 + endTime.getMinutes();
+
+  const startDiff = Math.abs(actualStartMin - prefStartMin);
+  if (startDiff > 30) {
+    penalty += (startDiff - 30) * 0.5;
+  }
+
+  const endOvershoot = Math.max(0, actualEndMin - prefEndMin);
+  if (endOvershoot > 0) {
+    penalty += endOvershoot * 0.8;
+  }
+
+  return { feasible: true, penalty };
 }
 
 function evaluateRoute(
@@ -182,7 +251,8 @@ function evaluateRoute(
   vehicle: ALNSVehicle,
   depotLat: number,
   depotLon: number,
-  startTime: Date
+  startTime: Date,
+  driverConstraints?: ALNSDriverConstraints
 ): RouteEvaluation {
   let currentTime = new Date(startTime);
   let prevLat = depotLat;
@@ -196,7 +266,7 @@ function evaluateRoute(
     const dist = cachedDistance(prevLat, prevLon, node.latitude, node.longitude);
 
     if (vehicle.rangeKm && rangeUsed + dist > vehicle.rangeKm * 0.95) {
-      return { feasible: false, totalDistanceKm: totalDist, totalCo2Kg: 0, totalTimeWindowSlackMin: Infinity, endTime: currentTime, rangeUsedKm: rangeUsed, chargingInsertions };
+      return { feasible: false, totalDistanceKm: totalDist, totalCo2Kg: 0, totalTimeWindowSlackMin: Infinity, endTime: currentTime, rangeUsedKm: rangeUsed, chargingInsertions, driverPenalty: 0 };
     }
 
     totalDist += dist;
@@ -218,7 +288,7 @@ function evaluateRoute(
     }
 
     if (node.timeWindowEnd && arrival.getTime() > node.timeWindowEnd.getTime()) {
-      return { feasible: false, totalDistanceKm: totalDist, totalCo2Kg: 0, totalTimeWindowSlackMin: Infinity, endTime: arrival, rangeUsedKm: rangeUsed, chargingInsertions };
+      return { feasible: false, totalDistanceKm: totalDist, totalCo2Kg: 0, totalTimeWindowSlackMin: Infinity, endTime: arrival, rangeUsedKm: rangeUsed, chargingInsertions, driverPenalty: 0 };
     }
 
     if (node.timeWindowEnd) {
@@ -236,14 +306,19 @@ function evaluateRoute(
 
   const returnDist = cachedDistance(prevLat, prevLon, depotLat, depotLon);
   if (vehicle.rangeKm && rangeUsed + returnDist > vehicle.rangeKm * 0.9) {
-    return { feasible: false, totalDistanceKm: totalDist, totalCo2Kg: 0, totalTimeWindowSlackMin: Infinity, endTime: currentTime, rangeUsedKm: rangeUsed, chargingInsertions };
+    return { feasible: false, totalDistanceKm: totalDist, totalCo2Kg: 0, totalTimeWindowSlackMin: Infinity, endTime: currentTime, rangeUsedKm: rangeUsed, chargingInsertions, driverPenalty: 0 };
   }
 
   if (route.totalWeight > vehicle.capacityKg || route.totalVolume > vehicle.capacityVolume) {
-    return { feasible: false, totalDistanceKm: totalDist, totalCo2Kg: 0, totalTimeWindowSlackMin: Infinity, endTime: currentTime, rangeUsedKm: rangeUsed, chargingInsertions };
+    return { feasible: false, totalDistanceKm: totalDist, totalCo2Kg: 0, totalTimeWindowSlackMin: Infinity, endTime: currentTime, rangeUsedKm: rangeUsed, chargingInsertions, driverPenalty: 0 };
   }
 
   const co2 = estimateCo2(totalDist, vehicle.vehicleType, route.totalWeight, vehicle.capacityKg);
+
+  const driverEval = evaluateDriverConstraints(startTime, currentTime, driverConstraints);
+  if (!driverEval.feasible) {
+    return { feasible: false, totalDistanceKm: totalDist, totalCo2Kg: co2, totalTimeWindowSlackMin: Infinity, endTime: currentTime, rangeUsedKm: rangeUsed, chargingInsertions, driverPenalty: driverEval.penalty };
+  }
 
   return {
     feasible: true,
@@ -253,6 +328,7 @@ function evaluateRoute(
     endTime: currentTime,
     rangeUsedKm: rangeUsed,
     chargingInsertions,
+    driverPenalty: driverEval.penalty,
   };
 }
 
@@ -262,12 +338,14 @@ function computeSolutionCost(
   depotLat: number,
   depotLon: number,
   startTime: Date,
-  weights: OptimizationWeights
+  weights: OptimizationWeights,
+  driverConstraintsMap?: Map<string, ALNSDriverConstraints>
 ): { cost: number; breakdown: CostBreakdown } {
   const vehicleMap = new Map(vehicles.map(v => [v.id, v]));
   let totalDist = 0;
   let totalCo2 = 0;
   let totalSlack = 0;
+  let totalDriverPenalty = 0;
   let allFeasible = true;
 
   for (const route of solution.routes) {
@@ -275,13 +353,15 @@ function computeSolutionCost(
     const vehicle = vehicleMap.get(route.vehicleId);
     if (!vehicle) continue;
 
-    const evalResult = evaluateRoute(route, vehicle, depotLat, depotLon, startTime);
+    const constraints = driverConstraintsMap?.get(route.vehicleId);
+    const evalResult = evaluateRoute(route, vehicle, depotLat, depotLon, startTime, constraints);
     if (!evalResult.feasible) {
       allFeasible = false;
     }
     totalDist += evalResult.totalDistanceKm;
     totalCo2 += evalResult.totalCo2Kg;
     totalSlack += evalResult.totalTimeWindowSlackMin;
+    totalDriverPenalty += evalResult.driverPenalty;
   }
 
   const unassignedPenalty = solution.unassigned.length * 10000;
@@ -289,15 +369,11 @@ function computeSolutionCost(
 
   const normalizedSlackPenalty = totalSlack > 0 ? totalSlack / 60 : 0;
 
-  // TODO: Integrate driver preferences into cost function.
-  // When driver preferences are loaded, add a happiness penalty term:
-  //   happinessPenalty = sum of (1 - driverHappinessScore) * happinessWeight per route
-  // This would factor in preferred start/end times, max driving hours, and break preferences.
-
   const cost =
     weights.distanceWeight * totalDist +
     weights.co2Weight * totalCo2 * 100 +
     weights.etaPrecisionWeight * normalizedSlackPenalty * 10 +
+    weights.driverHappinessWeight * totalDriverPenalty +
     unassignedPenalty +
     infeasibilityPenalty;
 
@@ -307,9 +383,11 @@ function computeSolutionCost(
       distanceCost: totalDist,
       co2Cost: totalCo2,
       etaPrecisionCost: normalizedSlackPenalty,
+      driverPenaltyCost: weights.driverHappinessWeight * totalDriverPenalty,
       totalDistanceKm: totalDist,
       totalCo2Kg: totalCo2,
       totalTimeWindowSlackMin: totalSlack,
+      totalDriverPenalty,
     },
   };
 }
@@ -750,6 +828,7 @@ export interface ALNSConfig {
   removalFraction: number;
   coolingRate: number;
   initialTemperature: number;
+  driverConstraints?: ALNSDriverConstraints[];
 }
 
 const DEFAULT_CONFIG: ALNSConfig = {
@@ -773,6 +852,13 @@ export function runALNS(
   const weights = cfg.weights;
   const startMs = Date.now();
 
+  const driverConstraintsMap = new Map<string, ALNSDriverConstraints>();
+  if (cfg.driverConstraints) {
+    for (const dc of cfg.driverConstraints) {
+      driverConstraintsMap.set(dc.vehicleId, dc);
+    }
+  }
+
   const hasEvVehicles = vehicles.some(v => v.vehicleType === "electric" && v.rangeKm);
   const destroyOps = hasEvVehicles
     ? ["random", "worst", "shaw", "charging_remove"] as const
@@ -788,7 +874,7 @@ export function runALNS(
   for (const op of repairOps) repairStats[op] = { score: 0, uses: 0, weight: 1 };
 
   let currentSolution = deepCloneSolution(initialSolution);
-  let { cost: currentCost, breakdown } = computeSolutionCost(currentSolution, vehicles, depotLat, depotLon, startTime, weights);
+  let { cost: currentCost, breakdown } = computeSolutionCost(currentSolution, vehicles, depotLat, depotLon, startTime, weights, driverConstraintsMap);
   currentSolution.cost = currentCost;
   currentSolution.costBreakdown = breakdown;
 
@@ -862,7 +948,7 @@ export function runALNS(
     removeUnusedChargingStations(candidate, vehicles, depotLat, depotLon, startTime);
 
     const { cost: candidateCost, breakdown: candidateBreakdown } = computeSolutionCost(
-      candidate, vehicles, depotLat, depotLon, startTime, weights
+      candidate, vehicles, depotLat, depotLon, startTime, weights, driverConstraintsMap
     );
     candidate.cost = candidateCost;
     candidate.costBreakdown = candidateBreakdown;
@@ -1077,12 +1163,19 @@ export function optimizeWithALNS(
   const bestSolution = runALNS(initialSolution, vehicles, depotLat, depotLon, startTime, config);
 
   const vehicleMap = new Map(vehicles.map(v => [v.id, v]));
+  const driverConstraintsMap = new Map<string, ALNSDriverConstraints>();
+  if (config.driverConstraints) {
+    for (const dc of config.driverConstraints) {
+      driverConstraintsMap.set(dc.vehicleId, dc);
+    }
+  }
   const routeEvaluations = new Map<string, RouteEvaluation>();
 
   for (const route of bestSolution.routes) {
     const vehicle = vehicleMap.get(route.vehicleId);
     if (!vehicle || route.nodes.length === 0) continue;
-    const evalResult = evaluateRoute(route, vehicle, depotLat, depotLon, startTime);
+    const constraints = driverConstraintsMap.get(route.vehicleId);
+    const evalResult = evaluateRoute(route, vehicle, depotLat, depotLon, startTime, constraints);
     routeEvaluations.set(route.vehicleId, evalResult);
   }
 
