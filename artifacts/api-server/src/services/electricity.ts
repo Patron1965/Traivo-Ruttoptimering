@@ -35,7 +35,14 @@ async function fetchEntsoeSpotPrices(area: string, hours: number): Promise<Price
   now.setMinutes(0, 0, 0);
   const end = new Date(now.getTime() + hours * 3600000);
 
-  const fmt = (d: Date) => d.toISOString().replace(/[-:]/g, "").slice(0, 12) + "00";
+  const fmt = (d: Date) => {
+    const y = d.getUTCFullYear();
+    const mo = String(d.getUTCMonth() + 1).padStart(2, "0");
+    const da = String(d.getUTCDate()).padStart(2, "0");
+    const h = String(d.getUTCHours()).padStart(2, "0");
+    const mi = String(d.getUTCMinutes()).padStart(2, "0");
+    return `${y}${mo}${da}${h}${mi}`;
+  };
 
   const url = `https://web-api.tp.entsoe.eu/api?` +
     `documentType=A44&in_Domain=${domain}&out_Domain=${domain}` +
