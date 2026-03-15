@@ -5,6 +5,7 @@ import { Camera, PenTool, ScanBarcode, CheckCircle2, X } from "lucide-react";
 import { SignaturePad } from "./SignaturePad";
 import { PhotoCapture } from "./PhotoCapture";
 import { BarcodeInput } from "./BarcodeInput";
+import { ORG_ID } from "@/lib/constants";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -33,7 +34,7 @@ export function ProofOfDelivery({ stopId, onClose, onComplete }: ProofOfDelivery
   const { data: existingProofs = [] } = useQuery<Proof[]>({
     queryKey: ["proofs", stopId],
     queryFn: async () => {
-      const res = await fetch(`${API_BASE}/api/stops/${stopId}/proofs`);
+      const res = await fetch(`${API_BASE}/api/stops/${stopId}/proofs?organizationId=${ORG_ID}`);
       if (!res.ok) return [];
       return res.json();
     },
@@ -53,7 +54,7 @@ export function ProofOfDelivery({ stopId, onClose, onComplete }: ProofOfDelivery
     mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append("photo", file);
-      const res = await fetch(`${API_BASE}/api/stops/${stopId}/proof/photo`, {
+      const res = await fetch(`${API_BASE}/api/stops/${stopId}/proof?organizationId=${ORG_ID}`, {
         method: "POST",
         body: formData,
       });
@@ -65,7 +66,7 @@ export function ProofOfDelivery({ stopId, onClose, onComplete }: ProofOfDelivery
 
   const submitJsonProof = useMutation({
     mutationFn: async ({ proofType, data }: { proofType: string; data: string }) => {
-      const res = await fetch(`${API_BASE}/api/stops/${stopId}/proof`, {
+      const res = await fetch(`${API_BASE}/api/stops/${stopId}/proof?organizationId=${ORG_ID}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ proofType, data }),

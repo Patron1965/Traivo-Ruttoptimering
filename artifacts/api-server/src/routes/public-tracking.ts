@@ -59,7 +59,7 @@ router.get("/track/:code", async (req, res) => {
       deliveryStatus = "on_the_way";
     }
 
-    let proofs: any[] = [];
+    let proofs: { id: string; proofType: string; fileUrl: string | null; data: string | null; capturedAt: Date | null }[] = [];
     if (deliveryStatus === "delivered") {
       proofs = await db
         .select()

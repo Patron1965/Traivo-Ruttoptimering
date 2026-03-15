@@ -6,7 +6,6 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type SubmitPhotoProofBody = {
-  photo: Blob;
-  notes?: string;
+export type SubmitProofParams = {
+  organizationId: string;
 };

@@ -33,6 +33,7 @@ import type {
   GetGeofenceEventsParams,
   GetInsightsParams,
   GetNotificationsParams,
+  GetStopProofsParams,
   GetSustainabilityStatsParams,
   GetVehiclePositionsParams,
   HealthStatus,
@@ -52,8 +53,9 @@ import type {
   OptimizeResponse,
   Route,
   Stop,
-  SubmitPhotoProofBody,
   SubmitProofBody,
+  SubmitProofBodyTwo,
+  SubmitProofParams,
   SustainabilityStats,
   TrackingInfo,
   UpdateDriverBody,
@@ -1102,21 +1104,33 @@ export const useDeleteStop = <
 };
 
 /**
- * @summary Submit signature or barcode proof of delivery for a stop
+ * @summary Submit proof of delivery for a stop (photo via multipart, signature/barcode via JSON)
  */
-export const getSubmitProofUrl = (id: string) => {
-  return `/api/stops/${id}/proof`;
+export const getSubmitProofUrl = (id: string, params: SubmitProofParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/stops/${id}/proof?${stringifiedParams}`
+    : `/api/stops/${id}/proof`;
 };
 
 export const submitProof = async (
   id: string,
-  submitProofBody: SubmitProofBody,
+  submitProofBody: SubmitProofBody | SubmitProofBodyTwo,
+  params: SubmitProofParams,
   options?: RequestInit,
 ): Promise<DeliveryProof> => {
-  return customFetch<DeliveryProof>(getSubmitProofUrl(id), {
+  return customFetch<DeliveryProof>(getSubmitProofUrl(id, params), {
     ...options,
     method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
     body: JSON.stringify(submitProofBody),
   });
 };
@@ -1128,14 +1142,22 @@ export const getSubmitProofMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof submitProof>>,
     TError,
-    { id: string; data: BodyType<SubmitProofBody> },
+    {
+      id: string;
+      data: BodyType<SubmitProofBody | SubmitProofBodyTwo>;
+      params: SubmitProofParams;
+    },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof submitProof>>,
   TError,
-  { id: string; data: BodyType<SubmitProofBody> },
+  {
+    id: string;
+    data: BodyType<SubmitProofBody | SubmitProofBodyTwo>;
+    params: SubmitProofParams;
+  },
   TContext
 > => {
   const mutationKey = ["submitProof"];
@@ -1149,11 +1171,15 @@ export const getSubmitProofMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof submitProof>>,
-    { id: string; data: BodyType<SubmitProofBody> }
+    {
+      id: string;
+      data: BodyType<SubmitProofBody | SubmitProofBodyTwo>;
+      params: SubmitProofParams;
+    }
   > = (props) => {
-    const { id, data } = props ?? {};
+    const { id, data, params } = props ?? {};
 
-    return submitProof(id, data, requestOptions);
+    return submitProof(id, data, params, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -1162,11 +1188,13 @@ export const getSubmitProofMutationOptions = <
 export type SubmitProofMutationResult = NonNullable<
   Awaited<ReturnType<typeof submitProof>>
 >;
-export type SubmitProofMutationBody = BodyType<SubmitProofBody>;
+export type SubmitProofMutationBody = BodyType<
+  SubmitProofBody | SubmitProofBodyTwo
+>;
 export type SubmitProofMutationError = ErrorType<void>;
 
 /**
- * @summary Submit signature or barcode proof of delivery for a stop
+ * @summary Submit proof of delivery for a stop (photo via multipart, signature/barcode via JSON)
  */
 export const useSubmitProof = <
   TError = ErrorType<void>,
@@ -1175,130 +1203,65 @@ export const useSubmitProof = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof submitProof>>,
     TError,
-    { id: string; data: BodyType<SubmitProofBody> },
+    {
+      id: string;
+      data: BodyType<SubmitProofBody | SubmitProofBodyTwo>;
+      params: SubmitProofParams;
+    },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof submitProof>>,
   TError,
-  { id: string; data: BodyType<SubmitProofBody> },
+  {
+    id: string;
+    data: BodyType<SubmitProofBody | SubmitProofBodyTwo>;
+    params: SubmitProofParams;
+  },
   TContext
 > => {
   return useMutation(getSubmitProofMutationOptions(options));
 };
 
 /**
- * @summary Upload a photo proof of delivery for a stop
- */
-export const getSubmitPhotoProofUrl = (id: string) => {
-  return `/api/stops/${id}/proof/photo`;
-};
-
-export const submitPhotoProof = async (
-  id: string,
-  submitPhotoProofBody: SubmitPhotoProofBody,
-  options?: RequestInit,
-): Promise<DeliveryProof> => {
-  const formData = new FormData();
-  formData.append(`photo`, submitPhotoProofBody.photo);
-  if (submitPhotoProofBody.notes !== undefined) {
-    formData.append(`notes`, submitPhotoProofBody.notes);
-  }
-
-  return customFetch<DeliveryProof>(getSubmitPhotoProofUrl(id), {
-    ...options,
-    method: "POST",
-    body: formData,
-  });
-};
-
-export const getSubmitPhotoProofMutationOptions = <
-  TError = ErrorType<void>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof submitPhotoProof>>,
-    TError,
-    { id: string; data: BodyType<SubmitPhotoProofBody> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof submitPhotoProof>>,
-  TError,
-  { id: string; data: BodyType<SubmitPhotoProofBody> },
-  TContext
-> => {
-  const mutationKey = ["submitPhotoProof"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof submitPhotoProof>>,
-    { id: string; data: BodyType<SubmitPhotoProofBody> }
-  > = (props) => {
-    const { id, data } = props ?? {};
-
-    return submitPhotoProof(id, data, requestOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type SubmitPhotoProofMutationResult = NonNullable<
-  Awaited<ReturnType<typeof submitPhotoProof>>
->;
-export type SubmitPhotoProofMutationBody = BodyType<SubmitPhotoProofBody>;
-export type SubmitPhotoProofMutationError = ErrorType<void>;
-
-/**
- * @summary Upload a photo proof of delivery for a stop
- */
-export const useSubmitPhotoProof = <
-  TError = ErrorType<void>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof submitPhotoProof>>,
-    TError,
-    { id: string; data: BodyType<SubmitPhotoProofBody> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationResult<
-  Awaited<ReturnType<typeof submitPhotoProof>>,
-  TError,
-  { id: string; data: BodyType<SubmitPhotoProofBody> },
-  TContext
-> => {
-  return useMutation(getSubmitPhotoProofMutationOptions(options));
-};
-
-/**
  * @summary Get all proofs of delivery for a stop
  */
-export const getGetStopProofsUrl = (id: string) => {
-  return `/api/stops/${id}/proofs`;
+export const getGetStopProofsUrl = (
+  id: string,
+  params: GetStopProofsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/stops/${id}/proofs?${stringifiedParams}`
+    : `/api/stops/${id}/proofs`;
 };
 
 export const getStopProofs = async (
   id: string,
+  params: GetStopProofsParams,
   options?: RequestInit,
 ): Promise<DeliveryProof[]> => {
-  return customFetch<DeliveryProof[]>(getGetStopProofsUrl(id), {
+  return customFetch<DeliveryProof[]>(getGetStopProofsUrl(id, params), {
     ...options,
     method: "GET",
   });
 };
 
-export const getGetStopProofsQueryKey = (id: string) => {
-  return [`/api/stops/${id}/proofs`] as const;
+export const getGetStopProofsQueryKey = (
+  id: string,
+  params?: GetStopProofsParams,
+) => {
+  return [`/api/stops/${id}/proofs`, ...(params ? [params] : [])] as const;
 };
 
 export const getGetStopProofsQueryOptions = <
@@ -1306,6 +1269,7 @@ export const getGetStopProofsQueryOptions = <
   TError = ErrorType<unknown>,
 >(
   id: string,
+  params: GetStopProofsParams,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof getStopProofs>>,
@@ -1317,11 +1281,12 @@ export const getGetStopProofsQueryOptions = <
 ) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getGetStopProofsQueryKey(id);
+  const queryKey =
+    queryOptions?.queryKey ?? getGetStopProofsQueryKey(id, params);
 
   const queryFn: QueryFunction<Awaited<ReturnType<typeof getStopProofs>>> = ({
     signal,
-  }) => getStopProofs(id, { signal, ...requestOptions });
+  }) => getStopProofs(id, params, { signal, ...requestOptions });
 
   return {
     queryKey,
@@ -1349,6 +1314,7 @@ export function useGetStopProofs<
   TError = ErrorType<unknown>,
 >(
   id: string,
+  params: GetStopProofsParams,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof getStopProofs>>,
@@ -1358,7 +1324,7 @@ export function useGetStopProofs<
     request?: SecondParameter<typeof customFetch>;
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetStopProofsQueryOptions(id, options);
+  const queryOptions = getGetStopProofsQueryOptions(id, params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

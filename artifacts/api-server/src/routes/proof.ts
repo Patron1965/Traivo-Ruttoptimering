@@ -1,4 +1,4 @@
-import { Router, json, type IRouter } from "express";
+import { Router, json, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { eq, and } from "drizzle-orm";
 import multer from "multer";
 import { db, stopsTable, deliveryProofsTable } from "@workspace/db";
@@ -7,12 +7,11 @@ import { ObjectStorageService } from "../lib/objectStorage";
 
 const router: IRouter = Router();
 
-const upload = multer({
+const photoUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    const allowed = ["image/jpeg", "image/png", "image/webp", "image/heic"];
-    if (allowed.includes(file.mimetype) || file.mimetype.startsWith("image/")) {
+    if (file.mimetype.startsWith("image/")) {
       cb(null, true);
     } else {
       cb(new Error("Unsupported image format"));
@@ -20,85 +19,85 @@ const upload = multer({
   },
 });
 
-const largeJsonParser = json({ limit: "5mb" });
+const jsonParser = json({ limit: "5mb" });
 
-async function verifyStopAccess(stopId: string, organizationId?: string) {
-  const conditions = [eq(stopsTable.id, stopId)];
-  if (organizationId) {
-    conditions.push(eq(stopsTable.organizationId, organizationId));
+function flexibleParser(req: Request, res: Response, next: NextFunction) {
+  const ct = req.headers["content-type"] || "";
+  if (ct.includes("multipart/form-data")) {
+    photoUpload.single("photo")(req, res, next);
+  } else {
+    jsonParser(req, res, next);
   }
-  const [stop] = await db.select().from(stopsTable).where(and(...conditions));
+}
+
+async function verifyStopAccess(stopId: string, organizationId: string) {
+  const [stop] = await db
+    .select()
+    .from(stopsTable)
+    .where(and(eq(stopsTable.id, stopId), eq(stopsTable.organizationId, organizationId)));
   return stop || null;
 }
 
-router.post("/stops/:id/proof/photo", upload.single("photo"), async (req, res) => {
+router.post("/stops/:id/proof", flexibleParser, async (req, res) => {
   try {
     const { id } = parseUuidParam(req.params);
     const organizationId = req.query.organizationId as string | undefined;
+
+    if (!organizationId) {
+      res.status(400).json({ error: "organizationId query parameter is required" });
+      return;
+    }
+
     const stop = await verifyStopAccess(id, organizationId);
     if (!stop) {
       res.status(404).json({ error: "Stop not found" });
       return;
     }
 
-    if (!req.file) {
-      res.status(400).json({ error: "photo file is required" });
-      return;
-    }
+    const file = (req as Request & { file?: Express.Multer.File }).file;
 
-    const storageService = new ObjectStorageService();
-    const uploadUrl = await storageService.getObjectEntityUploadURL();
+    if (file) {
+      const storageService = new ObjectStorageService();
+      const uploadUrl = await storageService.getObjectEntityUploadURL();
 
-    const uploadResponse = await fetch(uploadUrl, {
-      method: "PUT",
-      headers: { "Content-Type": req.file.mimetype },
-      body: req.file.buffer,
-    });
+      const uploadResponse = await fetch(uploadUrl, {
+        method: "PUT",
+        headers: { "Content-Type": file.mimetype },
+        body: file.buffer,
+      });
 
-    if (!uploadResponse.ok) {
-      res.status(502).json({ error: "Failed to upload photo to storage" });
-      return;
-    }
+      if (!uploadResponse.ok) {
+        res.status(502).json({ error: "Failed to upload photo to storage" });
+        return;
+      }
 
-    const fileUrl = storageService.normalizeObjectEntityPath(uploadUrl);
-    const notes = req.body.notes || null;
+      const fileUrl = storageService.normalizeObjectEntityPath(uploadUrl);
+      const notes = req.body.notes || null;
 
-    const [proof] = await db.insert(deliveryProofsTable).values({
-      stopId: id,
-      proofType: "photo",
-      fileUrl,
-      data: null,
-      notes,
-    }).returning();
+      const [proof] = await db.insert(deliveryProofsTable).values({
+        stopId: id,
+        proofType: "photo",
+        fileUrl,
+        data: null,
+        notes,
+      }).returning();
 
-    res.status(201).json(proof);
-  } catch (err) {
-    handleError(res, err);
-  }
-});
-
-router.post("/stops/:id/proof", largeJsonParser, async (req, res) => {
-  try {
-    const { id } = parseUuidParam(req.params);
-    const organizationId = req.query.organizationId as string | undefined;
-    const stop = await verifyStopAccess(id, organizationId);
-    if (!stop) {
-      res.status(404).json({ error: "Stop not found" });
+      res.status(201).json(proof);
       return;
     }
 
     const { proofType, data, notes } = req.body;
 
-    if (!proofType || !["signature", "barcode"].includes(proofType)) {
-      res.status(400).json({ error: "proofType must be 'signature' or 'barcode'. Use POST /stops/:id/proof/photo for photo uploads." });
+    if (!proofType || !["photo", "signature", "barcode"].includes(proofType)) {
+      res.status(400).json({ error: "proofType must be 'photo', 'signature', or 'barcode'" });
       return;
     }
 
     let fileUrl: string | null = null;
 
-    if (proofType === "signature") {
+    if (proofType === "photo" || proofType === "signature") {
       if (!data) {
-        res.status(400).json({ error: "data (base64) is required for signature proofs" });
+        res.status(400).json({ error: "data (base64) is required for photo/signature proofs, or upload as multipart form with 'photo' field" });
         return;
       }
 
@@ -107,15 +106,16 @@ router.post("/stops/:id/proof", largeJsonParser, async (req, res) => {
 
       const base64Data = data.replace(/^data:[^;]+;base64,/, "");
       const buffer = Buffer.from(base64Data, "base64");
+      const contentType = proofType === "signature" ? "image/png" : "image/jpeg";
 
       const uploadResponse = await fetch(uploadUrl, {
         method: "PUT",
-        headers: { "Content-Type": "image/png" },
+        headers: { "Content-Type": contentType },
         body: buffer,
       });
 
       if (!uploadResponse.ok) {
-        res.status(502).json({ error: "Failed to upload signature to storage" });
+        res.status(502).json({ error: `Failed to upload ${proofType} to storage` });
         return;
       }
 
@@ -140,6 +140,12 @@ router.get("/stops/:id/proofs", async (req, res) => {
   try {
     const { id } = parseUuidParam(req.params);
     const organizationId = req.query.organizationId as string | undefined;
+
+    if (!organizationId) {
+      res.status(400).json({ error: "organizationId query parameter is required" });
+      return;
+    }
+
     const stop = await verifyStopAccess(id, organizationId);
     if (!stop) {
       res.status(404).json({ error: "Stop not found" });

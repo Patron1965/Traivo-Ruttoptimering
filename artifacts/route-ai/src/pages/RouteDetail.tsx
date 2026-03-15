@@ -157,15 +157,15 @@ export default function RouteDetail({ id }: RouteDetailProps) {
     return [...stops].sort((a, b) => (a.sequenceOrder || 0) - (b.sequenceOrder || 0));
   }, [stops]);
 
-  const { data: allProofs = {} } = useQuery<Record<string, any[]>>({
+  const { data: allProofs = {} } = useQuery<Record<string, { id: string; proofType: string; fileUrl: string | null; data: string | null; capturedAt: string }[]>>({
     queryKey: ["route-proofs", id],
     queryFn: async () => {
       if (!stops || stops.length === 0) return {};
-      const results: Record<string, any[]> = {};
+      const results: Record<string, { id: string; proofType: string; fileUrl: string | null; data: string | null; capturedAt: string }[]> = {};
       await Promise.all(
         stops.map(async (stop) => {
           try {
-            const res = await fetch(`/api/stops/${stop.id}/proofs`);
+            const res = await fetch(`/api/stops/${stop.id}/proofs?organizationId=${ORG_ID}`);
             if (res.ok) {
               const proofs = await res.json();
               if (proofs.length > 0) results[stop.id] = proofs;
@@ -527,7 +527,7 @@ export default function RouteDetail({ id }: RouteDetailProps) {
                                   </div>
                                   {allProofs[stop.id] && allProofs[stop.id].length > 0 && (
                                     <div className="mt-2">
-                                      <ProofDisplay proofs={allProofs[stop.id]} compact />
+                                      <ProofDisplay proofs={allProofs[stop.id]} />
                                     </div>
                                   )}
                                 </div>

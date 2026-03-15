@@ -10,6 +10,7 @@ export type SubmitProofBodyProofType =
   (typeof SubmitProofBodyProofType)[keyof typeof SubmitProofBodyProofType];
 
 export const SubmitProofBodyProofType = {
+  photo: "photo",
   signature: "signature",
   barcode: "barcode",
 } as const;

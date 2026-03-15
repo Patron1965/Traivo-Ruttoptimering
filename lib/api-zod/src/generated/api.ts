@@ -278,30 +278,22 @@ export const DeleteStopParams = zod.object({
 });
 
 /**
- * @summary Submit signature or barcode proof of delivery for a stop
+ * @summary Submit proof of delivery for a stop (photo via multipart, signature/barcode via JSON)
  */
 export const SubmitProofParams = zod.object({
   id: zod.coerce.string().uuid(),
 });
 
+export const SubmitProofQueryParams = zod.object({
+  organizationId: zod.coerce.string().uuid(),
+});
+
 export const SubmitProofBody = zod.object({
-  proofType: zod.enum(["signature", "barcode"]),
+  proofType: zod.enum(["photo", "signature", "barcode"]),
   data: zod
     .string()
     .optional()
-    .describe("Base64 data for signature, text value for barcode"),
-  notes: zod.string().optional(),
-});
-
-/**
- * @summary Upload a photo proof of delivery for a stop
- */
-export const SubmitPhotoProofParams = zod.object({
-  id: zod.coerce.string().uuid(),
-});
-
-export const SubmitPhotoProofBody = zod.object({
-  photo: zod.instanceof(File),
+    .describe("Base64 data for photo\/signature, text value for barcode"),
   notes: zod.string().optional(),
 });
 
@@ -310,6 +302,10 @@ export const SubmitPhotoProofBody = zod.object({
  */
 export const GetStopProofsParams = zod.object({
   id: zod.coerce.string().uuid(),
+});
+
+export const GetStopProofsQueryParams = zod.object({
+  organizationId: zod.coerce.string().uuid(),
 });
 
 export const GetStopProofsResponseItem = zod.object({

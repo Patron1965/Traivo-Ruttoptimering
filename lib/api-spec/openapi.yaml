@@ -277,10 +277,16 @@ paths:
     post:
       operationId: submitProof
       tags: [stops]
-      summary: Submit signature or barcode proof of delivery for a stop
+      summary: Submit proof of delivery for a stop (photo via multipart, signature/barcode via JSON)
       parameters:
         - name: id
           in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: organizationId
+          in: query
           required: true
           schema:
             type: string
@@ -291,33 +297,6 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/SubmitProofBody"
-      responses:
-        "201":
-          description: Created proof
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/DeliveryProof"
-        "400":
-          description: Invalid request
-        "404":
-          description: Stop not found
-
-  /stops/{id}/proof/photo:
-    post:
-      operationId: submitPhotoProof
-      tags: [stops]
-      summary: Upload a photo proof of delivery for a stop
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      requestBody:
-        required: true
-        content:
           multipart/form-data:
             schema:
               type: object
@@ -331,13 +310,13 @@ paths:
                 - photo
       responses:
         "201":
-          description: Created photo proof
+          description: Created proof
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/DeliveryProof"
         "400":
-          description: Invalid request or missing photo
+          description: Invalid request
         "404":
           description: Stop not found
         "502":
@@ -351,6 +330,12 @@ paths:
       parameters:
         - name: id
           in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: organizationId
+          in: query
           required: true
           schema:
             type: string
@@ -1118,10 +1103,10 @@ components:
       properties:
         proofType:
           type: string
-          enum: [signature, barcode]
+          enum: [photo, signature, barcode]
         data:
           type: string
-          description: Base64 data for signature, text value for barcode
+          description: Base64 data for photo/signature, text value for barcode
         notes:
           type: string
       required:
