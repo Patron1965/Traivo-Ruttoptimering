@@ -4,11 +4,19 @@ const listeners = new Map<string, Set<MessageHandler>>();
 let ws: WebSocket | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let organizationId: string | null = null;
+let predictionsSubscribed = false;
 const RECONNECT_DELAY = 3000;
 
 function getWsUrl(): string {
   const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
   return `${proto}//${window.location.host}/ws`;
+}
+
+function sendPendingSubscriptions() {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  if (predictionsSubscribed) {
+    ws.send(JSON.stringify({ type: "subscribe-predictions" }));
+  }
 }
 
 function connect() {
@@ -23,6 +31,7 @@ function connect() {
       if (organizationId) {
         ws?.send(JSON.stringify({ type: "subscribe", organizationId }));
       }
+      sendPendingSubscriptions();
     };
 
     ws.onmessage = (event) => {
@@ -62,6 +71,12 @@ export function initWsClient(orgId: string) {
   connect();
 }
 
+export function ensureWsInitialized(orgId: string) {
+  if (!organizationId) {
+    initWsClient(orgId);
+  }
+}
+
 export function onWsMessage(type: string, handler: MessageHandler): () => void {
   if (!listeners.has(type)) {
     listeners.set(type, new Set());
@@ -74,9 +89,14 @@ export function onWsMessage(type: string, handler: MessageHandler): () => void {
 }
 
 export function subscribePredictions() {
+  predictionsSubscribed = true;
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({ type: "subscribe-predictions" }));
   }
+}
+
+export function unsubscribePredictions() {
+  predictionsSubscribed = false;
 }
 
 export function isWsConnected(): boolean {

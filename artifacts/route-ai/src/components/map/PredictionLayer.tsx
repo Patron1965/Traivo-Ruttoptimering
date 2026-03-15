@@ -1,7 +1,8 @@
 import { useEffect, useState, useRef } from "react";
 import { useMap, CircleMarker, Tooltip } from "react-leaflet";
 import { useTranslation } from "react-i18next";
-import { onWsMessage, subscribePredictions } from "@/lib/ws-client";
+import { onWsMessage, subscribePredictions, unsubscribePredictions, ensureWsInitialized } from "@/lib/ws-client";
+import { ORG_ID } from "@/lib/constants";
 
 interface PredictionCell {
   lat: number;
@@ -37,8 +38,15 @@ export function PredictionLayer({ visible }: { visible: boolean }) {
   useEffect(() => {
     if (!visible) {
       setCells([]);
+      if (unsubRef.current) {
+        unsubRef.current();
+        unsubRef.current = null;
+      }
+      unsubscribePredictions();
       return;
     }
+
+    ensureWsInitialized(ORG_ID);
 
     const apiBase = import.meta.env.VITE_API_URL || "/api";
     const bounds = map.getBounds();
@@ -58,7 +66,11 @@ export function PredictionLayer({ visible }: { visible: boolean }) {
     });
 
     return () => {
-      if (unsubRef.current) unsubRef.current();
+      if (unsubRef.current) {
+        unsubRef.current();
+        unsubRef.current = null;
+      }
+      unsubscribePredictions();
     };
   }, [visible, map]);
 
