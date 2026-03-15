@@ -1,12 +1,13 @@
 import { Router, type IRouter } from "express";
 import { eq, and, isNull } from "drizzle-orm";
-import { db, routesTable, stopsTable, vehiclesTable } from "@workspace/db";
+import { db, routesTable, stopsTable, vehiclesTable, driversTable, driverPreferencesTable } from "@workspace/db";
 import {
   CreateRouteBody,
   UpdateRouteBody,
   ListRoutesQueryParams,
 } from "@workspace/api-zod";
 import { handleError, parseUuidParam } from "../lib/errors";
+import { computeHappinessScore } from "./driver-preferences";
 
 const router: IRouter = Router();
 
@@ -73,6 +74,11 @@ router.put("/routes/:id", async (req, res) => {
       res.status(404).json({ error: "Route not found" });
       return;
     }
+
+    if (data.status === "completed" && route.vehicleId) {
+      updateHappinessScoreForVehicle(route.vehicleId, route.organizationId).catch(() => {});
+    }
+
     res.json(route);
   } catch (err) {
     handleError(res, err);
@@ -427,5 +433,34 @@ router.get("/routes/:id/comparison", async (req, res) => {
     handleError(res, err);
   }
 });
+
+async function updateHappinessScoreForVehicle(vehicleId: string, organizationId: string) {
+  const drivers = await db
+    .select()
+    .from(driversTable)
+    .where(and(eq(driversTable.vehicleId, vehicleId), eq(driversTable.organizationId, organizationId)));
+
+  for (const driver of drivers) {
+    let [prefs] = await db
+      .select()
+      .from(driverPreferencesTable)
+      .where(eq(driverPreferencesTable.driverId, driver.id));
+
+    if (!prefs) {
+      [prefs] = await db
+        .insert(driverPreferencesTable)
+        .values({ driverId: driver.id })
+        .returning();
+    }
+
+    const score = await computeHappinessScore(driver.id, organizationId, prefs);
+    if (score !== prefs.happinessScore) {
+      await db
+        .update(driverPreferencesTable)
+        .set({ happinessScore: score })
+        .where(eq(driverPreferencesTable.driverId, driver.id));
+    }
+  }
+}
 
 export default router;

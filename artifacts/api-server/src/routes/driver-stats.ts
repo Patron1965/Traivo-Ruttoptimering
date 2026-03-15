@@ -37,6 +37,7 @@ router.get("/drivers/:id/stats", async (req, res) => {
         totalDistanceKm: 0,
         totalRoutes: 0,
         completedRoutes: 0,
+        happinessScore: 50,
       });
       return;
     }
@@ -63,6 +64,7 @@ router.get("/drivers/:id/stats", async (req, res) => {
         totalDistanceKm: 0,
         totalRoutes: 0,
         completedRoutes: 0,
+        happinessScore: 50,
       });
       return;
     }
