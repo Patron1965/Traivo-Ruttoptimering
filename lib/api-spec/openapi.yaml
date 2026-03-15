@@ -1412,6 +1412,44 @@ components:
               - distanceKm
               - co2Kg
               - date
+        etaMetrics:
+          type: object
+          properties:
+            avgTimeWindowSlackMin:
+              type: number
+            stopsWithTimeWindows:
+              type: number
+            stopsOnTime:
+              type: number
+            stopsLate:
+              type: number
+            avgDurationMin:
+              type: number
+            totalRoutes:
+              type: number
+          required:
+            - avgTimeWindowSlackMin
+            - stopsWithTimeWindows
+            - stopsOnTime
+            - stopsLate
+            - avgDurationMin
+            - totalRoutes
+        noiseImpactScore:
+          type: number
+          description: Average noise impact score (0-100) across all routes
+        nightRouteCount:
+          type: number
+          description: Number of routes operating during night hours (22-06)
+        avgParticlePm25:
+          type: number
+          description: Average PM2.5 particle emissions per route in grams
+        environmentalScore:
+          type: number
+          description: Aggregated environmental score (0-100) weighted CO2 50%, noise 25%, PM2.5 25%
+        routeEnvironmentalScores:
+          type: array
+          items:
+            $ref: "#/components/schemas/RouteEnvScore"
       required:
         - totalCo2Kg
         - fossilCo2Kg
@@ -1420,6 +1458,39 @@ components:
         - co2SavedKg
         - treesEquivalent
         - routeBreakdown
+        - etaMetrics
+        - noiseImpactScore
+        - nightRouteCount
+        - avgParticlePm25
+        - environmentalScore
+        - routeEnvironmentalScores
+
+    RouteEnvScore:
+      type: object
+      properties:
+        routeId:
+          type: string
+          format: uuid
+        routeName:
+          type: string
+        environmentalScore:
+          type: number
+        co2Score:
+          type: number
+        noiseScore:
+          type: number
+        particleScore:
+          type: number
+        isNightRoute:
+          type: boolean
+      required:
+        - routeId
+        - routeName
+        - environmentalScore
+        - co2Score
+        - noiseScore
+        - particleScore
+        - isNightRoute
 
     AiChatMessage:
       type: object

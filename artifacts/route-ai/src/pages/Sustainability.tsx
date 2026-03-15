@@ -58,14 +58,7 @@ export default function Sustainability() {
   if (error || !stats) return <AppLayout><ErrorState error={error} /></AppLayout>;
 
   const hybridCo2Kg = stats.hybridCo2Kg ?? 0;
-  const etaMetrics = (stats as Record<string, unknown>).etaMetrics as {
-    avgTimeWindowSlackMin: number;
-    stopsWithTimeWindows: number;
-    stopsOnTime: number;
-    stopsLate: number;
-    avgDurationMin: number;
-    totalRoutes: number;
-  } | undefined;
+  const etaMetrics = stats.etaMetrics;
 
   const pieData = [
     { name: t("sustainability.fossilCo2"), value: stats.fossilCo2Kg, color: "#F59E0B" },
@@ -567,12 +560,12 @@ function NoiseLevelBar({ score }: { score: number }) {
   );
 }
 
-function EnvironmentalImpactSection({ stats }: { stats: Record<string, unknown> }) {
+function EnvironmentalImpactSection({ stats }: { stats: { environmentalScore: number; noiseImpactScore: number; nightRouteCount: number; avgParticlePm25: number } }) {
   const { t } = useTranslation();
-  const envScore = (stats.environmentalScore as number) ?? 0;
-  const noiseScore = (stats.noiseImpactScore as number) ?? 0;
-  const nightRoutes = (stats.nightRouteCount as number) ?? 0;
-  const avgPm25 = (stats.avgParticlePm25 as number) ?? 0;
+  const envScore = stats.environmentalScore ?? 0;
+  const noiseScore = stats.noiseImpactScore ?? 0;
+  const nightRoutes = stats.nightRouteCount ?? 0;
+  const avgPm25 = stats.avgParticlePm25 ?? 0;
 
   const pm25Level = avgPm25 < 0.5 ? t("env.pm25Low") : avgPm25 < 2 ? t("env.pm25Moderate") : t("env.pm25High");
   const pm25Color = avgPm25 < 0.5 ? "text-emerald-500" : avgPm25 < 2 ? "text-yellow-500" : "text-red-500";

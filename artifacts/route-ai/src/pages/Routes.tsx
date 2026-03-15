@@ -38,8 +38,7 @@ export default function Routes() {
 
   const envScoreByRouteId = useMemo(() => {
     const map = new Map<string, { score: number; isNight: boolean }>();
-    const scores = (sustainabilityStats as Record<string, unknown>)?.routeEnvironmentalScores as Array<{ routeId: string; environmentalScore: number; isNightRoute: boolean }> | undefined;
-    scores?.forEach((s) => map.set(s.routeId, { score: s.environmentalScore, isNight: s.isNightRoute }));
+    sustainabilityStats?.routeEnvironmentalScores?.forEach((s) => map.set(s.routeId, { score: s.environmentalScore, isNight: s.isNightRoute }));
     return map;
   }, [sustainabilityStats]);
 

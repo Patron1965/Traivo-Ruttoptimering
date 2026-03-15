@@ -286,6 +286,25 @@ export type SustainabilityStatsRouteBreakdownItem = {
   date: string;
 };
 
+export type SustainabilityStatsEtaMetrics = {
+  avgTimeWindowSlackMin: number;
+  stopsWithTimeWindows: number;
+  stopsOnTime: number;
+  stopsLate: number;
+  avgDurationMin: number;
+  totalRoutes: number;
+};
+
+export interface RouteEnvScore {
+  routeId: string;
+  routeName: string;
+  environmentalScore: number;
+  co2Score: number;
+  noiseScore: number;
+  particleScore: number;
+  isNightRoute: boolean;
+}
+
 export interface SustainabilityStats {
   totalCo2Kg: number;
   fossilCo2Kg: number;
@@ -295,6 +314,16 @@ export interface SustainabilityStats {
   treesEquivalent: number;
   emissionProfiles?: SustainabilityStatsEmissionProfiles;
   routeBreakdown: SustainabilityStatsRouteBreakdownItem[];
+  etaMetrics: SustainabilityStatsEtaMetrics;
+  /** Average noise impact score (0-100) across all routes */
+  noiseImpactScore: number;
+  /** Number of routes operating during night hours (22-06) */
+  nightRouteCount: number;
+  /** Average PM2.5 particle emissions per route in grams */
+  avgParticlePm25: number;
+  /** Aggregated environmental score (0-100) weighted CO2 50%, noise 25%, PM2.5 25% */
+  environmentalScore: number;
+  routeEnvironmentalScores: RouteEnvScore[];
 }
 
 export type AiChatMessageRole =

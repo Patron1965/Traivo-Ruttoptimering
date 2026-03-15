@@ -527,6 +527,39 @@ export const GetSustainabilityStatsResponse = zod.object({
       date: zod.date(),
     }),
   ),
+  etaMetrics: zod.object({
+    avgTimeWindowSlackMin: zod.number(),
+    stopsWithTimeWindows: zod.number(),
+    stopsOnTime: zod.number(),
+    stopsLate: zod.number(),
+    avgDurationMin: zod.number(),
+    totalRoutes: zod.number(),
+  }),
+  noiseImpactScore: zod
+    .number()
+    .describe("Average noise impact score (0-100) across all routes"),
+  nightRouteCount: zod
+    .number()
+    .describe("Number of routes operating during night hours (22-06)"),
+  avgParticlePm25: zod
+    .number()
+    .describe("Average PM2.5 particle emissions per route in grams"),
+  environmentalScore: zod
+    .number()
+    .describe(
+      "Aggregated environmental score (0-100) weighted CO2 50%, noise 25%, PM2.5 25%",
+    ),
+  routeEnvironmentalScores: zod.array(
+    zod.object({
+      routeId: zod.string().uuid(),
+      routeName: zod.string(),
+      environmentalScore: zod.number(),
+      co2Score: zod.number(),
+      noiseScore: zod.number(),
+      particleScore: zod.number(),
+      isNightRoute: zod.boolean(),
+    }),
+  ),
 });
 
 /**

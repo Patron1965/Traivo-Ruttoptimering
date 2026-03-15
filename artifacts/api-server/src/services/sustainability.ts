@@ -55,13 +55,30 @@ const PM25_FACTORS: Record<string, { tireAndBrake: number; exhaust: number }> = 
   hybrid: { tireAndBrake: 0.014, exhaust: 0.015 },
 };
 
-export function estimateParticleEmissions(distanceKm: number, vehicleType: string): number {
+export function estimateParticleEmissions(
+  distanceKm: number,
+  vehicleType: string,
+  totalStops: number,
+  durationMin: number
+): number {
   const factors = PM25_FACTORS[vehicleType] ?? PM25_FACTORS.fossil;
-  const pm25Grams = distanceKm * (factors.tireAndBrake + factors.exhaust);
+
+  const avgSpeedKmh = durationMin > 0 ? (distanceKm / durationMin) * 60 : 30;
+  const speedFactor = avgSpeedKmh < 20 ? 1.4 : avgSpeedKmh < 40 ? 1.1 : avgSpeedKmh < 60 ? 1.0 : 0.9;
+
+  const brakingEvents = Math.max(0, totalStops * 2);
+  const brakingPm25 = brakingEvents * 0.002;
+
+  const baseEmissions = distanceKm * (factors.tireAndBrake + factors.exhaust) * speedFactor;
+  const pm25Grams = baseEmissions + brakingPm25;
   return Math.round(pm25Grams * 1000) / 1000;
 }
 
-export function calculateNoiseImpact(date: string | Date, durationMin: number): { noiseScore: number; isNightRoute: boolean } {
+export function calculateNoiseImpact(
+  date: string | Date,
+  durationMin: number,
+  hasResidentialStops: boolean
+): { noiseScore: number; isNightRoute: boolean } {
   const d = new Date(date);
   const hour = d.getHours();
   const endHour = (hour + Math.ceil(durationMin / 60)) % 24;
@@ -69,11 +86,20 @@ export function calculateNoiseImpact(date: string | Date, durationMin: number): 
   const isNight = hour >= 22 || hour < 6 || endHour >= 22 || endHour < 6;
   const nightOverlapHours = isNight ? Math.min(durationMin / 60, 4) : 0;
 
-  const noiseScore = isNight
-    ? Math.min(100, 40 + nightOverlapHours * 15)
-    : Math.max(5, 10 + (durationMin / 60) * 2);
+  let noiseScore: number;
+  if (isNight) {
+    noiseScore = 40 + nightOverlapHours * 15;
+    if (hasResidentialStops) {
+      noiseScore += 20;
+    }
+  } else {
+    noiseScore = 10 + (durationMin / 60) * 2;
+    if (hasResidentialStops) {
+      noiseScore += 5;
+    }
+  }
 
-  return { noiseScore: Math.round(noiseScore), isNightRoute: isNight };
+  return { noiseScore: Math.round(Math.min(100, Math.max(5, noiseScore))), isNightRoute: isNight };
 }
 
 export function calculateEnvironmentalScore(
@@ -113,6 +139,24 @@ export async function calculateSustainabilityStats(organizationId: string): Prom
     .leftJoin(vehiclesTable, eq(routesTable.vehicleId, vehiclesTable.id))
     .where(eq(routesTable.organizationId, organizationId));
 
+  const RESIDENTIAL_KEYWORDS = ["gatan", "vägen", "gata", "väg", "allé", "stigen", "hemväg", "residential", "apartment", "street", "road", "avenue", "lane"];
+
+  const routeIds = routeData.map(r => r.routeId);
+  const stopCountByRoute = new Map<string, number>();
+  const residentialByRoute = new Map<string, boolean>();
+
+  for (const routeId of routeIds) {
+    const stops = await db.select({
+      address: stopsTable.address,
+    }).from(stopsTable).where(eq(stopsTable.routeId, routeId));
+    stopCountByRoute.set(routeId, stops.length);
+    const hasResidential = stops.some(s => {
+      const addr = (s.address ?? "").toLowerCase();
+      return RESIDENTIAL_KEYWORDS.some(kw => addr.includes(kw));
+    });
+    residentialByRoute.set(routeId, hasResidential);
+  }
+
   let totalCo2Kg = 0;
   let fossilCo2Kg = 0;
   let evCo2Kg = 0;
@@ -138,11 +182,13 @@ export async function calculateSustainabilityStats(organizationId: string): Prom
     }
 
     const dateStr = r.date?.toISOString() ?? new Date().toISOString();
-    const { noiseScore, isNightRoute } = calculateNoiseImpact(dateStr, dur);
+    const hasResidential = residentialByRoute.get(r.routeId) ?? true;
+    const { noiseScore, isNightRoute } = calculateNoiseImpact(dateStr, dur, hasResidential);
     totalNoiseScore += noiseScore;
     if (isNightRoute) nightRouteCount++;
 
-    const pm25 = estimateParticleEmissions(dist, vType);
+    const totalStops = stopCountByRoute.get(r.routeId) ?? 0;
+    const pm25 = estimateParticleEmissions(dist, vType, totalStops, dur);
     totalPm25 += pm25;
 
     const baselineCo2Route = baselineFossilCo2Kg(dist);
@@ -195,7 +241,6 @@ export async function calculateSustainabilityStats(organizationId: string): Prom
     ? Math.round(routeEnvironmentalScores.reduce((s, r) => s + r.environmentalScore, 0) / routeEnvironmentalScores.length)
     : 0;
 
-  const routeIds = routeData.map(r => r.routeId);
   let etaMetrics: EtaMetrics = {
     avgTimeWindowSlackMin: 0,
     stopsWithTimeWindows: 0,
