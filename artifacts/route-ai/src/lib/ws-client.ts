@@ -73,6 +73,12 @@ export function onWsMessage(type: string, handler: MessageHandler): () => void {
   };
 }
 
+export function subscribePredictions() {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: "subscribe-predictions" }));
+  }
+}
+
 export function isWsConnected(): boolean {
   return ws?.readyState === WebSocket.OPEN;
 }

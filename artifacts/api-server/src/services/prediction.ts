@@ -16,16 +16,16 @@ const STOCKHOLM_BOUNDS = {
 const CELL_SIZE = 0.008;
 
 const CONGESTION_HOTSPOTS = [
-  { lat: 59.330, lng: 18.070, radius: 0.015, name: "T-Centralen" },
-  { lat: 59.335, lng: 18.055, name: "Norrmalm", radius: 0.012 },
-  { lat: 59.310, lng: 18.075, name: "Södermalm", radius: 0.013 },
-  { lat: 59.340, lng: 18.000, name: "Kungsholmen", radius: 0.010 },
-  { lat: 59.345, lng: 18.080, name: "Östermalm", radius: 0.012 },
-  { lat: 59.290, lng: 18.080, name: "Globen", radius: 0.008 },
-  { lat: 59.360, lng: 17.950, name: "Solna", radius: 0.010 },
-  { lat: 59.370, lng: 18.010, name: "Karolinska", radius: 0.008 },
-  { lat: 59.315, lng: 18.050, name: "Hornstull", radius: 0.008 },
-  { lat: 59.350, lng: 18.110, name: "Gärdet", radius: 0.007 },
+  { lat: 59.330, lng: 18.070, radius: 0.015, name: "T-Centralen", historicalDelay: 4.2 },
+  { lat: 59.335, lng: 18.055, name: "Norrmalm", radius: 0.012, historicalDelay: 3.8 },
+  { lat: 59.310, lng: 18.075, name: "Södermalm", radius: 0.013, historicalDelay: 3.5 },
+  { lat: 59.340, lng: 18.000, name: "Kungsholmen", radius: 0.010, historicalDelay: 2.9 },
+  { lat: 59.345, lng: 18.080, name: "Östermalm", radius: 0.012, historicalDelay: 3.1 },
+  { lat: 59.290, lng: 18.080, name: "Globen", radius: 0.008, historicalDelay: 2.2 },
+  { lat: 59.360, lng: 17.950, name: "Solna", radius: 0.010, historicalDelay: 2.5 },
+  { lat: 59.370, lng: 18.010, name: "Karolinska", radius: 0.008, historicalDelay: 1.8 },
+  { lat: 59.315, lng: 18.050, name: "Hornstull", radius: 0.008, historicalDelay: 2.0 },
+  { lat: 59.350, lng: 18.110, name: "Gärdet", radius: 0.007, historicalDelay: 1.5 },
 ];
 
 function getRushHourFactor(date: Date): number {
@@ -72,22 +72,28 @@ export function generatePredictions(
   for (let lat = minLat; lat <= maxLat; lat += CELL_SIZE) {
     for (let lng = minLng; lng <= maxLng; lng += CELL_SIZE) {
       let hotspotInfluence = 0;
+      let historicalDelayFactor = 0;
       for (const hs of CONGESTION_HOTSPOTS) {
         const dist = Math.sqrt((lat - hs.lat) ** 2 + (lng - hs.lng) ** 2);
         if (dist < hs.radius * 2) {
           const influence = Math.max(0, 1 - dist / (hs.radius * 2));
-          hotspotInfluence = Math.max(hotspotInfluence, influence);
+          if (influence > hotspotInfluence) {
+            hotspotInfluence = influence;
+            historicalDelayFactor = (hs.historicalDelay / 5) * influence;
+          }
         }
       }
 
       const noise = seededRandom(lat, lng, timeSeed) * 0.2 - 0.1;
       const congestionScore = Math.max(0, Math.min(1,
-        hotspotInfluence * rushFactor + noise
+        hotspotInfluence * rushFactor * 0.7 + historicalDelayFactor * 0.3 + noise
       ));
 
       if (congestionScore < 0.05) continue;
 
-      const predictedDelayMin = Math.round(congestionScore * 15 * 10) / 10;
+      const baseDelay = congestionScore * 12;
+      const historicalDelay = historicalDelayFactor * rushFactor * 3;
+      const predictedDelayMin = Math.round((baseDelay + historicalDelay) * 10) / 10;
       const confidence = Math.max(0.3, Math.min(0.95,
         0.85 - (horizonMinutes / 120) + hotspotInfluence * 0.15
       ));

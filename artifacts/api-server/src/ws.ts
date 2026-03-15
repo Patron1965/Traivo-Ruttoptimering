@@ -54,6 +54,7 @@ function interpolatePosition(
 interface WsClient {
   ws: WebSocket;
   organizationId: string;
+  subscribedPredictions?: boolean;
 }
 
 const clients: Set<WsClient> = new Set();
@@ -325,17 +326,12 @@ async function broadcastPositions() {
 }
 
 function broadcastPredictions() {
-  const orgIds = new Set<string>();
-  for (const client of clients) {
-    if (client.ws.readyState === WebSocket.OPEN) {
-      orgIds.add(client.organizationId);
-    }
-  }
-  if (orgIds.size === 0) return;
-
   const predictions = getDefaultBoundsPredictions();
-  for (const orgId of orgIds) {
-    broadcast(orgId, "traffic:predictions", predictions);
+  const message = JSON.stringify({ type: "predictions:update", data: predictions, timestamp: Date.now() });
+  for (const client of clients) {
+    if (client.subscribedPredictions && client.ws.readyState === WebSocket.OPEN) {
+      client.ws.send(message);
+    }
   }
 }
 
@@ -352,6 +348,9 @@ export function setupWebSocket(server: Server) {
           client = { ws, organizationId: msg.organizationId };
           clients.add(client);
           ws.send(JSON.stringify({ type: "subscribed", organizationId: msg.organizationId }));
+        } else if (msg.type === "subscribe-predictions" && client) {
+          client.subscribedPredictions = true;
+          ws.send(JSON.stringify({ type: "subscribed-predictions" }));
         } else if (msg.type === "disruption" && msg.disruptionType && client) {
           debouncedReoptimize({
             type: "disruption",
