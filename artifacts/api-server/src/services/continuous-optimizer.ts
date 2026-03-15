@@ -180,6 +180,9 @@ export class ContinuousOptimizer extends EventEmitter {
       const removeSet = new Set(removedNodeIds);
       this.nodes = this.nodes.filter((n) => !removeSet.has(n.id));
     }
+
+    this.bestCost = Infinity;
+    this.lastImprovementAt = Date.now();
   }
 
   private async loop(startTime: Date): Promise<void> {

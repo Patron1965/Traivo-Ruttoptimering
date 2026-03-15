@@ -396,12 +396,17 @@ async function handleDisruptionReoptimize(event: DisruptionEvent) {
           weightKg: Number(newStop.weightKg) || 0,
           volumeM3: Number(newStop.volumeM3) || 0,
         }]);
-        broadcast(organizationId, "optimization:disruption-injected", { disruptionType, affectedStopId });
       }
     } else if (disruptionType === "stop_cancelled" && affectedStopId) {
       activeOptimizer.injectDisruption([], [affectedStopId]);
-      broadcast(organizationId, "optimization:disruption-injected", { disruptionType, affectedStopId });
+    } else if (disruptionType === "traffic_delay" || disruptionType === "vehicle_breakdown") {
+      activeOptimizer.injectDisruption([], []);
     }
+    broadcast(organizationId, "optimization:disruption-injected", {
+      disruptionType,
+      affectedStopId: affectedStopId ?? null,
+      reason: reason ?? disruptionType,
+    });
     return;
   }
 
