@@ -176,9 +176,12 @@ export class ContinuousOptimizer extends EventEmitter {
       ];
     }
 
-    if (removedNodeIds) {
+    if (removedNodeIds && removedNodeIds.length > 0) {
       const removeSet = new Set(removedNodeIds);
       this.nodes = this.nodes.filter((n) => !removeSet.has(n.id));
+      this.currentSolution.unassigned = this.currentSolution.unassigned.filter(
+        (n) => !removeSet.has(n.id)
+      );
     }
 
     this.bestCost = Infinity;
