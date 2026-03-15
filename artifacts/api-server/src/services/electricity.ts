@@ -17,6 +17,63 @@ interface ChargingWindow {
 
 const EUR_TO_SEK = 11.5;
 
+const AREA_TO_ENTSOE_DOMAIN: Record<string, string> = {
+  SE1: "10Y1001A1001A44P",
+  SE2: "10Y1001A1001A45N",
+  SE3: "10Y1001A1001A46L",
+  SE4: "10Y1001A1001A47J",
+};
+
+async function fetchEntsoeSpotPrices(area: string, hours: number): Promise<PricePoint[] | null> {
+  const token = process.env.ENTSOE_API_TOKEN;
+  if (!token) return null;
+
+  const domain = AREA_TO_ENTSOE_DOMAIN[area];
+  if (!domain) return null;
+
+  const now = new Date();
+  now.setMinutes(0, 0, 0);
+  const end = new Date(now.getTime() + hours * 3600000);
+
+  const fmt = (d: Date) => d.toISOString().replace(/[-:]/g, "").slice(0, 12) + "00";
+
+  const url = `https://web-api.tp.entsoe.eu/api?` +
+    `documentType=A44&in_Domain=${domain}&out_Domain=${domain}` +
+    `&periodStart=${fmt(now)}&periodEnd=${fmt(end)}&securityToken=${token}`;
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
+
+    if (!res.ok) return null;
+
+    const xml = await res.text();
+    const prices: PricePoint[] = [];
+    const pointRegex = /<position>(\d+)<\/position>\s*<price\.amount>([\d.]+)<\/price\.amount>/g;
+    const startRegex = /<start>([\dTZ:.-]+)<\/start>/;
+    const startMatch = xml.match(startRegex);
+    const periodStart = startMatch ? new Date(startMatch[1]) : now;
+
+    let match;
+    while ((match = pointRegex.exec(xml)) !== null) {
+      const position = parseInt(match[1]) - 1;
+      const priceEurMwh = parseFloat(match[2]);
+      const ts = new Date(periodStart.getTime() + position * 3600000);
+      prices.push({
+        timestamp: ts.toISOString(),
+        priceEurMwh,
+        priceSekKwh: Math.round((priceEurMwh / 1000) * EUR_TO_SEK * 100) / 100,
+      });
+    }
+
+    return prices.length > 0 ? prices.slice(0, hours) : null;
+  } catch {
+    return null;
+  }
+}
+
 function generateFallbackPrices(area: string, hours: number): PricePoint[] {
   const now = new Date();
   now.setMinutes(0, 0, 0);
@@ -117,10 +174,18 @@ export async function getPrices(area: string, hours: number = 24): Promise<Price
   const cached = await getCachedPrices(area, hours);
   if (cached && cached.length >= hours * 0.8) return cached;
 
+  const entsoe = await fetchEntsoeSpotPrices(area, hours);
+  if (entsoe && entsoe.length > 0) {
+    cachePrices(area, entsoe).catch((err) => {
+      console.error("Failed to cache ENTSO-E prices:", err);
+    });
+    return entsoe;
+  }
+
   const prices = generateFallbackPrices(area, hours);
 
   cachePrices(area, prices).catch((err) => {
-    console.error("Failed to cache energy prices:", err);
+    console.error("Failed to cache fallback energy prices:", err);
   });
 
   return prices;
@@ -179,8 +244,13 @@ let refreshTimer: ReturnType<typeof setInterval> | null = null;
 export function startPriceRefresh() {
   async function refresh() {
     for (const area of ["SE1", "SE2", "SE3", "SE4"]) {
-      const prices = generateFallbackPrices(area, 48);
-      await cachePrices(area, prices).catch(() => {});
+      const entsoe = await fetchEntsoeSpotPrices(area, 48);
+      if (entsoe && entsoe.length > 0) {
+        await cachePrices(area, entsoe).catch(() => {});
+      } else {
+        const prices = generateFallbackPrices(area, 48);
+        await cachePrices(area, prices).catch(() => {});
+      }
     }
   }
 

@@ -389,15 +389,20 @@ function EnergyPriceSection() {
   }, [prices]);
 
   const chartData = useMemo(() => {
+    const cheapThreshold = avgPrice * 0.7;
+    const expensiveThreshold = avgPrice * 1.3;
     return prices.map((p) => {
       const d = new Date(p.timestamp);
       return {
         hour: d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         price: p.priceSekKwh,
         priceEur: p.priceEurMwh,
+        cheapPrice: p.priceSekKwh <= cheapThreshold ? p.priceSekKwh : undefined,
+        normalPrice: p.priceSekKwh > cheapThreshold && p.priceSekKwh < expensiveThreshold ? p.priceSekKwh : undefined,
+        expensivePrice: p.priceSekKwh >= expensiveThreshold ? p.priceSekKwh : undefined,
       };
     });
-  }, [prices]);
+  }, [prices, avgPrice]);
 
   if (prices.length === 0) return null;
 
@@ -452,9 +457,17 @@ function EnergyPriceSection() {
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={chartData}>
             <defs>
-              <linearGradient id="priceGradient" x1="0" y1="0" x2="0" y2="1">
+              <linearGradient id="cheapGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#22c55e" stopOpacity={0.4} />
+                <stop offset="95%" stopColor="#22c55e" stopOpacity={0.05} />
+              </linearGradient>
+              <linearGradient id="normalGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#eab308" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#eab308" stopOpacity={0} />
+                <stop offset="95%" stopColor="#eab308" stopOpacity={0.05} />
+              </linearGradient>
+              <linearGradient id="expensiveGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#ef4444" stopOpacity={0.4} />
+                <stop offset="95%" stopColor="#ef4444" stopOpacity={0.05} />
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
@@ -470,14 +483,10 @@ function EnergyPriceSection() {
               formatter={(value: number) => [`${value.toFixed(2)} SEK/kWh`, t("energy.price")]}
             />
             <ReferenceLine y={avgPrice} stroke="#f97316" strokeDasharray="5 5" label={{ value: t("energy.avg"), position: "right", fontSize: 10 }} />
-            <Area
-              type="monotone"
-              dataKey="price"
-              stroke="#eab308"
-              fill="url(#priceGradient)"
-              strokeWidth={2}
-              dot={false}
-            />
+            <Area type="monotone" dataKey="cheapPrice" stroke="#22c55e" fill="url(#cheapGradient)" strokeWidth={2} dot={false} connectNulls={false} />
+            <Area type="monotone" dataKey="normalPrice" stroke="#eab308" fill="url(#normalGradient)" strokeWidth={2} dot={false} connectNulls={false} />
+            <Area type="monotone" dataKey="expensivePrice" stroke="#ef4444" fill="url(#expensiveGradient)" strokeWidth={2} dot={false} connectNulls={false} />
+            <Area type="monotone" dataKey="price" stroke="#94a3b8" fill="none" strokeWidth={1} strokeDasharray="3 3" dot={false} />
           </AreaChart>
         </ResponsiveContainer>
       </div>
