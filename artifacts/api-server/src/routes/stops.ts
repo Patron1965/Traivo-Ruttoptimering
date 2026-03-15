@@ -10,6 +10,7 @@ import {
 import { handleError, parseUuidParam } from "../lib/errors";
 import { getDistanceCache } from "../services/alns";
 import { sendFailedNotification } from "../services/email";
+import { dispatchWebhookEvent } from "../services/webhooks";
 
 const router: IRouter = Router();
 
@@ -156,6 +157,20 @@ router.put("/stops/:id", async (req, res) => {
             console.error("[EMAIL] Failed to send failed notification:", err)
           );
         }
+      }
+    }
+
+    if (existing && existing.status !== stop.status) {
+      const eventMap: Record<string, string> = {
+        completed: "stop.completed",
+        failed: "stop.failed",
+        skipped: "stop.skipped",
+      };
+      const event = eventMap[stop.status];
+      if (event) {
+        dispatchWebhookEvent(stop.organizationId, event, {
+          stopId: stop.id, address: stop.address, status: stop.status, routeId: stop.routeId,
+        }).catch(() => {});
       }
     }
 

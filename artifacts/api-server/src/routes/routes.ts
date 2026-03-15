@@ -8,6 +8,7 @@ import {
 } from "@workspace/api-zod";
 import { handleError, parseUuidParam } from "../lib/errors";
 import { computeHappinessScore } from "./driver-preferences";
+import { dispatchWebhookEvent } from "../services/webhooks";
 
 const router: IRouter = Router();
 
@@ -52,6 +53,9 @@ router.post("/routes", async (req, res) => {
   try {
     const data = CreateRouteBody.parse(req.body);
     const [route] = await db.insert(routesTable).values(data).returning();
+    dispatchWebhookEvent(route.organizationId, "route.created", {
+      routeId: route.id, name: route.name, status: route.status,
+    }).catch(() => {});
     res.status(201).json(route);
   } catch (err) {
     handleError(res, err);
@@ -83,6 +87,21 @@ router.put("/routes/:id", async (req, res) => {
 
     if (data.status === "completed" && route.vehicleId) {
       updateHappinessScoreForVehicle(route.vehicleId, route.organizationId).catch(() => {});
+    }
+
+    if (data.status) {
+      const eventMap: Record<string, string> = {
+        optimized: "route.optimized",
+        in_progress: "route.started",
+        completed: "route.completed",
+        cancelled: "route.cancelled",
+      };
+      const event = eventMap[data.status];
+      if (event) {
+        dispatchWebhookEvent(route.organizationId, event, {
+          routeId: route.id, name: route.name, status: route.status,
+        }).catch(() => {});
+      }
     }
 
     res.json(route);

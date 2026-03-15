@@ -24,6 +24,7 @@ import energyRouter from "./energy";
 import voiceRouter from "./voice";
 import storageRouter from "./storage";
 import proofRouter from "./proof";
+import webhooksRouter from "./webhooks";
 
 const router: IRouter = Router();
 
@@ -52,5 +53,6 @@ router.use(driverPreferencesRouter);
 router.use(predictionsRouter);
 router.use(energyRouter);
 router.use(voiceRouter);
+router.use(webhooksRouter);
 
 export default router;

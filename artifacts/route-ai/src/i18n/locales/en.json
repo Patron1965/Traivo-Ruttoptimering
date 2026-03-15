@@ -103,6 +103,7 @@
     "routeHistory": "Route History",
     "driverView": "Driver View",
     "analytics": "Analytics",
+    "webhooks": "Webhooks",
     "orgName": "Stockholm Logistics AB"
   },
   "dashboard": {
@@ -681,5 +682,35 @@
     "proofsCollected": "{{count}} proof(s) collected",
     "done": "Done",
     "proofOfDelivery": "Proof of Delivery"
+  },
+  "webhooks": {
+    "title": "Webhooks",
+    "subtitle": "Connect RouteAI to external services via webhooks",
+    "addWebhook": "Add Webhook",
+    "createNew": "Create New Webhook",
+    "name": "Name",
+    "url": "Endpoint URL",
+    "events": "Events",
+    "allEvents": "All events",
+    "secret": "Signing Secret",
+    "create": "Create Webhook",
+    "created": "Webhook created",
+    "deleted": "Webhook deleted",
+    "active": "Active",
+    "inactive": "Inactive",
+    "test": "Send Test",
+    "testSent": "Test webhook sent",
+    "testFailed": "Test webhook failed",
+    "disable": "Disable",
+    "enable": "Enable",
+    "delete": "Delete",
+    "secretCopied": "Secret copied to clipboard",
+    "empty": "No webhooks configured",
+    "emptyDesc": "Add a webhook to connect RouteAI to external services like Zapier, Slack, or your own APIs.",
+    "zapierTitle": "Zapier Integration",
+    "zapierDesc": "Connect RouteAI to 5,000+ apps with Zapier. Use Webhooks by Zapier to receive events.",
+    "zapierStep1": "Create a new Zap in Zapier and select \"Webhooks by Zapier\" as the trigger",
+    "zapierStep2": "Copy the webhook URL from Zapier",
+    "zapierStep3": "Paste the URL below and select which events to send"
   }
 }

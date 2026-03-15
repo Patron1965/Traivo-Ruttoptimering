@@ -103,6 +103,7 @@
     "routeHistory": "Rutthistorik",
     "driverView": "Förarvy",
     "analytics": "Analys",
+    "webhooks": "Webhooks",
     "orgName": "Stockholm Logistics AB"
   },
   "dashboard": {
@@ -681,5 +682,35 @@
     "proofsCollected": "{{count}} bevis insamlade",
     "done": "Klar",
     "proofOfDelivery": "Leveransbevis"
+  },
+  "webhooks": {
+    "title": "Webhooks",
+    "subtitle": "Koppla RouteAI till externa tjänster via webhooks",
+    "addWebhook": "Lägg till webhook",
+    "createNew": "Skapa ny webhook",
+    "name": "Namn",
+    "url": "Endpoint-URL",
+    "events": "Händelser",
+    "allEvents": "Alla händelser",
+    "secret": "Signeringshemlighet",
+    "create": "Skapa webhook",
+    "created": "Webhook skapad",
+    "deleted": "Webhook borttagen",
+    "active": "Aktiv",
+    "inactive": "Inaktiv",
+    "test": "Skicka test",
+    "testSent": "Test-webhook skickad",
+    "testFailed": "Test-webhook misslyckades",
+    "disable": "Inaktivera",
+    "enable": "Aktivera",
+    "delete": "Ta bort",
+    "secretCopied": "Hemlighet kopierad",
+    "empty": "Inga webhooks konfigurerade",
+    "emptyDesc": "Lägg till en webhook för att koppla RouteAI till externa tjänster som Zapier, Slack eller dina egna API:er.",
+    "zapierTitle": "Zapier-integration",
+    "zapierDesc": "Koppla RouteAI till 5 000+ appar med Zapier. Använd Webhooks by Zapier för att ta emot händelser.",
+    "zapierStep1": "Skapa en ny Zap i Zapier och välj \"Webhooks by Zapier\" som trigger",
+    "zapierStep2": "Kopiera webhook-URL:en från Zapier",
+    "zapierStep3": "Klistra in URL:en nedan och välj vilka händelser som ska skickas"
   }
 }
