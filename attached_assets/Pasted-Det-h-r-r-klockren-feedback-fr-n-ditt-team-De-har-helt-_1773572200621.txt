@@ -1,0 +1,42 @@
+Det här är klockren feedback från ditt team. De har helt rätt i att beräkningstid och skalbarhet är det som skiljer en akademisk övning från ett produktionssatt system. Att de dessutom vill väva in er AI-insiktsmotor för prediktiv analys (istället för bara reaktiv) tar projektet från standardlogistik till "state-of-the-art".
+
+Här är de sista strategiska justeringarna som gör prompten helt vattentät för en teknisk analys:
+
+Strategiska tillägg baserat på sista feedbacken
+Hård tidsgräns (SLA): Vi lägger till kravet på max 30 sekunder. Detta tvingar algoritmen att använda heuristiska avbrott – den måste leverera den bästa lösningen den hittat hittills när tiden går ut.
+
+Prediktiv vs. Reaktiv: Vi inkluderar er OpenAI-motor för att förutse störningar.
+
+Data-pipelinen: Vi nämner hur OSRM-matrisen hanteras (cache vs. live) för att adressera flaskhalsar vid 500+ noder.
+
+Den Slutgiltiga "Produktions-Prompten"
+Roll: Senior Operations Research Engineer & System Architect.
+
+Kontext: Vi uppgraderar en logistikmotor för en flotta av elbilar (EV).
+
+Nuvarande stack: OSRM (för distansmatriser), Clarke-Wright Savings (för sekvensering), WebSockets för realtid och en OpenAI-driven insiktsmotor.
+
+Dataflöde: Stopp importeras via CSV/Excel. Distansmatrisen beräknas [välj: live via OSRM / cachas lokalt].
+
+Systemets parametrar:
+
+Skala: [Fyll i exakt, t.ex. 450] noder per dag, [antal] fordon.
+
+Prestandakrav: Optimeringen måste returnera en lösning inom 30 sekunder.
+
+Constraints: EVRP (laddstationer som noder), batterikapacitet, VRPTW (tidsfönster).
+
+Målfunktion: Pareto-optimering som väger CO₂-utsläpp, total kostnad och ETA-precision.
+
+Uppgift:
+
+Algoritmskifte: Föreslå hur vi går från Clarke-Wright till en mer kraftfull metaheuristik (t.ex. ALNS eller Tabu Search) som kan leverera en högkvalitativ lösning inom vår 30-sekundersgräns.
+
+AI-driven Prediktion: Hur kan vi använda vår befintliga OpenAI-insiktsmotor för att proaktivt identifiera rutter med hög risk för förseningar (baserat på historik/trafikmönster) innan de ens lämnar depån?
+
+Inkrementell optimering: Beskriv en arkitektur där endast "drabbade" rutter räknas om vid trafikstörningar, för att spara beräkningskraft och behålla stabilitet för förarna.
+
+Skalbarhet: Hur hanterar vi beräkningsbördan för distansmatrisen när vi skalar upp, givet vår tidsgräns?
+
+Varför detta är sista steget innan kod:
+Genom att sätta en 30-sekundersgräns och definiera skalan, tar vi bort risken för "over-engineering". Om ni har 500 noder och 30 sekunder, kommer experten antagligen rekommendera en parallelliserad ALNS eller en hybrid-heuristik som snabbt hittar en 95-procentig lösning snarare än att leta efter den perfekta i timmar.
