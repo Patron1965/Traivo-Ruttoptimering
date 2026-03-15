@@ -18,6 +18,7 @@ import {
   type ALNSVehicle,
   type ALNSRoute,
 } from "./services/alns";
+import { getActiveOptimizer } from "./services/continuous-optimizer";
 
 const DEPOT_LAT = 59.3293;
 const DEPOT_LON = 18.0686;
@@ -377,6 +378,33 @@ const pendingReoptimizations = new Map<string, ReturnType<typeof setTimeout>>();
 
 async function handleDisruptionReoptimize(event: DisruptionEvent) {
   const { organizationId, disruptionType, routeIds, affectedStopId, reason } = event;
+
+  const activeOptimizer = getActiveOptimizer(organizationId);
+  if (activeOptimizer?.isRunning()) {
+    if (disruptionType === "stop_added" && affectedStopId) {
+      const [newStop] = await db.select().from(stopsTable).where(
+        and(eq(stopsTable.id, affectedStopId), eq(stopsTable.organizationId, organizationId))
+      );
+      if (newStop) {
+        activeOptimizer.injectDisruption([{
+          id: newStop.id,
+          latitude: newStop.latitude,
+          longitude: newStop.longitude,
+          timeWindowStart: newStop.timeWindowStart,
+          timeWindowEnd: newStop.timeWindowEnd,
+          serviceDurationMin: newStop.serviceDurationMin,
+          weightKg: Number(newStop.weightKg) || 0,
+          volumeM3: Number(newStop.volumeM3) || 0,
+        }]);
+        broadcast(organizationId, "optimization:disruption-injected", { disruptionType, affectedStopId });
+      }
+    } else if (disruptionType === "stop_cancelled" && affectedStopId) {
+      activeOptimizer.injectDisruption([], [affectedStopId]);
+      broadcast(organizationId, "optimization:disruption-injected", { disruptionType, affectedStopId });
+    }
+    return;
+  }
+
   let affectedRouteIds: string[] = routeIds ?? [];
 
   if (disruptionType === "stop_added" && affectedStopId) {

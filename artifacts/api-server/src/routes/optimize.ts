@@ -768,12 +768,26 @@ router.post("/optimize/continuous/stop", async (req, res) => {
     }
 
     const finalStatus = optimizer.getStatus();
+    const bestSolution = optimizer.getSolution();
     optimizer.stop();
     removeActiveOptimizer(organizationId);
 
     res.json({
       message: "Continuous optimization stopped",
       status: finalStatus,
+      bestSolution: bestSolution
+        ? {
+            routes: bestSolution.routes.map((r) => ({
+              vehicleId: r.vehicleId,
+              nodeCount: r.nodes.filter((n) => !n.isChargingStation).length,
+              totalWeight: r.totalWeight,
+              totalVolume: r.totalVolume,
+            })),
+            unassignedCount: bestSolution.unassigned.length,
+            cost: bestSolution.cost,
+            costBreakdown: bestSolution.costBreakdown,
+          }
+        : null,
     });
   } catch (err) {
     handleError(res, err);
