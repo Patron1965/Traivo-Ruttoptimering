@@ -1,9 +1,10 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Map as MapIcon, Truck, MapPin, Route as RouteIcon, Command, Cpu, Leaf, Clock, Users, PlusCircle, CalendarClock, Shield, ChevronDown, Smartphone, BarChart3 } from "lucide-react";
+import { LayoutDashboard, Map as MapIcon, Truck, MapPin, Route as RouteIcon, Command, Cpu, Leaf, Clock, Users, PlusCircle, CalendarClock, Shield, ChevronDown, Smartphone, BarChart3, Sun, Moon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { useAuth, DEFAULT_USERS, type UserRole } from "@/lib/auth-context";
+import { useTheme } from "@/context/ThemeContext";
 import { useState } from "react";
 
 type NavItem = {
@@ -45,6 +46,7 @@ export function Sidebar({ className }: { className?: string }) {
   const [location] = useLocation();
   const { t } = useTranslation();
   const { user, setUser, hasRole } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const [roleMenuOpen, setRoleMenuOpen] = useState(false);
 
   const visibleItems = NAV_ITEMS.filter(item => {
@@ -86,7 +88,20 @@ export function Sidebar({ className }: { className?: string }) {
       </nav>
 
       <div className="p-4 mt-auto space-y-3">
-        <LanguageSwitcher />
+        <div className="flex items-center gap-2">
+          <LanguageSwitcher />
+          <button
+            onClick={toggleTheme}
+            className="flex items-center justify-center h-9 w-9 rounded-lg border border-sidebar-border bg-sidebar-accent/50 hover:bg-sidebar-accent transition-colors"
+            title={theme === "dark" ? "Light mode" : "Dark mode"}
+          >
+            {theme === "dark" ? (
+              <Sun className="h-4 w-4 text-amber-400" />
+            ) : (
+              <Moon className="h-4 w-4 text-indigo-500" />
+            )}
+          </button>
+        </div>
 
         <div className="relative">
           <button
