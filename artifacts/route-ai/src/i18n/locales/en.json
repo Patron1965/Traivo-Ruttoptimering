@@ -515,5 +515,33 @@
     "status_in_progress": "In Progress",
     "status_completed": "Completed",
     "status_cancelled": "Cancelled"
+  },
+  "reschedule": {
+    "button": "Reschedule failed",
+    "success": "New route created",
+    "successDesc": "Failed stops have been rescheduled to a new route",
+    "noFailed": "No failed stops to reschedule"
+  },
+  "routeComparison": {
+    "title": "Route Comparison",
+    "subtitle": "Planned vs actual route",
+    "planned": "Planned",
+    "actual": "Actual",
+    "difference": "Difference",
+    "stops": "Stops",
+    "distance": "Distance",
+    "duration": "Duration",
+    "co2": "CO₂",
+    "completionRate": "Completion Rate",
+    "completed": "Completed",
+    "failed": "Failed",
+    "skipped": "Skipped",
+    "pending": "Pending",
+    "plannedRoute": "Planned Route",
+    "actualRoute": "Actual Route",
+    "stopBreakdown": "Stop Breakdown",
+    "compare": "Compare",
+    "backToRoute": "Back to route",
+    "noData": "No comparison data available"
   }
 }

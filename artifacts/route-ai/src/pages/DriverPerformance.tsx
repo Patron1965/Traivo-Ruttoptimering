@@ -16,7 +16,9 @@ import {
   TrendingUp,
   Route as RouteIcon,
   Truck,
+  FileDown,
 } from "lucide-react";
+import { exportDriverPdf } from "@/lib/pdf-export";
 import {
   BarChart,
   Bar,
@@ -116,21 +118,47 @@ export default function DriverPerformance({ id }: { id: string }) {
   return (
     <AppLayout>
       <div className="p-6 space-y-6">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/drivers")}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div className="flex items-center gap-3">
-            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-              <User className="h-6 w-6 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight">{stats.driver.name}</h1>
-              <p className="text-sm text-muted-foreground">
-                {stats.driver.phone || stats.driver.email || t("driverPerformance.noContact")}
-              </p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => navigate("/drivers")}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div className="flex items-center gap-3">
+              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                <User className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold tracking-tight">{stats.driver.name}</h1>
+                <p className="text-sm text-muted-foreground">
+                  {stats.driver.phone || stats.driver.email || t("driverPerformance.noContact")}
+                </p>
+              </div>
             </div>
           </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={() =>
+              exportDriverPdf({
+                title: t("driverPerformance.title"),
+                driverName: stats.driver.name,
+                phone: stats.driver.phone,
+                totalDeliveries: stats.totalDeliveries,
+                completedDeliveries: stats.completedDeliveries,
+                failedDeliveries: stats.failedDeliveries,
+                skippedDeliveries: stats.skippedDeliveries,
+                onTimeRate: stats.onTimeRate,
+                avgServiceDurationMin: stats.avgServiceDurationMin,
+                totalDistanceKm: stats.totalDistanceKm,
+                totalRoutes: stats.totalRoutes,
+                completedRoutes: stats.completedRoutes,
+              })
+            }
+          >
+            <FileDown className="h-4 w-4" />
+            PDF
+          </Button>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">

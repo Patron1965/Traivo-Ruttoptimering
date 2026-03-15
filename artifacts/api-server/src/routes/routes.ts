@@ -257,4 +257,175 @@ router.put("/routes/:id/reorder-stops", async (req, res) => {
   }
 });
 
+router.post("/routes/:id/reschedule-failed", async (req, res) => {
+  try {
+    const { id } = parseUuidParam(req.params);
+    const orgId = req.query.organizationId as string;
+    if (!orgId) {
+      res.status(400).json({ error: "organizationId is required" });
+      return;
+    }
+
+    const [route] = await db
+      .select()
+      .from(routesTable)
+      .where(and(eq(routesTable.id, id), eq(routesTable.organizationId, orgId)));
+    if (!route) {
+      res.status(404).json({ error: "Route not found" });
+      return;
+    }
+
+    const failedStops = await db
+      .select()
+      .from(stopsTable)
+      .where(and(eq(stopsTable.routeId, id), eq(stopsTable.status, "failed")))
+      .orderBy(stopsTable.sequenceOrder);
+
+    if (failedStops.length === 0) {
+      res.status(400).json({ error: "No failed stops to reschedule" });
+      return;
+    }
+
+    const nextDay = new Date(route.date);
+    nextDay.setDate(nextDay.getDate() + 1);
+
+    const newRoute = await db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(routesTable)
+        .values({
+          organizationId: orgId,
+          name: `${route.name} (omplanerad)`,
+          date: nextDay,
+          vehicleId: route.vehicleId,
+          totalStops: failedStops.length,
+          status: "draft",
+        })
+        .returning();
+
+      const stopsToInsert = failedStops.map((s, idx) => ({
+        organizationId: orgId,
+        routeId: created.id,
+        customerId: s.customerId,
+        address: s.address,
+        latitude: s.latitude,
+        longitude: s.longitude,
+        serviceDurationMin: s.serviceDurationMin,
+        weightKg: s.weightKg,
+        volumeM3: s.volumeM3,
+        notes: s.notes ? `Omplanerad: ${s.notes}` : "Omplanerad från misslyckad leverans",
+        sequenceOrder: idx + 1,
+        timeWindowStart: s.timeWindowStart,
+        timeWindowEnd: s.timeWindowEnd,
+        status: "pending" as const,
+      }));
+      await tx.insert(stopsTable).values(stopsToInsert);
+
+      return created;
+    });
+
+    res.status(201).json(newRoute);
+  } catch (err) {
+    handleError(res, err);
+  }
+});
+
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+router.get("/routes/:id/comparison", async (req, res) => {
+  try {
+    const { id } = parseUuidParam(req.params);
+    const orgId = req.query.organizationId as string;
+    if (!orgId) {
+      res.status(400).json({ error: "organizationId is required" });
+      return;
+    }
+
+    const [route] = await db
+      .select()
+      .from(routesTable)
+      .where(and(eq(routesTable.id, id), eq(routesTable.organizationId, orgId)));
+    if (!route) {
+      res.status(404).json({ error: "Route not found" });
+      return;
+    }
+
+    let vehicle = null;
+    if (route.vehicleId) {
+      const [v] = await db.select().from(vehiclesTable).where(eq(vehiclesTable.id, route.vehicleId));
+      vehicle = v || null;
+    }
+
+    const stops = await db
+      .select()
+      .from(stopsTable)
+      .where(eq(stopsTable.routeId, id))
+      .orderBy(stopsTable.sequenceOrder);
+
+    const plannedCoords = stops.map((s) => ({ lat: s.latitude, lng: s.longitude, address: s.address, status: s.status }));
+    const completedStops = stops.filter((s) => s.status === "completed");
+    const failedStops = stops.filter((s) => s.status === "failed");
+    const skippedStops = stops.filter((s) => s.status === "skipped");
+    const pendingStops = stops.filter((s) => s.status === "pending" || s.status === "in_progress");
+
+    let plannedDistanceKm = 0;
+    for (let i = 1; i < stops.length; i++) {
+      plannedDistanceKm += haversineKm(stops[i - 1].latitude, stops[i - 1].longitude, stops[i].latitude, stops[i].longitude);
+    }
+
+    let actualDistanceKm = 0;
+    for (let i = 1; i < completedStops.length; i++) {
+      actualDistanceKm += haversineKm(completedStops[i - 1].latitude, completedStops[i - 1].longitude, completedStops[i].latitude, completedStops[i].longitude);
+    }
+
+    const plannedDurationMin = route.totalDurationMin || stops.length * 15;
+    const actualServiceMin = completedStops.reduce((sum, s) => sum + (s.serviceDurationMin || 15), 0);
+
+    const completionRate = stops.length > 0 ? Math.round((completedStops.length / stops.length) * 100) : 0;
+
+    res.json({
+      route: {
+        id: route.id,
+        name: route.name,
+        status: route.status,
+        date: route.date,
+        vehicleName: vehicle ? `${vehicle.name} (${vehicle.licensePlate})` : null,
+      },
+      planned: {
+        totalStops: stops.length,
+        distanceKm: Math.round(plannedDistanceKm * 10) / 10,
+        durationMin: plannedDurationMin,
+        co2Kg: route.co2EmissionsKg || 0,
+        coordinates: plannedCoords,
+      },
+      actual: {
+        completedStops: completedStops.length,
+        failedStops: failedStops.length,
+        skippedStops: skippedStops.length,
+        pendingStops: pendingStops.length,
+        distanceKm: Math.round(actualDistanceKm * 10) / 10,
+        serviceDurationMin: actualServiceMin,
+        completionRate,
+        coordinates: completedStops.map((s) => ({ lat: s.latitude, lng: s.longitude, address: s.address })),
+      },
+      stops: stops.map((s) => ({
+        id: s.id,
+        address: s.address,
+        status: s.status,
+        sequenceOrder: s.sequenceOrder,
+        latitude: s.latitude,
+        longitude: s.longitude,
+        serviceDurationMin: s.serviceDurationMin,
+      })),
+    });
+  } catch (err) {
+    handleError(res, err);
+  }
+});
+
 export default router;

@@ -35,6 +35,8 @@ import {
   GripVertical,
   Save,
   BookTemplate,
+  BarChart3,
+  RotateCcw,
 } from "lucide-react";
 
 const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
@@ -126,6 +128,28 @@ export default function RouteDetail({ id }: RouteDetailProps) {
     },
   });
 
+  const rescheduleMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/routes/${id}/reschedule-failed?organizationId=${ORG_ID}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to reschedule");
+      }
+      return res.json();
+    },
+    onSuccess: (newRoute: { id: string }) => {
+      toast({ title: t("reschedule.success"), description: t("reschedule.successDesc") });
+      navigate(`/routes/${newRoute.id}`);
+    },
+    onError: (err: Error) => {
+      const msg = err.message.includes("No failed stops") ? t("reschedule.noFailed") : err.message;
+      toast({ title: t("common.error"), description: msg, variant: "destructive" });
+    },
+  });
+
   const sortedStops = useMemo(() => {
     if (!stops) return [];
     return [...stops].sort((a, b) => (a.sequenceOrder || 0) - (b.sequenceOrder || 0));
@@ -154,6 +178,7 @@ export default function RouteDetail({ id }: RouteDetailProps) {
   }, [vehicle, drivers]);
 
   const completedCount = sortedStops.filter((s) => s.status === "completed").length;
+  const failedCount = sortedStops.filter((s) => s.status === "failed").length;
   const totalCount = sortedStops.length;
   const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
@@ -270,16 +295,27 @@ export default function RouteDetail({ id }: RouteDetailProps) {
               {route.date ? format(new Date(route.date), "PPP", { locale: dateLocale }) : t("common.noDate")}
             </p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2"
-            onClick={() => saveTemplateMutation.mutate()}
-            disabled={saveTemplateMutation.isPending}
-          >
-            <BookTemplate className="h-4 w-4" />
-            {t("routeDetail.saveAsTemplate")}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => navigate(`/routes/${id}/compare`)}
+            >
+              <BarChart3 className="h-4 w-4" />
+              {t("routeComparison.compare")}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => saveTemplateMutation.mutate()}
+              disabled={saveTemplateMutation.isPending}
+            >
+              <BookTemplate className="h-4 w-4" />
+              {t("routeDetail.saveAsTemplate")}
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
@@ -342,9 +378,23 @@ export default function RouteDetail({ id }: RouteDetailProps) {
           <div className="p-4 rounded-xl border border-border bg-card">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium">{t("routeDetail.progress")}</span>
-              <span className="text-sm text-muted-foreground">
-                {completedCount}/{totalCount} {t("routeDetail.delivered")}
-              </span>
+              <div className="flex items-center gap-3">
+                {failedCount > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2 text-xs border-destructive/30 text-destructive hover:bg-destructive/10"
+                    onClick={() => rescheduleMutation.mutate()}
+                    disabled={rescheduleMutation.isPending}
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    {t("reschedule.button")} ({failedCount})
+                  </Button>
+                )}
+                <span className="text-sm text-muted-foreground">
+                  {completedCount}/{totalCount} {t("routeDetail.delivered")}
+                </span>
+              </div>
             </div>
             <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden">
               <div

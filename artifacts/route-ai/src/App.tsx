@@ -20,6 +20,7 @@ import TrackingPage from "@/pages/TrackingPage";
 import DriverView from "@/pages/DriverView";
 import DriverPerformance from "@/pages/DriverPerformance";
 import Analytics from "@/pages/Analytics";
+import RouteComparison from "@/pages/RouteComparison";
 import NotFound from "@/pages/not-found";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { CommandPalette } from "@/components/CommandPalette";
@@ -46,6 +47,9 @@ function AppRouter() {
       <Route path="/dispatch" component={Dispatch} />
       <Route path="/routes" component={Routes} />
       <Route path="/routes/create" component={CreateRoute} />
+      <Route path="/routes/:id/compare">
+        {(params) => <RouteComparison id={params.id} />}
+      </Route>
       <Route path="/routes/:id">
         {(params) => <RouteDetail id={params.id} />}
       </Route>

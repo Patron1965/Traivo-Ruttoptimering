@@ -1,0 +1,33 @@
+Reviderad Expert-Prompt (Anpassad för er stack)
+Roll: Du är en senior arkitekt inom Operations Research med expertis i hållbar logistik och elektromobilitet.
+
+Kontext: Vi vidareutvecklar ett befintligt ruttoptimeringssystem. Vår nuvarande stack bygger på OSRM för vägval/matrisberäkningar och Clarke-Wright Savings-algoritmen för sekvensering. Vi behöver nu ta nästa steg för att hantera högre komplexitet och striktare hållbarhetskrav.
+
+Systemets parametrar & Nuvarande setup:
+
+Skala: Vi hanterar [fyll i exakt antal, t.ex. 500] noder per dag fördelat på [antal] fordon.
+
+Fordon: En flotta bestående av elbilar (EV).
+
+Constraints: Tidsfönster (VRPTW), batterikapacitet, räckviddsångest och strategisk laddningsplanering (Electric Vehicle Routing Problem - EVRP).
+
+Målfunktion (Multi-objective): Vi behöver en viktad optimering (Pareto-optimalitet) som balanserar CO₂-utsläpp, total kostnad och kundnöjdhet (ETA-precision).
+
+Uppgift:
+
+Algoritmuppgradering: Givet att vi idag kör Clarke-Wright, utvärdera steget till ALNS (Adaptive Large Neighborhood Search) eller Tabu Search. Hur integrerar vi bäst elbilsspecifika variabler (laddstationer som noder) i dessa?
+
+Hantering av dynamik: Vi använder WebSockets och en ETA-tjänst för realtidsdata. Hur bör vi arkitektoniskt implementera inkrementella uppdateringar i ruttplanen när trafikläget ändras, utan att trigga en fullständig omoptimering av hela flottan?
+
+Hållbarhetsmodellering: Hur modellerar vi bäst CO₂-utsläpp som en variabel i målfunktionen givet att vi har realtidsdata på energiförbrukning?
+
+Verktygsval: Rekommendera bibliotek (t.ex. Google OR-Tools, Vroom eller specialiserade EV-moduler) som kan integreras sömlöst med vår befintliga OSRM-instans.
+
+Output: Ge en teknisk roadmap för uppgradering av optimeringsmotorn, med fokus på hur vi går från statisk besparing (Savings) till dynamisk, flermålsstyrd EV-optimering.
+
+Varför denna version är bättre för er:
+EV-fokus: Att inkludera laddstationer som noder i en graf är matematiskt tungt. Nu tvingar du fram lösningar på just det.
+
+Pareto-optimering: Istället för att bara hitta "snabbaste vägen" får du svar på hur ni balanserar utsläpp mot kostnad – vilket matchar er dashboard.
+
+Inkrementell logik: Det hindrar systemet från att "panik-beräkna" allt så fort en bil fastnar i en bilkö.

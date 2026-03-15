@@ -515,5 +515,33 @@
     "status_in_progress": "Pågående",
     "status_completed": "Slutförd",
     "status_cancelled": "Avbruten"
+  },
+  "reschedule": {
+    "button": "Omplanera misslyckade",
+    "success": "Ny rutt skapad",
+    "successDesc": "Misslyckade stopp har omplanerades till en ny rutt",
+    "noFailed": "Inga misslyckade stopp att omplanera"
+  },
+  "routeComparison": {
+    "title": "Ruttjämförelse",
+    "subtitle": "Planerad vs faktisk rutt",
+    "planned": "Planerad",
+    "actual": "Faktisk",
+    "difference": "Avvikelse",
+    "stops": "Stopp",
+    "distance": "Sträcka",
+    "duration": "Tid",
+    "co2": "CO₂",
+    "completionRate": "Slutförandegrad",
+    "completed": "Slutförda",
+    "failed": "Misslyckade",
+    "skipped": "Hoppade över",
+    "pending": "Väntande",
+    "plannedRoute": "Planerad rutt",
+    "actualRoute": "Faktisk rutt",
+    "stopBreakdown": "Stoppfördelning",
+    "compare": "Jämför",
+    "backToRoute": "Tillbaka till rutt",
+    "noData": "Ingen jämförelsedata tillgänglig"
   }
 }

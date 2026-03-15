@@ -50,6 +50,8 @@
     "framer-motion": "catalog:",
     "i18next": "^25.8.18",
     "input-otp": "^1.4.2",
+    "jspdf": "^4.2.0",
+    "jspdf-autotable": "^5.0.7",
     "leaflet": "^1.9.4",
     "lucide-react": "catalog:",
     "next-themes": "^0.4.6",

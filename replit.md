@@ -42,6 +42,10 @@ The frontend, `artifacts/route-ai`, is a React + Vite application featuring a da
 - **Dispatch Gantt Timeline:** A specialized interface for dispatchers with map and timeline split, enabling drag-and-drop stop reassignment between drivers.
 - **Driver Mobile View:** A simplified, touch-friendly interface for drivers to manage deliveries.
 - **Analytics:** Route analytics with date range filters and trend/breakdown charts.
+- **Theme Toggle:** Dark/light theme support with localStorage persistence and sun/moon toggle in the sidebar.
+- **Route Comparison:** Planned vs actual route comparison page with KPI delta cards, dual-polyline Leaflet map, and stop breakdown charts.
+- **PDF Reports:** Client-side PDF export (jspdf + jspdf-autotable) for analytics summaries and driver performance reports.
+- **Return Handling:** Reschedule failed delivery stops into a new draft route for the next day via POST `/api/routes/:id/reschedule-failed`.
 
 **System Design Choices:**
 - **Rate Limiting:** Per-tenant rate limiting implemented in the API server.
@@ -67,3 +71,4 @@ The frontend, `artifacts/route-ai`, is a React + Vite application featuring a da
 - **Internationalization:** `i18next`, `react-i18next`
 - **Command Palette:** `cmdk`
 - **AI Model:** OpenAI (specifically `gpt-5-mini` mentioned in context of AI Chat)
+- **PDF Generation:** `jspdf`, `jspdf-autotable`

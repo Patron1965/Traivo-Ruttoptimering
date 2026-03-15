@@ -14,7 +14,9 @@ import {
   CheckCircle2,
   Route as RouteIcon,
   Calendar,
+  FileDown,
 } from "lucide-react";
+import { exportAnalyticsPdf } from "@/lib/pdf-export";
 import {
   AreaChart,
   Area,
@@ -123,6 +125,26 @@ export default function Analytics() {
             </h1>
             <p className="text-sm text-muted-foreground mt-1">{t("analytics.subtitle")}</p>
           </div>
+          <div className="flex items-center gap-3">
+          {data && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() =>
+                exportAnalyticsPdf({
+                  title: t("analytics.title"),
+                  dateRange: t(`analytics.range_${dateRange}`),
+                  summary: data.summary,
+                  vehicleBreakdown: data.vehicleTypeBreakdown,
+                  statusBreakdown: data.statusBreakdown,
+                })
+              }
+            >
+              <FileDown className="h-4 w-4" />
+              PDF
+            </Button>
+          )}
           <div className="flex gap-1 bg-card border border-border rounded-xl p-1">
             {(["7d", "30d", "90d", "all"] as const).map((range) => (
               <Button
@@ -135,6 +157,7 @@ export default function Analytics() {
                 {t(`analytics.range_${range}`)}
               </Button>
             ))}
+          </div>
           </div>
         </div>
 
