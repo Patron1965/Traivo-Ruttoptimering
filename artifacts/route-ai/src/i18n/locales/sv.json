@@ -171,7 +171,12 @@
     "chargingStopsInserted": "{{count}} laddningsstopp infogade",
     "stopsCouldntBeAssigned": "{{count}} stopp kunde inte tilldelas",
     "selectStopsAndVehicles": "V\u00e4lj stopp och fordon f\u00f6r att f\u00f6rhandsgranska optimering",
-    "loadingPlanner": "Laddar planeraren..."
+    "loadingPlanner": "Laddar planeraren...",
+    "optimizationWeights": "Optimeringsvikter",
+    "distanceWeight": "Avstånd",
+    "co2Weight": "CO₂-utsläpp",
+    "etaPrecisionWeight": "ETA-precision",
+    "alnsOptimizer": "ALNS Multikriterier"
   },
   "sustainability": {
     "title": "H\u00e5llbarhet",
@@ -193,7 +198,10 @@
     "fossilCo2": "Fossil CO\u2082",
     "evCo2": "EV CO\u2082",
     "hybridCo2": "Hybrid CO\u2082",
-    "hybridEmissions": "Hybridutsl\u00e4pp"
+    "hybridEmissions": "Hybridutsl\u00e4pp",
+    "optimizationMetrics": "Optimeringsmått",
+    "timeWindowSlack": "Tidsfönsterslack",
+    "optimizerUsed": "Optimerare"
   },
   "vehicles": {
     "title": "Fordonshantering",

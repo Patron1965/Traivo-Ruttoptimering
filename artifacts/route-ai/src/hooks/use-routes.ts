@@ -1,11 +1,11 @@
-import { useQueryClient, useQuery } from "@tanstack/react-query";
+import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import {
   useListRoutes as useGeneratedListRoutes,
   useGetRouteStops as useGeneratedGetRouteStops,
-  useOptimizeRoutes as useGeneratedOptimizeRoutes,
   useCreateRoute as useGeneratedCreateRoute,
   useDeleteRoute as useGeneratedDeleteRoute,
   useUpdateRoute as useGeneratedUpdateRoute,
+  type OptimizeResponse,
 } from "@workspace/api-client-react";
 import type { Route } from "@workspace/api-client-react";
 import { ORG_ID } from "@/lib/constants";
@@ -44,15 +44,41 @@ export function useRouteStops(routeId: string) {
   });
 }
 
+export interface OptimizationWeights {
+  distanceWeight: number;
+  co2Weight: number;
+  etaPrecisionWeight: number;
+}
+
+interface OptimizeParams {
+  organizationId: string;
+  vehicleIds: string[];
+  stopIds: string[];
+  depotLatitude: number;
+  depotLongitude: number;
+  optimizationWeights?: OptimizationWeights;
+}
+
 export function useOptimizeRoutes() {
   const queryClient = useQueryClient();
-  return useGeneratedOptimizeRoutes({
-    mutation: {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ["/api/routes"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/stops"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
-      },
+  return useMutation<OptimizeResponse, Error, { data: OptimizeParams }>({
+    mutationKey: ["optimizeRoutes"],
+    mutationFn: async ({ data }) => {
+      const res = await fetch("/api/optimize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Optimization failed" }));
+        throw new Error(err.error || "Optimization failed");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/routes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stops"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
     },
   });
 }

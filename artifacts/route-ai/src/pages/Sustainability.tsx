@@ -1,7 +1,7 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useSustainabilityStats } from "@/hooks/use-sustainability";
 import { LoadingState, ErrorState } from "@/components/ui/LoadingState";
-import { Leaf, TreePine, TrendingDown, Zap, Fuel, Car } from "lucide-react";
+import { Leaf, TreePine, TrendingDown, Zap, Fuel, Car, Target, Clock, CheckCircle2, AlertTriangle } from "lucide-react";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -56,6 +56,14 @@ export default function Sustainability() {
   if (error || !stats) return <AppLayout><ErrorState error={error} /></AppLayout>;
 
   const hybridCo2Kg = stats.hybridCo2Kg ?? 0;
+  const etaMetrics = (stats as Record<string, unknown>).etaMetrics as {
+    avgTimeWindowSlackMin: number;
+    stopsWithTimeWindows: number;
+    stopsOnTime: number;
+    stopsLate: number;
+    avgDurationMin: number;
+    totalRoutes: number;
+  } | undefined;
 
   const pieData = [
     { name: t("sustainability.fossilCo2"), value: stats.fossilCo2Kg, color: "#F59E0B" },
@@ -92,6 +100,75 @@ export default function Sustainability() {
             <KpiCard title={t("sustainability.hybridEmissions")} value={`${hybridCo2Kg.toFixed(1)} kg`} icon={<Car className="h-5 w-5 text-violet-500" />} />
           )}
         </div>
+
+        <div className="bg-card rounded-2xl border border-card-border p-6 shadow-xl shadow-black/5">
+          <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+            <Target className="h-5 w-5 text-primary" /> {t("sustainability.optimizationMetrics")}
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="rounded-xl bg-muted/30 p-4 border border-border/50">
+              <p className="text-xs text-muted-foreground mb-1">{t("sustainability.optimizerUsed")}</p>
+              <p className="text-lg font-bold">ALNS</p>
+              <p className="text-xs text-muted-foreground mt-1">Adaptive Large Neighborhood Search</p>
+            </div>
+            <div className="rounded-xl bg-muted/30 p-4 border border-border/50">
+              <p className="text-xs text-muted-foreground mb-1">{t("sustainability.co2Saved")}</p>
+              <p className="text-lg font-bold text-emerald-500">{stats.co2SavedKg.toFixed(1)} kg</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {stats.totalCo2Kg > 0 ? `${((stats.co2SavedKg / (stats.co2SavedKg + stats.totalCo2Kg)) * 100).toFixed(0)}% reduction vs all-fossil` : "—"}
+              </p>
+            </div>
+            <div className="rounded-xl bg-muted/30 p-4 border border-border/50">
+              <p className="text-xs text-muted-foreground mb-1">{t("sustainability.totalCo2")}</p>
+              <p className="text-lg font-bold">{stats.totalCo2Kg.toFixed(1)} kg</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {stats.routeBreakdown.length} {t("common.route").toLowerCase()}(s) tracked
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {etaMetrics && (
+          <div className="bg-card rounded-2xl border border-card-border p-6 shadow-xl shadow-black/5">
+            <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+              <Clock className="h-5 w-5 text-blue-500" /> ETA Precision & Time-Window Performance
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="rounded-xl bg-muted/30 p-4 border border-border/50">
+                <p className="text-xs text-muted-foreground mb-1">Avg Time-Window Slack</p>
+                <p className="text-lg font-bold">{etaMetrics.avgTimeWindowSlackMin.toFixed(1)} min</p>
+                <p className="text-xs text-muted-foreground mt-1">Buffer per stop</p>
+              </div>
+              <div className="rounded-xl bg-muted/30 p-4 border border-border/50">
+                <p className="text-xs text-muted-foreground mb-1">On-Time Deliveries</p>
+                <p className="text-lg font-bold text-emerald-500 flex items-center gap-1">
+                  <CheckCircle2 className="h-4 w-4" /> {etaMetrics.stopsOnTime}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {etaMetrics.stopsWithTimeWindows > 0
+                    ? `${Math.round((etaMetrics.stopsOnTime / etaMetrics.stopsWithTimeWindows) * 100)}% of windowed stops`
+                    : "No windowed stops yet"}
+                </p>
+              </div>
+              <div className="rounded-xl bg-muted/30 p-4 border border-border/50">
+                <p className="text-xs text-muted-foreground mb-1">Late Deliveries</p>
+                <p className={`text-lg font-bold flex items-center gap-1 ${etaMetrics.stopsLate > 0 ? "text-amber-500" : "text-emerald-500"}`}>
+                  <AlertTriangle className="h-4 w-4" /> {etaMetrics.stopsLate}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {etaMetrics.stopsWithTimeWindows} stops with time windows
+                </p>
+              </div>
+              <div className="rounded-xl bg-muted/30 p-4 border border-border/50">
+                <p className="text-xs text-muted-foreground mb-1">Avg Route Duration</p>
+                <p className="text-lg font-bold">{etaMetrics.avgDurationMin.toFixed(0)} min</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Across {etaMetrics.totalRoutes} route(s)
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="bg-card rounded-2xl border border-card-border p-6 shadow-xl shadow-black/5">
           <h2 className="text-lg font-bold mb-1">{t("sustainability.treesEquivalent")}</h2>

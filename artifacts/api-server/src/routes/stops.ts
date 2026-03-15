@@ -8,6 +8,7 @@ import {
   ImportStopsBody,
 } from "@workspace/api-zod";
 import { handleError, parseUuidParam } from "../lib/errors";
+import { getDistanceCache } from "../services/alns";
 
 const router: IRouter = Router();
 
@@ -47,6 +48,10 @@ router.post("/stops/import", async (req, res) => {
     const created = await db.transaction(async (tx) => {
       return tx.insert(stopsTable).values(values).returning();
     });
+    const cache = getDistanceCache();
+    for (const s of created) {
+      cache.invalidate(s.latitude, s.longitude);
+    }
     res.status(201).json({ imported: created.length, stops: created });
   } catch (err) {
     handleError(res, err);
@@ -77,6 +82,7 @@ router.post("/stops", async (req, res) => {
   try {
     const data = CreateStopBody.parse(req.body);
     const [stop] = await db.insert(stopsTable).values(data).returning();
+    getDistanceCache().invalidate(stop.latitude, stop.longitude);
     res.status(201).json(stop);
   } catch (err) {
     handleError(res, err);
@@ -104,6 +110,11 @@ router.put("/stops/:id", async (req, res) => {
     if (!stop) {
       res.status(404).json({ error: "Stop not found" });
       return;
+    }
+
+    if (existing && (existing.latitude !== stop.latitude || existing.longitude !== stop.longitude)) {
+      getDistanceCache().invalidate(existing.latitude, existing.longitude);
+      getDistanceCache().invalidate(stop.latitude, stop.longitude);
     }
 
     if (existing && existing.status !== "failed" && stop.status === "failed") {
@@ -150,6 +161,7 @@ router.delete("/stops/:id", async (req, res) => {
       res.status(404).json({ error: "Stop not found" });
       return;
     }
+    getDistanceCache().invalidate(deleted.latitude, deleted.longitude);
     res.status(204).send();
   } catch (err) {
     handleError(res, err);

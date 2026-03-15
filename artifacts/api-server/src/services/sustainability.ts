@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { db, routesTable, vehiclesTable } from "@workspace/db";
+import { db, routesTable, vehiclesTable, stopsTable } from "@workspace/db";
 import { calculateCo2Kg, baselineFossilCo2Kg, EMISSION_PROFILES } from "../lib/co2-profiles";
 
 export interface SustainabilityStats {
@@ -11,6 +11,7 @@ export interface SustainabilityStats {
   treesEquivalent: number;
   emissionProfiles: typeof EMISSION_PROFILES;
   routeBreakdown: RouteBreakdownItem[];
+  etaMetrics: EtaMetrics;
 }
 
 interface RouteBreakdownItem {
@@ -21,6 +22,15 @@ interface RouteBreakdownItem {
   distanceKm: number;
   co2Kg: number;
   date: string;
+}
+
+export interface EtaMetrics {
+  avgTimeWindowSlackMin: number;
+  stopsWithTimeWindows: number;
+  stopsOnTime: number;
+  stopsLate: number;
+  avgDurationMin: number;
+  totalRoutes: number;
 }
 
 export async function calculateSustainabilityStats(organizationId: string): Promise<SustainabilityStats> {
@@ -76,6 +86,62 @@ export async function calculateSustainabilityStats(organizationId: string): Prom
   const co2SavedKg = Math.max(0, allFossilCo2 - totalCo2Kg);
   const treesEquivalent = Math.round((co2SavedKg / 21.77) * 10) / 10;
 
+  const routeIds = routeData.map(r => r.routeId);
+  let etaMetrics: EtaMetrics = {
+    avgTimeWindowSlackMin: 0,
+    stopsWithTimeWindows: 0,
+    stopsOnTime: 0,
+    stopsLate: 0,
+    avgDurationMin: 0,
+    totalRoutes: routeData.length,
+  };
+
+  if (routeIds.length > 0) {
+    const allStops = [];
+    for (const routeId of routeIds) {
+      const stops = await db.select().from(stopsTable).where(eq(stopsTable.routeId, routeId));
+      allStops.push(...stops);
+    }
+
+    let totalSlackMin = 0;
+    let timeWindowCount = 0;
+    let onTimeCount = 0;
+    let lateCount = 0;
+
+    for (const stop of allStops) {
+      if (stop.timeWindowStart && stop.timeWindowEnd) {
+        timeWindowCount++;
+        const windowDurationMin = (stop.timeWindowEnd.getTime() - stop.timeWindowStart.getTime()) / 60000;
+        const slackMin = Math.max(0, windowDurationMin - stop.serviceDurationMin);
+        totalSlackMin += slackMin;
+
+        if (stop.status === "completed" || stop.status === "pending" || stop.status === "in_progress") {
+          onTimeCount++;
+        } else if (stop.status === "failed" || stop.status === "skipped") {
+          lateCount++;
+        }
+      }
+    }
+
+    const routesWithDuration = await db.select({
+      id: routesTable.id,
+      durationMin: routesTable.totalDurationMin,
+    }).from(routesTable).where(eq(routesTable.organizationId, organizationId));
+
+    const avgDuration = routesWithDuration.length > 0
+      ? routesWithDuration.reduce((sum, r) => sum + Number(r.durationMin ?? 0), 0) / routesWithDuration.length
+      : 0;
+
+    etaMetrics = {
+      avgTimeWindowSlackMin: timeWindowCount > 0 ? Math.round(totalSlackMin / timeWindowCount * 10) / 10 : 0,
+      stopsWithTimeWindows: timeWindowCount,
+      stopsOnTime: onTimeCount,
+      stopsLate: lateCount,
+      avgDurationMin: Math.round(avgDuration * 10) / 10,
+      totalRoutes: routeData.length,
+    };
+  }
+
   return {
     totalCo2Kg: Math.round(totalCo2Kg * 100) / 100,
     fossilCo2Kg: Math.round(fossilCo2Kg * 100) / 100,
@@ -85,5 +151,6 @@ export async function calculateSustainabilityStats(organizationId: string): Prom
     treesEquivalent,
     emissionProfiles: EMISSION_PROFILES,
     routeBreakdown,
+    etaMetrics,
   };
 }

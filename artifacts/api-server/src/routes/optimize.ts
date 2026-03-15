@@ -4,7 +4,22 @@ import { db, vehiclesTable, stopsTable, routesTable, notificationsTable } from "
 import { OptimizeRoutesBody } from "@workspace/api-zod";
 import { handleError } from "../lib/errors";
 import crypto from "crypto";
+import { z } from "zod";
 import { estimateDurationMinPredictive, getTrafficDescription } from "../services/eta";
+import {
+  optimizeWithALNS,
+  reoptimizeAffectedRoutes,
+  haversineDistance,
+  estimateCo2,
+  cachedDistance,
+  getDistanceCache,
+  type ALNSNode,
+  type ALNSVehicle,
+  type ALNSRoute,
+  type ALNSConfig,
+  type OptimizationWeights,
+} from "../services/alns";
+import { broadcast } from "../ws";
 
 function generateTrackingCodeRaw(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -31,60 +46,10 @@ async function generateUniqueTrackingCode(): Promise<string> {
   return `RT-${fallback}`;
 }
 
-const CHARGING_STATIONS = [
-  { id: "cs-1", name: "Ionity Stockholm North", latitude: 59.3850, longitude: 18.0200 },
-  { id: "cs-2", name: "Recharge Solna", latitude: 59.3600, longitude: 18.0000 },
-  { id: "cs-3", name: "Tesla SC Kista", latitude: 59.4050, longitude: 17.9450 },
-  { id: "cs-4", name: "Vattenfall Södermalm", latitude: 59.3150, longitude: 18.0700 },
-  { id: "cs-5", name: "Mer Hammarby", latitude: 59.3050, longitude: 18.1000 },
-  { id: "cs-6", name: "Ionity Nacka", latitude: 59.3100, longitude: 18.1600 },
-  { id: "cs-7", name: "Recharge Bromma", latitude: 59.3400, longitude: 17.9400 },
-  { id: "cs-8", name: "E.ON Järfälla", latitude: 59.4300, longitude: 17.8700 },
-  { id: "cs-9", name: "Fortum Lidingö", latitude: 59.3700, longitude: 18.1500 },
-  { id: "cs-10", name: "ChargeNode Danderyd", latitude: 59.3950, longitude: 18.0600 },
-];
-
-const CHARGING_DURATION_MIN = 30;
-
-interface ChargingStopInserted {
-  stationId: string;
-  stationName: string;
-  latitude: number;
-  longitude: number;
-  insertedAfterStopIndex: number;
-}
-
-function findNearestChargingStation(lat: number, lon: number): typeof CHARGING_STATIONS[0] {
-  let best = CHARGING_STATIONS[0];
-  let bestDist = Infinity;
-  for (const station of CHARGING_STATIONS) {
-    const d = haversineDistance(lat, lon, station.latitude, station.longitude);
-    if (d < bestDist) {
-      bestDist = d;
-      best = station;
-    }
-  }
-  return best;
-}
-
-function haversineDistance(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number
-): number {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
+const EMISSION_PROFILES: Record<string, { gCo2PerKm: number; loadFactor: number }> = {
+  fossil:   { gCo2PerKm: 210, loadFactor: 1.15 },
+  electric: { gCo2PerKm: 50,  loadFactor: 1.05 },
+};
 
 function estimateDurationMin(distanceKm: number, departureTime?: Date): number {
   if (departureTime) {
@@ -94,331 +59,49 @@ function estimateDurationMin(distanceKm: number, departureTime?: Date): number {
   return (distanceKm / avgSpeedKmH) * 60;
 }
 
-const EMISSION_PROFILES: Record<string, { gCo2PerKm: number; loadFactor: number }> = {
-  fossil:   { gCo2PerKm: 210, loadFactor: 1.15 },
-  electric: { gCo2PerKm: 50,  loadFactor: 1.05 },
-};
+const OptimizationWeightsSchema = z.object({
+  distanceWeight: z.number().min(0).max(1).optional().default(0.5),
+  co2Weight: z.number().min(0).max(1).optional().default(0.3),
+  etaPrecisionWeight: z.number().min(0).max(1).optional().default(0.2),
+});
 
-function estimateCo2(distanceKm: number, vehicleType: string, loadKg = 0, capacityKg = 1000): number {
-  const profile = EMISSION_PROFILES[vehicleType] ?? EMISSION_PROFILES.fossil;
-  const loadRatio = capacityKg > 0 ? Math.min(loadKg / capacityKg, 1) : 0;
-  const loadAdjustment = 1 + loadRatio * (profile.loadFactor - 1);
-  return (distanceKm * profile.gCo2PerKm * loadAdjustment) / 1000;
+function normalizeWeights(w: { distanceWeight: number; co2Weight: number; etaPrecisionWeight: number }): OptimizationWeights {
+  const sum = w.distanceWeight + w.co2Weight + w.etaPrecisionWeight;
+  if (sum === 0) return { distanceWeight: 0.5, co2Weight: 0.3, etaPrecisionWeight: 0.2 };
+  return {
+    distanceWeight: w.distanceWeight / sum,
+    co2Weight: w.co2Weight / sum,
+    etaPrecisionWeight: w.etaPrecisionWeight / sum,
+  };
 }
 
-interface StopData {
-  id: string;
-  latitude: number;
-  longitude: number;
-  timeWindowStart: Date | null;
-  timeWindowEnd: Date | null;
-  serviceDurationMin: number;
-  weightKg: number | null;
-  volumeM3: number | null;
-}
+const ExtendedOptimizeBody = OptimizeRoutesBody.extend({
+  optimizationWeights: OptimizationWeightsSchema.optional(),
+  timeBudgetMs: z.number().min(1000).max(30000).optional().default(30000),
+});
 
-interface VehicleData {
-  id: string;
-  vehicleType: string;
-  capacityKg: number;
-  capacityVolume: number;
-  rangeKm: number | null;
-}
-
-interface VehicleAssignment {
-  stops: StopData[];
-  totalWeight: number;
-  totalVolume: number;
-  currentTime: Date;
-  totalDistanceKm: number;
-  chargingStops: ChargingStopInserted[];
-  rangeUsedKm: number;
-}
-
-function isTimeWindowFeasible(stop: StopData, arrivalTime: Date): boolean {
-  if (stop.timeWindowEnd && arrivalTime.getTime() > stop.timeWindowEnd.getTime()) {
-    return false;
-  }
-  return true;
-}
-
-interface CWRoute {
-  stops: StopData[];
-  totalWeight: number;
-  totalVolume: number;
-}
-
-interface RouteSimResult {
-  feasible: boolean;
-  totalDistanceKm: number;
-  endTime: Date;
-  rangeUsedKm: number;
-  chargingStops: ChargingStopInserted[];
-}
-
-function simulateRouteWithCharging(
-  stops: StopData[],
-  vehicle: VehicleData | null,
-  depotLat: number,
-  depotLon: number,
-  startTime: Date
-): RouteSimResult {
-  let currentTime = new Date(startTime);
-  let prevLat = depotLat;
-  let prevLon = depotLon;
-  let totalDist = 0;
-  let rangeUsed = 0;
-  const chargingStops: ChargingStopInserted[] = [];
-
-  for (let i = 0; i < stops.length; i++) {
-    const stop = stops[i];
-    const dist = haversineDistance(prevLat, prevLon, stop.latitude, stop.longitude);
-
-    if (vehicle?.rangeKm) {
-      const returnDist = haversineDistance(stop.latitude, stop.longitude, depotLat, depotLon);
-      if (rangeUsed + dist + returnDist > vehicle.rangeKm * 0.9) {
-        const station = findNearestChargingStation(prevLat, prevLon);
-        const distToStation = haversineDistance(prevLat, prevLon, station.latitude, station.longitude);
-        const distFromStation = haversineDistance(station.latitude, station.longitude, stop.latitude, stop.longitude);
-        const returnAfterCharge = haversineDistance(stop.latitude, stop.longitude, depotLat, depotLon);
-
-        if (distFromStation + returnAfterCharge > vehicle.rangeKm * 0.9) {
-          return { feasible: false, totalDistanceKm: totalDist, endTime: currentTime, rangeUsedKm: rangeUsed, chargingStops };
-        }
-
-        const travelToStationMin = estimateDurationMin(distToStation);
-        const travelFromStationMin = estimateDurationMin(distFromStation);
-        const chargedArrival = new Date(
-          currentTime.getTime() +
-          travelToStationMin * 60000 +
-          CHARGING_DURATION_MIN * 60000 +
-          travelFromStationMin * 60000
-        );
-
-        if (!isTimeWindowFeasible(stop, chargedArrival)) {
-          return { feasible: false, totalDistanceKm: totalDist, endTime: currentTime, rangeUsedKm: rangeUsed, chargingStops };
-        }
-
-        chargingStops.push({
-          stationId: station.id,
-          stationName: station.name,
-          latitude: station.latitude,
-          longitude: station.longitude,
-          insertedAfterStopIndex: i,
-        });
-
-        totalDist += distToStation + distFromStation;
-        currentTime = chargedArrival;
-        const effectiveStart = stop.timeWindowStart && stop.timeWindowStart.getTime() > chargedArrival.getTime()
-          ? stop.timeWindowStart
-          : chargedArrival;
-        currentTime = new Date(effectiveStart.getTime() + stop.serviceDurationMin * 60000);
-        rangeUsed = distFromStation;
-        prevLat = stop.latitude;
-        prevLon = stop.longitude;
-        continue;
-      }
-    }
-
-    totalDist += dist;
-    rangeUsed += dist;
-    const travelMin = estimateDurationMin(dist);
-    const arrival = new Date(currentTime.getTime() + travelMin * 60000);
-
-    if (!isTimeWindowFeasible(stop, arrival)) {
-      return { feasible: false, totalDistanceKm: totalDist, endTime: arrival, rangeUsedKm: rangeUsed, chargingStops };
-    }
-
-    const effectiveStart = stop.timeWindowStart && stop.timeWindowStart.getTime() > arrival.getTime()
-      ? stop.timeWindowStart
-      : arrival;
-    currentTime = new Date(effectiveStart.getTime() + stop.serviceDurationMin * 60000);
-    prevLat = stop.latitude;
-    prevLon = stop.longitude;
-  }
-
-  return { feasible: true, totalDistanceKm: totalDist, endTime: currentTime, rangeUsedKm: rangeUsed, chargingStops };
-}
-
-function clarkeWrightSavingsAssignment(
-  stops: StopData[],
-  vehicles: VehicleData[],
-  depotLat: number,
-  depotLon: number,
-  startTime: Date
-) {
-  const assigned: Map<string, VehicleAssignment> = new Map();
-  for (const v of vehicles) {
-    assigned.set(v.id, {
-      stops: [],
-      totalWeight: 0,
-      totalVolume: 0,
-      currentTime: new Date(startTime),
-      totalDistanceKm: 0,
-      chargingStops: [],
-      rangeUsedKm: 0,
-    });
-  }
-
-  if (stops.length === 0) {
-    return { assigned, unassigned: [] as StopData[] };
-  }
-
-  const cwRoutes: CWRoute[] = stops.map((s) => ({
-    stops: [s],
-    totalWeight: s.weightKg ?? 0,
-    totalVolume: s.volumeM3 ?? 0,
-  }));
-
-  const stopToRoute = new Map<string, number>();
-  for (let i = 0; i < stops.length; i++) {
-    stopToRoute.set(stops[i].id, i);
-  }
-
-  const distFromDepot = new Map<string, number>();
-  for (const s of stops) {
-    distFromDepot.set(s.id, haversineDistance(depotLat, depotLon, s.latitude, s.longitude));
-  }
-
-  interface Saving { i: number; j: number; value: number; }
-  const savings: Saving[] = [];
-  for (let i = 0; i < stops.length; i++) {
-    for (let j = i + 1; j < stops.length; j++) {
-      const dDepotI = distFromDepot.get(stops[i].id)!;
-      const dDepotJ = distFromDepot.get(stops[j].id)!;
-      const dIJ = haversineDistance(stops[i].latitude, stops[i].longitude, stops[j].latitude, stops[j].longitude);
-      const saving = dDepotI + dDepotJ - dIJ;
-      if (saving > 0) {
-        savings.push({ i, j, value: saving });
-      }
-    }
-  }
-  savings.sort((a, b) => b.value - a.value);
-
-  function isFeasibleForVehicle(routeStops: StopData[], weight: number, volume: number, v: VehicleData): boolean {
-    if (weight > v.capacityKg || volume > v.capacityVolume) return false;
-    const sim = simulateRouteWithCharging(routeStops, v, depotLat, depotLon, startTime);
-    return sim.feasible;
-  }
-
-  function isFeasibleForAnyVehicle(routeStops: StopData[], weight: number, volume: number): boolean {
-    for (const v of vehicles) {
-      if (isFeasibleForVehicle(routeStops, weight, volume, v)) return true;
-    }
-    return false;
-  }
-
-  for (const saving of savings) {
-    const routeIdxI = stopToRoute.get(stops[saving.i].id)!;
-    const routeIdxJ = stopToRoute.get(stops[saving.j].id)!;
-
-    if (routeIdxI === routeIdxJ) continue;
-
-    const routeI = cwRoutes[routeIdxI];
-    const routeJ = cwRoutes[routeIdxJ];
-
-    if (routeI.stops.length === 0 || routeJ.stops.length === 0) continue;
-
-    const mergedWeight = routeI.totalWeight + routeJ.totalWeight;
-    const mergedVolume = routeI.totalVolume + routeJ.totalVolume;
-
-    const lastOfI = routeI.stops[routeI.stops.length - 1];
-    const firstOfJ = routeJ.stops[0];
-    const firstOfI = routeI.stops[0];
-    const lastOfJ = routeJ.stops[routeJ.stops.length - 1];
-    const stopI = stops[saving.i];
-    const stopJ = stops[saving.j];
-
-    const candidates: StopData[][] = [];
-
-    if (lastOfI.id === stopI.id && firstOfJ.id === stopJ.id) {
-      candidates.push([...routeI.stops, ...routeJ.stops]);
-    } else if (lastOfJ.id === stopJ.id && firstOfI.id === stopI.id) {
-      candidates.push([...routeJ.stops, ...routeI.stops]);
-    } else if (lastOfI.id === stopJ.id && firstOfJ.id === stopI.id) {
-      candidates.push([...routeI.stops, ...routeJ.stops]);
-    } else if (lastOfJ.id === stopI.id && firstOfI.id === stopJ.id) {
-      candidates.push([...routeJ.stops, ...routeI.stops]);
-    } else if (lastOfI.id === stopI.id && lastOfJ.id === stopJ.id) {
-      candidates.push([...routeI.stops, ...[...routeJ.stops].reverse()]);
-    } else if (firstOfI.id === stopI.id && firstOfJ.id === stopJ.id) {
-      candidates.push([...[...routeI.stops].reverse(), ...routeJ.stops]);
-    } else if (lastOfI.id === stopJ.id && lastOfJ.id === stopI.id) {
-      candidates.push([...routeI.stops, ...[...routeJ.stops].reverse()]);
-    } else if (firstOfI.id === stopJ.id && firstOfJ.id === stopI.id) {
-      candidates.push([...[...routeI.stops].reverse(), ...routeJ.stops]);
-    }
-
-    for (const candidateStops of candidates) {
-      if (isFeasibleForAnyVehicle(candidateStops, mergedWeight, mergedVolume)) {
-        routeI.stops = candidateStops;
-        routeI.totalWeight = mergedWeight;
-        routeI.totalVolume = mergedVolume;
-        routeJ.stops = [];
-        routeJ.totalWeight = 0;
-        routeJ.totalVolume = 0;
-        for (const s of candidateStops) {
-          stopToRoute.set(s.id, routeIdxI);
-        }
-        break;
-      }
-    }
-  }
-
-  const activeRoutes = cwRoutes.filter((r) => r.stops.length > 0);
-  activeRoutes.sort((a, b) => b.stops.length - a.stops.length);
-
-  const unassigned: StopData[] = [];
-  const usedVehicles = new Set<string>();
-  const sortedVehicles = [...vehicles].sort((a, b) => b.capacityKg - a.capacityKg);
-
-  for (const route of activeRoutes) {
-    let bestVehicle: VehicleData | null = null;
-    let bestSim: RouteSimResult | null = null;
-    let bestScore = Infinity;
-
-    for (const v of sortedVehicles) {
-      if (usedVehicles.has(v.id)) continue;
-      if (route.totalWeight > v.capacityKg || route.totalVolume > v.capacityVolume) continue;
-
-      const sim = simulateRouteWithCharging(route.stops, v, depotLat, depotLon, startTime);
-      if (sim.feasible) {
-        const capacityUsage = route.totalWeight / v.capacityKg;
-        const score = Math.abs(capacityUsage - 0.7) + sim.totalDistanceKm * 0.01;
-        if (score < bestScore) {
-          bestVehicle = v;
-          bestSim = sim;
-          bestScore = score;
-        }
-      }
-    }
-
-    if (!bestVehicle || !bestSim) {
-      unassigned.push(...route.stops);
-      continue;
-    }
-
-    usedVehicles.add(bestVehicle.id);
-
-    const va = assigned.get(bestVehicle.id)!;
-    va.stops = route.stops;
-    va.totalWeight = route.totalWeight;
-    va.totalVolume = route.totalVolume;
-    va.totalDistanceKm = bestSim.totalDistanceKm;
-    va.rangeUsedKm = bestSim.rangeUsedKm;
-    va.currentTime = bestSim.endTime;
-    va.chargingStops = bestSim.chargingStops;
-  }
-
-  return { assigned, unassigned };
-}
+const ReoptimizeBody = z.object({
+  organizationId: z.string().uuid(),
+  routeIds: z.array(z.string().uuid()).optional(),
+  reason: z.string().optional(),
+  depotLatitude: z.number().optional(),
+  depotLongitude: z.number().optional(),
+  disruptionType: z.enum(["traffic_delay", "stop_added", "stop_cancelled", "vehicle_breakdown"]).optional(),
+  affectedStopId: z.string().uuid().optional(),
+});
 
 const router: IRouter = Router();
 
 router.post("/optimize", async (req, res) => {
   try {
-    const data = OptimizeRoutesBody.parse(req.body);
-    const { organizationId, vehicleIds, stopIds, depotLatitude, depotLongitude } = data;
+    const parsed = ExtendedOptimizeBody.parse(req.body);
+    const { organizationId, vehicleIds, stopIds, depotLatitude, depotLongitude, timeBudgetMs } = parsed;
+
+    const weights = normalizeWeights({
+      distanceWeight: parsed.optimizationWeights?.distanceWeight ?? 0.5,
+      co2Weight: parsed.optimizationWeights?.co2Weight ?? 0.3,
+      etaPrecisionWeight: parsed.optimizationWeights?.etaPrecisionWeight ?? 0.2,
+    });
 
     const vehicles = await db
       .select()
@@ -450,21 +133,44 @@ router.post("/optimize", async (req, res) => {
       return;
     }
 
-    const { assigned, unassigned } = clarkeWrightSavingsAssignment(
-      stops,
-      vehicles,
+    const alnsNodes: ALNSNode[] = stops.map(s => ({
+      id: s.id,
+      latitude: s.latitude,
+      longitude: s.longitude,
+      timeWindowStart: s.timeWindowStart,
+      timeWindowEnd: s.timeWindowEnd,
+      serviceDurationMin: s.serviceDurationMin,
+      weightKg: Number(s.weightKg) || 0,
+      volumeM3: Number(s.volumeM3) || 0,
+    }));
+
+    const alnsVehicles: ALNSVehicle[] = vehicles.map(v => ({
+      id: v.id,
+      vehicleType: v.vehicleType,
+      capacityKg: v.capacityKg,
+      capacityVolume: v.capacityVolume,
+      rangeKm: v.rangeKm,
+    }));
+
+    const startTime = new Date();
+    const result = optimizeWithALNS(
+      alnsNodes,
+      alnsVehicles,
       depotLatitude,
       depotLongitude,
-      new Date()
+      startTime,
+      { weights, timeLimitMs: timeBudgetMs }
     );
 
     const optimizedRoutes = [];
     let totalDistanceKm = 0;
     let totalDurationMin = 0;
 
-    for (const vehicle of vehicles) {
-      const va = assigned.get(vehicle.id)!;
-      if (va.stops.length === 0) continue;
+    for (const alnsRoute of result.routes) {
+      if (alnsRoute.nodes.length === 0) continue;
+
+      const vehicle = vehicles.find(v => v.id === alnsRoute.vehicleId);
+      if (!vehicle) continue;
 
       const [route] = await db
         .insert(routesTable)
@@ -474,7 +180,7 @@ router.post("/optimize", async (req, res) => {
           name: `${vehicle.name} - Optimized`,
           date: new Date(),
           status: "optimized",
-          totalStops: va.stops.length,
+          totalStops: alnsRoute.nodes.filter(n => !n.isChargingStation).length,
         })
         .returning();
 
@@ -490,95 +196,60 @@ router.post("/optimize", async (req, res) => {
       }> = [];
       let currentTime = new Date();
       let seqOrder = 0;
+      let prevLat = depotLatitude;
+      let prevLon = depotLongitude;
 
-      const chargingByIndex = new Map<number, ChargingStopInserted>();
-      for (const cs of va.chargingStops) {
-        chargingByIndex.set(cs.insertedAfterStopIndex, cs);
-      }
+      for (const node of alnsRoute.nodes) {
+        const dist = cachedDistance(prevLat, prevLon, node.latitude, node.longitude);
+        const dur = estimateDurationMin(dist, currentTime);
 
-      for (let i = 0; i < va.stops.length; i++) {
-        const chargingBefore = chargingByIndex.get(i);
-        if (chargingBefore) {
-          const prevLat = i === 0 ? depotLatitude : va.stops[i - 1].latitude;
-          const prevLon = i === 0 ? depotLongitude : va.stops[i - 1].longitude;
-          const distToStation = haversineDistance(prevLat, prevLon, chargingBefore.latitude, chargingBefore.longitude);
-          const durToStation = estimateDurationMin(distToStation, currentTime);
+        routeDistance += dist;
+        const arrivalTime = new Date(currentTime.getTime() + dur * 60000);
 
-          routeDistance += distToStation;
-          routeDuration += durToStation + CHARGING_DURATION_MIN;
+        seqOrder++;
 
-          const stationArrival = new Date(currentTime.getTime() + durToStation * 60000);
-          seqOrder++;
+        if (node.isChargingStation) {
+          const chargeDur = node.chargingDurationMin ?? 30;
+          routeDuration += dur + chargeDur;
+
           optimizedStops.push({
-            stopId: chargingBefore.stationId,
+            stopId: node.id,
             sequenceOrder: seqOrder,
-            estimatedArrival: stationArrival.toISOString(),
-            distanceFromPreviousKm: Math.round(distToStation * 100) / 100,
+            estimatedArrival: arrivalTime.toISOString(),
+            distanceFromPreviousKm: Math.round(dist * 100) / 100,
             isChargingStop: true,
-            chargingStationName: chargingBefore.stationName,
+            chargingStationName: node.chargingStationName,
           });
 
-          currentTime = new Date(stationArrival.getTime() + CHARGING_DURATION_MIN * 60000);
-
-          const distFromStation = haversineDistance(chargingBefore.latitude, chargingBefore.longitude, va.stops[i].latitude, va.stops[i].longitude);
-          const durFromStation = estimateDurationMin(distFromStation, currentTime);
-          routeDistance += distFromStation;
-          routeDuration += durFromStation + va.stops[i].serviceDurationMin;
-
-          const arrivalTime = new Date(currentTime.getTime() + durFromStation * 60000);
-          const effectiveStart = va.stops[i].timeWindowStart && va.stops[i].timeWindowStart!.getTime() > arrivalTime.getTime()
-            ? va.stops[i].timeWindowStart!
-            : arrivalTime;
-
-          seqOrder++;
-          const trackingCode1 = await generateUniqueTrackingCode();
-          await db
-            .update(stopsTable)
-            .set({ routeId: route.id, sequenceOrder: seqOrder, trackingCode: trackingCode1 })
-            .where(and(eq(stopsTable.id, va.stops[i].id), eq(stopsTable.organizationId, organizationId)));
-
-          optimizedStops.push({
-            stopId: va.stops[i].id,
-            sequenceOrder: seqOrder,
-            estimatedArrival: effectiveStart.toISOString(),
-            distanceFromPreviousKm: Math.round(distFromStation * 100) / 100,
-          });
-
-          currentTime = new Date(effectiveStart.getTime() + va.stops[i].serviceDurationMin * 60000);
+          currentTime = new Date(arrivalTime.getTime() + chargeDur * 60000);
         } else {
-          const stop = va.stops[i];
-          const prevLat = i === 0 ? depotLatitude : va.stops[i - 1].latitude;
-          const prevLon = i === 0 ? depotLongitude : va.stops[i - 1].longitude;
-          const dist = haversineDistance(prevLat, prevLon, stop.latitude, stop.longitude);
-          const dur = estimateDurationMin(dist, currentTime);
+          routeDuration += dur + node.serviceDurationMin;
 
-          routeDistance += dist;
-          routeDuration += dur + stop.serviceDurationMin;
-
-          const arrivalTime = new Date(currentTime.getTime() + dur * 60000);
-          const effectiveStart = stop.timeWindowStart && stop.timeWindowStart.getTime() > arrivalTime.getTime()
-            ? stop.timeWindowStart
+          const effectiveStart = node.timeWindowStart && node.timeWindowStart.getTime() > arrivalTime.getTime()
+            ? node.timeWindowStart
             : arrivalTime;
 
-          seqOrder++;
-          const trackingCode2 = await generateUniqueTrackingCode();
+          const trackingCode = await generateUniqueTrackingCode();
           await db
             .update(stopsTable)
-            .set({ routeId: route.id, sequenceOrder: seqOrder, trackingCode: trackingCode2 })
-            .where(and(eq(stopsTable.id, stop.id), eq(stopsTable.organizationId, organizationId)));
+            .set({ routeId: route.id, sequenceOrder: seqOrder, trackingCode })
+            .where(and(eq(stopsTable.id, node.id), eq(stopsTable.organizationId, organizationId)));
 
           optimizedStops.push({
-            stopId: stop.id,
+            stopId: node.id,
             sequenceOrder: seqOrder,
             estimatedArrival: effectiveStart.toISOString(),
             distanceFromPreviousKm: Math.round(dist * 100) / 100,
           });
 
-          currentTime = new Date(effectiveStart.getTime() + stop.serviceDurationMin * 60000);
+          currentTime = new Date(effectiveStart.getTime() + node.serviceDurationMin * 60000);
         }
+
+        prevLat = node.latitude;
+        prevLon = node.longitude;
       }
 
-      const co2 = estimateCo2(routeDistance, vehicle.vehicleType, va.totalWeight, vehicle.capacityKg);
+      const co2 = estimateCo2(routeDistance, vehicle.vehicleType, alnsRoute.totalWeight, vehicle.capacityKg);
 
       await db
         .update(routesTable)
@@ -592,6 +263,8 @@ router.post("/optimize", async (req, res) => {
       totalDistanceKm += routeDistance;
       totalDurationMin += routeDuration;
 
+      const chargingCount = alnsRoute.nodes.filter(n => n.isChargingStation).length;
+
       optimizedRoutes.push({
         vehicleId: vehicle.id,
         routeId: route.id,
@@ -599,18 +272,326 @@ router.post("/optimize", async (req, res) => {
         distanceKm: Math.round(routeDistance * 100) / 100,
         durationMin: Math.round(routeDuration * 100) / 100,
         co2EmissionsKg: Math.round(co2 * 100) / 100,
-        chargingStopsInserted: va.chargingStops.length,
+        chargingStopsInserted: chargingCount,
       });
     }
 
-    const routeDate = body.date ? new Date(body.date) : new Date();
+    const routeDate = (req.body as Record<string, unknown>).date
+      ? new Date((req.body as Record<string, unknown>).date as string)
+      : new Date();
+
     res.json({
       routes: optimizedRoutes,
       totalDistanceKm: Math.round(totalDistanceKm * 100) / 100,
       totalDurationMin: Math.round(totalDurationMin * 100) / 100,
-      unassignedStopIds: unassigned.map((s) => s.id),
+      unassignedStopIds: result.unassigned.map(n => n.id),
       trafficCondition: getTrafficDescription(routeDate),
       etaModel: "predictive",
+      optimizer: "alns",
+      optimizationWeights: weights,
+      costBreakdown: {
+        totalDistanceKm: Math.round(result.costBreakdown.totalDistanceKm * 100) / 100,
+        totalCo2Kg: Math.round(result.costBreakdown.totalCo2Kg * 100) / 100,
+        totalTimeWindowSlackMin: Math.round(result.costBreakdown.totalTimeWindowSlackMin * 100) / 100,
+      },
+    });
+  } catch (err) {
+    handleError(res, err);
+  }
+});
+
+router.post("/optimize/reoptimize", async (req, res) => {
+  try {
+    const { organizationId, routeIds: suppliedRouteIds, reason, depotLatitude, depotLongitude, disruptionType, affectedStopId } = ReoptimizeBody.parse(req.body);
+
+    let affectedRouteIds: string[] = suppliedRouteIds ?? [];
+    let additionalStopIds: string[] = [];
+
+    if (affectedRouteIds.length === 0 && disruptionType) {
+      if (disruptionType === "stop_added") {
+        if (!affectedStopId) {
+          res.status(400).json({ error: "affectedStopId is required for stop_added disruptions" });
+          return;
+        }
+        const [newStop] = await db.select().from(stopsTable).where(and(eq(stopsTable.id, affectedStopId), eq(stopsTable.organizationId, organizationId)));
+        if (!newStop) {
+          res.status(404).json({ error: "Affected stop not found" });
+          return;
+        }
+        if (newStop.routeId) {
+          affectedRouteIds = [newStop.routeId];
+        } else {
+          additionalStopIds = [newStop.id];
+          const activeRoutes = await db.select().from(routesTable).where(
+            and(eq(routesTable.organizationId, organizationId), eq(routesTable.status, "optimized"))
+          );
+          if (activeRoutes.length === 0) {
+            res.status(400).json({ error: "No optimized routes available to absorb the new stop" });
+            return;
+          }
+          const nearestRoutes = [];
+          for (const route of activeRoutes) {
+            const routeStops = await db.select().from(stopsTable).where(eq(stopsTable.routeId, route.id));
+            const minDist = Math.min(...routeStops.map(s =>
+              haversineDistance(newStop.latitude, newStop.longitude, s.latitude, s.longitude)
+            ), Infinity);
+            nearestRoutes.push({ route, minDist });
+          }
+          nearestRoutes.sort((a, b) => a.minDist - b.minDist);
+          affectedRouteIds = nearestRoutes.slice(0, 2).map(r => r.route.id);
+        }
+      } else if (disruptionType === "stop_cancelled") {
+        if (!affectedStopId) {
+          res.status(400).json({ error: "affectedStopId is required for stop_cancelled disruptions" });
+          return;
+        }
+        const [cancelledStop] = await db.select().from(stopsTable).where(and(eq(stopsTable.id, affectedStopId), eq(stopsTable.organizationId, organizationId)));
+        if (cancelledStop?.routeId) {
+          affectedRouteIds = [cancelledStop.routeId];
+        } else {
+          res.status(400).json({ error: "Cancelled stop has no assigned route to re-optimize" });
+          return;
+        }
+      } else if (disruptionType === "traffic_delay") {
+        if (!suppliedRouteIds || suppliedRouteIds.length === 0) {
+          res.status(400).json({ error: "routeIds are required for traffic_delay disruptions to scope affected routes" });
+          return;
+        }
+      } else if (disruptionType === "vehicle_breakdown") {
+        if (!suppliedRouteIds || suppliedRouteIds.length === 0) {
+          res.status(400).json({ error: "routeIds are required for vehicle_breakdown disruptions" });
+          return;
+        }
+      }
+    }
+
+    if (affectedRouteIds.length === 0) {
+      res.status(400).json({ error: "Could not determine affected routes. Provide routeIds or a disruptionType with affectedStopId." });
+      return;
+    }
+
+    const affectedRoutes = await db
+      .select()
+      .from(routesTable)
+      .where(
+        and(
+          inArray(routesTable.id, affectedRouteIds),
+          eq(routesTable.organizationId, organizationId)
+        )
+      );
+
+    if (affectedRoutes.length === 0) {
+      res.status(404).json({ error: "No matching routes found" });
+      return;
+    }
+
+    const affectedVehicleIds = affectedRoutes.map(r => r.vehicleId).filter((id): id is string => id !== null);
+    const allOrgVehicles = await db.select().from(vehiclesTable).where(eq(vehiclesTable.organizationId, organizationId));
+
+    const allAffectedStops: (typeof stopsTable.$inferSelect)[] = [];
+    for (const route of affectedRoutes) {
+      const routeStops = await db
+        .select()
+        .from(stopsTable)
+        .where(
+          and(
+            eq(stopsTable.routeId, route.id),
+            eq(stopsTable.organizationId, organizationId)
+          )
+        );
+      allAffectedStops.push(...routeStops);
+    }
+
+    const pendingStops = allAffectedStops.filter(s => s.status === "pending");
+
+    let extraUnassignedStops: typeof pendingStops = [];
+    if (additionalStopIds.length > 0) {
+      const extras = await db.select().from(stopsTable).where(and(inArray(stopsTable.id, additionalStopIds), eq(stopsTable.organizationId, organizationId)));
+      extraUnassignedStops = extras.filter(s => s.status === "pending");
+      pendingStops.push(...extraUnassignedStops);
+    }
+
+    const currentALNSRoutes: ALNSRoute[] = affectedRoutes.map((r, idx) => {
+      const routeStops = allAffectedStops.filter(s => s.routeId === r.id && s.status === "pending");
+      const nodes: ALNSNode[] = routeStops.map(s => ({
+        id: s.id,
+        latitude: s.latitude,
+        longitude: s.longitude,
+        timeWindowStart: s.timeWindowStart,
+        timeWindowEnd: s.timeWindowEnd,
+        serviceDurationMin: s.serviceDurationMin,
+        weightKg: Number(s.weightKg) || 0,
+        volumeM3: Number(s.volumeM3) || 0,
+      }));
+      if (idx === 0) {
+        for (const extra of extraUnassignedStops) {
+          nodes.push({
+            id: extra.id,
+            latitude: extra.latitude,
+            longitude: extra.longitude,
+            timeWindowStart: extra.timeWindowStart,
+            timeWindowEnd: extra.timeWindowEnd,
+            serviceDurationMin: extra.serviceDurationMin,
+            weightKg: Number(extra.weightKg) || 0,
+            volumeM3: Number(extra.volumeM3) || 0,
+          });
+        }
+      }
+      return {
+        vehicleId: r.vehicleId ?? "",
+        nodes,
+        totalWeight: nodes.reduce((sum, n) => sum + (n.weightKg ?? 0), 0),
+        totalVolume: nodes.reduce((sum, n) => sum + (n.volumeM3 ?? 0), 0),
+      };
+    });
+
+    const alnsVehicles: ALNSVehicle[] = allOrgVehicles.map(v => ({
+      id: v.id,
+      vehicleType: v.vehicleType,
+      capacityKg: v.capacityKg,
+      capacityVolume: v.capacityVolume,
+      rangeKm: v.rangeKm,
+    }));
+
+    const startTime = new Date();
+    const depLat = depotLatitude ?? 59.3293;
+    const depLon = depotLongitude ?? 18.0686;
+
+    const result = reoptimizeAffectedRoutes(
+      currentALNSRoutes,
+      affectedVehicleIds,
+      alnsVehicles,
+      depLat,
+      depLon,
+      startTime,
+      { timeLimitMs: 15000 }
+    );
+
+    for (const stop of pendingStops) {
+      await db
+        .update(stopsTable)
+        .set({ routeId: null, sequenceOrder: null })
+        .where(and(eq(stopsTable.id, stop.id), eq(stopsTable.organizationId, organizationId)));
+    }
+
+    const reoptimizedRoutes = [];
+
+    const affectedResultRoutes = result.routes.filter(r =>
+      affectedVehicleIds.includes(r.vehicleId)
+    );
+
+    for (const alnsRoute of affectedResultRoutes) {
+      if (alnsRoute.nodes.length === 0) continue;
+
+      const vehicle = allOrgVehicles.find(v => v.id === alnsRoute.vehicleId);
+      if (!vehicle) continue;
+
+      const existingRoute = affectedRoutes.find(r => r.vehicleId === vehicle.id);
+      const routeId = existingRoute?.id;
+      if (!routeId) continue;
+
+      let seqOrder = 0;
+      let prevLat = depLat;
+      let prevLon = depLon;
+      let currentTime = new Date();
+      let routeDistance = 0;
+      let routeDuration = 0;
+
+      const optimizedStops: Array<{
+        stopId: string;
+        sequenceOrder: number;
+        estimatedArrival: string;
+        distanceFromPreviousKm: number;
+        isChargingStop?: boolean;
+        chargingStationName?: string;
+      }> = [];
+
+      for (const node of alnsRoute.nodes) {
+        const dist = cachedDistance(prevLat, prevLon, node.latitude, node.longitude);
+        const dur = estimateDurationMin(dist, currentTime);
+        routeDistance += dist;
+        const arrivalTime = new Date(currentTime.getTime() + dur * 60000);
+        seqOrder++;
+
+        if (node.isChargingStation) {
+          const chargeDur = node.chargingDurationMin ?? 30;
+          routeDuration += dur + chargeDur;
+          optimizedStops.push({
+            stopId: node.id,
+            sequenceOrder: seqOrder,
+            estimatedArrival: arrivalTime.toISOString(),
+            distanceFromPreviousKm: Math.round(dist * 100) / 100,
+            isChargingStop: true,
+            chargingStationName: node.chargingStationName,
+          });
+          currentTime = new Date(arrivalTime.getTime() + chargeDur * 60000);
+        } else {
+          routeDuration += dur + node.serviceDurationMin;
+          const effectiveStart = node.timeWindowStart && node.timeWindowStart.getTime() > arrivalTime.getTime()
+            ? node.timeWindowStart
+            : arrivalTime;
+
+          const trackingCode = await generateUniqueTrackingCode();
+          await db
+            .update(stopsTable)
+            .set({ routeId, sequenceOrder: seqOrder, trackingCode })
+            .where(and(eq(stopsTable.id, node.id), eq(stopsTable.organizationId, organizationId)));
+
+          optimizedStops.push({
+            stopId: node.id,
+            sequenceOrder: seqOrder,
+            estimatedArrival: effectiveStart.toISOString(),
+            distanceFromPreviousKm: Math.round(dist * 100) / 100,
+          });
+          currentTime = new Date(effectiveStart.getTime() + node.serviceDurationMin * 60000);
+        }
+
+        prevLat = node.latitude;
+        prevLon = node.longitude;
+      }
+
+      const co2 = estimateCo2(routeDistance, vehicle.vehicleType, alnsRoute.totalWeight, vehicle.capacityKg);
+
+      await db
+        .update(routesTable)
+        .set({
+          totalDistanceKm: Math.round(routeDistance * 100) / 100,
+          totalDurationMin: Math.round(routeDuration * 100) / 100,
+          co2EmissionsKg: Math.round(co2 * 100) / 100,
+          totalStops: alnsRoute.nodes.filter(n => !n.isChargingStation).length,
+          updatedAt: new Date(),
+        })
+        .where(eq(routesTable.id, routeId));
+
+      reoptimizedRoutes.push({
+        vehicleId: vehicle.id,
+        routeId,
+        stops: optimizedStops,
+        distanceKm: Math.round(routeDistance * 100) / 100,
+        durationMin: Math.round(routeDuration * 100) / 100,
+        co2EmissionsKg: Math.round(co2 * 100) / 100,
+      });
+    }
+
+    broadcast(organizationId, "routes:reoptimized", {
+      routeIds: reoptimizedRoutes.map(r => r.routeId),
+      reason: reason ?? disruptionType ?? "disruption",
+    });
+
+    await db.insert(notificationsTable).values({
+      organizationId,
+      type: "route_started",
+      title: "Routes re-optimized",
+      message: `${reoptimizedRoutes.length} route(s) re-optimized due to ${reason ?? disruptionType ?? "disruption"}`,
+      relatedEntityId: reoptimizedRoutes[0]?.routeId ?? null,
+    });
+
+    res.json({
+      reoptimizedRoutes,
+      affectedRouteIds: affectedRouteIds,
+      unassignedStopIds: result.unassigned.map(n => n.id),
+      reason: reason ?? disruptionType ?? "disruption",
+      optimizer: "alns-incremental",
     });
   } catch (err) {
     handleError(res, err);

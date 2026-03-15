@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useState, useMemo } from "react";
 import { ORG_ID, DEPOT_LOCATION } from "@/lib/constants";
-import { Cpu, CheckCircle2, AlertCircle, Truck, MapPin, GripVertical, Zap, BatteryCharging, User } from "lucide-react";
+import { Cpu, CheckCircle2, AlertCircle, Truck, MapPin, GripVertical, Zap, BatteryCharging, User, SlidersHorizontal } from "lucide-react";
 import { RouteMap } from "@/components/map/RouteMap";
 import { formatDistance } from "@/lib/utils";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
@@ -52,6 +52,10 @@ export default function Planner() {
   const [selectedVehicleIds, setSelectedVehicleIds] = useState<Set<string>>(new Set());
   const [selectedStopIds, setSelectedStopIds] = useState<Set<string>>(new Set());
   const [dndRoutes, setDndRoutes] = useState<OptimizedRouteResult[] | null>(null);
+  const [showWeights, setShowWeights] = useState(false);
+  const [distanceWeight, setDistanceWeight] = useState(0.5);
+  const [co2Weight, setCo2Weight] = useState(0.3);
+  const [etaPrecisionWeight, setEtaPrecisionWeight] = useState(0.2);
 
   const unassignedStops = useMemo(() => stops?.filter(s => !s.routeId) || [], [stops]);
   const activeVehicles = useMemo(() => vehicles?.filter(v => v.isActive) || [], [vehicles]);
@@ -119,8 +123,13 @@ export default function Planner() {
         vehicleIds: Array.from(selectedVehicleIds),
         stopIds: Array.from(selectedStopIds),
         depotLatitude: DEPOT_LOCATION.lat,
-        depotLongitude: DEPOT_LOCATION.lng
-      }
+        depotLongitude: DEPOT_LOCATION.lng,
+        optimizationWeights: {
+          distanceWeight,
+          co2Weight,
+          etaPrecisionWeight,
+        },
+      },
     }, {
       onSuccess: (data) => {
         setDndRoutes(data.routes as OptimizedRouteResult[]);
@@ -333,7 +342,40 @@ export default function Planner() {
           </div>
 
           {!dndRoutes && (
-            <div className="p-6 border-t border-border bg-card/80 backdrop-blur-md">
+            <div className="p-6 border-t border-border bg-card/80 backdrop-blur-md space-y-4">
+              <button
+                onClick={() => setShowWeights(!showWeights)}
+                className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors w-full"
+              >
+                <SlidersHorizontal className="h-4 w-4" />
+                {t("planner.optimizationWeights")}
+                <span className="ml-auto text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-md">{t("planner.alnsOptimizer")}</span>
+              </button>
+              {showWeights && (
+                <div className="space-y-3 p-3 rounded-xl border border-border/50 bg-muted/20">
+                  <div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span>{t("planner.distanceWeight")}</span>
+                      <span className="font-mono">{distanceWeight.toFixed(1)}</span>
+                    </div>
+                    <input type="range" min="0" max="1" step="0.1" value={distanceWeight} onChange={e => setDistanceWeight(Number(e.target.value))} className="w-full h-1.5 accent-primary" />
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span>{t("planner.co2Weight")}</span>
+                      <span className="font-mono">{co2Weight.toFixed(1)}</span>
+                    </div>
+                    <input type="range" min="0" max="1" step="0.1" value={co2Weight} onChange={e => setCo2Weight(Number(e.target.value))} className="w-full h-1.5 accent-emerald-500" />
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span>{t("planner.etaPrecisionWeight")}</span>
+                      <span className="font-mono">{etaPrecisionWeight.toFixed(1)}</span>
+                    </div>
+                    <input type="range" min="0" max="1" step="0.1" value={etaPrecisionWeight} onChange={e => setEtaPrecisionWeight(Number(e.target.value))} className="w-full h-1.5 accent-blue-500" />
+                  </div>
+                </div>
+              )}
               <Button 
                 className="w-full py-6 text-lg font-bold shadow-xl shadow-primary/20 group"
                 onClick={handleOptimize}

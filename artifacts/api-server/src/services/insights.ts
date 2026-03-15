@@ -186,13 +186,196 @@ export async function generateInsights(organizationId: string): Promise<Insight[
     });
   }
 
+  const routeRiskInsights = analyzeRouteRisks(todayRoutes, todayStops, vehicles, now, stops, routes);
+  insights.push(...routeRiskInsights);
+
   insights.sort((a, b) => {
     const sevOrder = { high: 0, medium: 1, low: 2 };
     const typeOrder = { warning: 0, suggestion: 1, info: 2 };
     return (sevOrder[a.severity] - sevOrder[b.severity]) || (typeOrder[a.type] - typeOrder[b.type]);
   });
 
-  return insights.slice(0, 5);
+  return insights.slice(0, 8);
+}
+
+function analyzeRouteRisks(
+  todayRoutes: Array<{
+    id: string;
+    name: string;
+    vehicleId: string | null;
+    status: string;
+    totalDistanceKm: number | null;
+    totalDurationMin: number | null;
+    date: Date | null;
+  }>,
+  todayStops: Array<{
+    id: string;
+    routeId: string | null;
+    status: string;
+    timeWindowStart: Date | null;
+    timeWindowEnd: Date | null;
+    latitude: number;
+    longitude: number;
+    address: string;
+  }>,
+  vehicles: Array<{
+    id: string;
+    name: string;
+    vehicleType: string;
+    rangeKm: number | null;
+    currentBatteryPercent: number | null;
+  }>,
+  now: Date,
+  allHistoricalStops?: Array<{
+    status: string;
+    routeId: string | null;
+    address: string;
+    latitude: number;
+    longitude: number;
+  }>,
+  allHistoricalRoutes?: Array<{
+    id: string;
+    status: string;
+    date: Date | null;
+  }>
+): Insight[] {
+  const riskInsights: Insight[] = [];
+  const hour = now.getHours();
+
+  const isPeakHour = (hour >= 7 && hour <= 9) || (hour >= 16 && hour <= 18);
+  const isPrePeak = (hour >= 6 && hour < 7) || (hour >= 15 && hour < 16);
+
+  const historicalFailRate = computeHistoricalFailRate(allHistoricalStops);
+  const areaFailRates = computeAreaFailRates(allHistoricalStops);
+
+  const pendingRoutes = todayRoutes.filter(r => r.status === "optimized" || r.status === "pending");
+
+  for (const route of pendingRoutes) {
+    const routeStops = todayStops.filter(s => s.routeId === route.id && s.status === "pending");
+    if (routeStops.length === 0) continue;
+
+    let riskScore = 0;
+    const riskFactors: string[] = [];
+
+    if (isPeakHour) {
+      riskScore += 30;
+      riskFactors.push("departing during peak traffic hours");
+    } else if (isPrePeak) {
+      riskScore += 15;
+      riskFactors.push("route will enter peak traffic period");
+    }
+
+    const tightWindows = routeStops.filter(s => {
+      if (!s.timeWindowStart || !s.timeWindowEnd) return false;
+      const windowMinutes = (s.timeWindowEnd.getTime() - s.timeWindowStart.getTime()) / 60000;
+      return windowMinutes <= 60;
+    });
+    if (tightWindows.length > 0) {
+      riskScore += tightWindows.length * 15;
+      riskFactors.push(`${tightWindows.length} stop(s) with tight time windows (≤60 min)`);
+    }
+
+    const totalDistKm = Number(route.totalDistanceKm) || 0;
+    if (totalDistKm > 50) {
+      riskScore += 10;
+      riskFactors.push("long route distance (>50 km)");
+    }
+
+    if (routeStops.length > 10) {
+      riskScore += 10;
+      riskFactors.push(`high stop count (${routeStops.length} stops)`);
+    }
+
+    const vehicle = vehicles.find(v => v.id === route.vehicleId);
+    if (vehicle?.vehicleType === "electric" && vehicle.currentBatteryPercent !== null) {
+      if (vehicle.currentBatteryPercent < 50 && vehicle.rangeKm && totalDistKm > vehicle.rangeKm * 0.6) {
+        riskScore += 20;
+        riskFactors.push(`EV battery at ${vehicle.currentBatteryPercent}% with long route`);
+      }
+    }
+
+    if (historicalFailRate > 0.1) {
+      riskScore += 15;
+      riskFactors.push(`historical failure rate ${(historicalFailRate * 100).toFixed(0)}% across fleet`);
+    }
+
+    const stopsInHighFailAreas = routeStops.filter(s => {
+      const areaKey = `${Math.round(s.latitude * 100) / 100},${Math.round(s.longitude * 100) / 100}`;
+      return (areaFailRates.get(areaKey) ?? 0) > 0.15;
+    });
+    if (stopsInHighFailAreas.length > 0) {
+      riskScore += stopsInHighFailAreas.length * 10;
+      riskFactors.push(`${stopsInHighFailAreas.length} stop(s) in historically problematic areas`);
+    }
+
+    const stopsWithPriorFails = routeStops.filter(s => {
+      if (!allHistoricalStops) return false;
+      return allHistoricalStops.some(hs => hs.address === s.address && hs.status === "failed");
+    });
+    if (stopsWithPriorFails.length > 0) {
+      riskScore += stopsWithPriorFails.length * 12;
+      riskFactors.push(`${stopsWithPriorFails.length} stop(s) with prior delivery failures at same address`);
+    }
+
+    if (riskScore >= 30) {
+      const severity: "high" | "medium" | "low" = riskScore >= 50 ? "high" : riskScore >= 30 ? "medium" : "low";
+      riskInsights.push({
+        id: `route-risk-${route.id}`,
+        type: "warning",
+        severity,
+        title: `Route "${route.name}" has elevated delay risk`,
+        description: `Risk factors: ${riskFactors.join("; ")}. Consider rescheduling to avoid delays or reassigning to a different time slot.`,
+        category: "predictive",
+      });
+    }
+  }
+
+  if (isPeakHour && pendingRoutes.length > 0) {
+    riskInsights.push({
+      id: "traffic-peak-warning",
+      type: "info",
+      severity: "medium",
+      title: "Peak traffic period active",
+      description: `Current time is within peak traffic hours (${hour >= 7 && hour <= 9 ? "morning" : "evening"} rush). Routes departing now may experience 40-60% longer travel times. Consider delaying non-urgent departures.`,
+      category: "predictive",
+    });
+  }
+
+  return riskInsights;
+}
+
+function computeHistoricalFailRate(
+  allStops?: Array<{ status: string }>
+): number {
+  if (!allStops || allStops.length === 0) return 0;
+  const completed = allStops.filter(s => s.status === "completed" || s.status === "failed");
+  if (completed.length === 0) return 0;
+  const failed = completed.filter(s => s.status === "failed").length;
+  return failed / completed.length;
+}
+
+function computeAreaFailRates(
+  allStops?: Array<{ status: string; latitude: number; longitude: number }>
+): Map<string, number> {
+  const rates = new Map<string, number>();
+  if (!allStops) return rates;
+
+  const areaMap = new Map<string, { total: number; failed: number }>();
+  for (const s of allStops) {
+    if (s.status !== "completed" && s.status !== "failed") continue;
+    const key = `${Math.round(s.latitude * 100) / 100},${Math.round(s.longitude * 100) / 100}`;
+    const entry = areaMap.get(key) ?? { total: 0, failed: 0 };
+    entry.total++;
+    if (s.status === "failed") entry.failed++;
+    areaMap.set(key, entry);
+  }
+
+  for (const [key, entry] of areaMap.entries()) {
+    if (entry.total >= 3) {
+      rates.set(key, entry.failed / entry.total);
+    }
+  }
+  return rates;
 }
 
 export async function enrichInsightsWithAI(insights: Insight[]): Promise<Insight[]> {

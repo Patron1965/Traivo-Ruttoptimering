@@ -1,6 +1,6 @@
 import { WebSocketServer, WebSocket } from "ws";
 import type { Server } from "http";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import {
   db,
   stopsTable,
@@ -9,6 +9,15 @@ import {
   geofenceEventsTable,
   notificationsTable,
 } from "@workspace/db";
+import {
+  reoptimizeAffectedRoutes,
+  haversineDistance as alnsHaversine,
+  cachedDistance,
+  estimateCo2,
+  type ALNSNode,
+  type ALNSVehicle,
+  type ALNSRoute,
+} from "./services/alns";
 
 const DEPOT_LAT = 59.3293;
 const DEPOT_LON = 18.0686;
@@ -325,6 +334,16 @@ export function setupWebSocket(server: Server) {
           client = { ws, organizationId: msg.organizationId };
           clients.add(client);
           ws.send(JSON.stringify({ type: "subscribed", organizationId: msg.organizationId }));
+        } else if (msg.type === "disruption" && msg.disruptionType && client) {
+          debouncedReoptimize({
+            type: "disruption",
+            disruptionType: msg.disruptionType,
+            organizationId: client.organizationId,
+            routeIds: msg.routeIds,
+            affectedStopId: msg.affectedStopId,
+            reason: msg.reason,
+          });
+          ws.send(JSON.stringify({ type: "disruption:ack", disruptionType: msg.disruptionType }));
         }
       } catch {}
     });
@@ -344,4 +363,186 @@ export function setupWebSocket(server: Server) {
   return wss;
 }
 
-export { broadcast };
+interface DisruptionEvent {
+  type: "disruption";
+  disruptionType: "traffic_delay" | "vehicle_breakdown" | "stop_added" | "stop_cancelled";
+  organizationId: string;
+  routeIds?: string[];
+  affectedStopId?: string;
+  reason?: string;
+}
+
+const REOPT_DEBOUNCE_MS = 5000;
+const pendingReoptimizations = new Map<string, ReturnType<typeof setTimeout>>();
+
+async function handleDisruptionReoptimize(event: DisruptionEvent) {
+  const { organizationId, disruptionType, routeIds, affectedStopId, reason } = event;
+  let affectedRouteIds: string[] = routeIds ?? [];
+
+  if (disruptionType === "stop_added" && affectedStopId) {
+    const [newStop] = await db.select().from(stopsTable).where(
+      and(eq(stopsTable.id, affectedStopId), eq(stopsTable.organizationId, organizationId))
+    );
+    if (!newStop) return;
+    if (newStop.routeId) {
+      affectedRouteIds = [newStop.routeId];
+    } else {
+      const activeRoutes = await db.select().from(routesTable).where(
+        and(eq(routesTable.organizationId, organizationId), eq(routesTable.status, "optimized"))
+      );
+      if (activeRoutes.length === 0) return;
+      const nearest = [];
+      for (const route of activeRoutes) {
+        const routeStops = await db.select().from(stopsTable).where(eq(stopsTable.routeId, route.id));
+        const minDist = Math.min(...routeStops.map(s =>
+          alnsHaversine(newStop.latitude, newStop.longitude, s.latitude, s.longitude)
+        ), Infinity);
+        nearest.push({ route, minDist });
+      }
+      nearest.sort((a, b) => a.minDist - b.minDist);
+      affectedRouteIds = nearest.slice(0, 2).map(r => r.route.id);
+    }
+  } else if (disruptionType === "stop_cancelled" && affectedStopId) {
+    const [cancelledStop] = await db.select().from(stopsTable).where(
+      and(eq(stopsTable.id, affectedStopId), eq(stopsTable.organizationId, organizationId))
+    );
+    if (cancelledStop?.routeId) {
+      affectedRouteIds = [cancelledStop.routeId];
+    } else {
+      return;
+    }
+  }
+
+  if (affectedRouteIds.length === 0) return;
+
+  const affectedRoutes = await db.select().from(routesTable).where(
+    and(inArray(routesTable.id, affectedRouteIds), eq(routesTable.organizationId, organizationId))
+  );
+  if (affectedRoutes.length === 0) return;
+
+  const affectedVehicleIds = affectedRoutes.map(r => r.vehicleId).filter((id): id is string => id !== null);
+  const allOrgVehicles = await db.select().from(vehiclesTable).where(eq(vehiclesTable.organizationId, organizationId));
+
+  const allAffectedStops: (typeof stopsTable.$inferSelect)[] = [];
+  for (const route of affectedRoutes) {
+    const routeStops = await db.select().from(stopsTable).where(
+      and(eq(stopsTable.routeId, route.id), eq(stopsTable.organizationId, organizationId))
+    );
+    allAffectedStops.push(...routeStops);
+  }
+
+  const pendingStops = allAffectedStops.filter(s => s.status === "pending");
+  if (pendingStops.length === 0) return;
+
+  const currentALNSRoutes: ALNSRoute[] = affectedRoutes.map(r => {
+    const routeStops = allAffectedStops.filter(s => s.routeId === r.id && s.status === "pending");
+    const nodes: ALNSNode[] = routeStops.map(s => ({
+      id: s.id,
+      latitude: s.latitude,
+      longitude: s.longitude,
+      timeWindowStart: s.timeWindowStart,
+      timeWindowEnd: s.timeWindowEnd,
+      serviceDurationMin: s.serviceDurationMin,
+      weightKg: Number(s.weightKg) || 0,
+      volumeM3: Number(s.volumeM3) || 0,
+    }));
+    return {
+      vehicleId: r.vehicleId ?? "",
+      nodes,
+      totalWeight: nodes.reduce((sum, n) => sum + (n.weightKg ?? 0), 0),
+      totalVolume: nodes.reduce((sum, n) => sum + (n.volumeM3 ?? 0), 0),
+    };
+  });
+
+  const alnsVehicles: ALNSVehicle[] = allOrgVehicles.map(v => ({
+    id: v.id,
+    vehicleType: v.vehicleType,
+    capacityKg: v.capacityKg,
+    capacityVolume: v.capacityVolume,
+    rangeKm: v.rangeKm,
+  }));
+
+  const result = reoptimizeAffectedRoutes(
+    currentALNSRoutes, affectedVehicleIds, alnsVehicles,
+    DEPOT_LAT, DEPOT_LON, new Date(),
+    { timeLimitMs: 10000 }
+  );
+
+  for (const stop of pendingStops) {
+    await db.update(stopsTable).set({ routeId: null, sequenceOrder: null })
+      .where(and(eq(stopsTable.id, stop.id), eq(stopsTable.organizationId, organizationId)));
+  }
+
+  const reoptimizedRouteIds: string[] = [];
+  for (const alnsRoute of result.routes.filter(r => affectedVehicleIds.includes(r.vehicleId))) {
+    if (alnsRoute.nodes.length === 0) continue;
+    const vehicle = allOrgVehicles.find(v => v.id === alnsRoute.vehicleId);
+    if (!vehicle) continue;
+    const existingRoute = affectedRoutes.find(r => r.vehicleId === vehicle.id);
+    if (!existingRoute) continue;
+
+    let seqOrder = 0;
+    let prevLat = DEPOT_LAT;
+    let prevLon = DEPOT_LON;
+    let routeDistance = 0;
+
+    for (const node of alnsRoute.nodes) {
+      const dist = cachedDistance(prevLat, prevLon, node.latitude, node.longitude);
+      routeDistance += dist;
+      seqOrder++;
+
+      if (!node.isChargingStation) {
+        await db.update(stopsTable)
+          .set({ routeId: existingRoute.id, sequenceOrder: seqOrder })
+          .where(and(eq(stopsTable.id, node.id), eq(stopsTable.organizationId, organizationId)));
+      }
+      prevLat = node.latitude;
+      prevLon = node.longitude;
+    }
+
+    const co2 = estimateCo2(routeDistance, vehicle.vehicleType, alnsRoute.totalWeight, vehicle.capacityKg);
+    await db.update(routesTable).set({
+      totalDistanceKm: Math.round(routeDistance * 100) / 100,
+      co2EmissionsKg: Math.round(co2 * 100) / 100,
+      totalStops: alnsRoute.nodes.filter(n => !n.isChargingStation).length,
+      updatedAt: new Date(),
+    }).where(eq(routesTable.id, existingRoute.id));
+
+    reoptimizedRouteIds.push(existingRoute.id);
+  }
+
+  if (reoptimizedRouteIds.length > 0) {
+    broadcast(organizationId, "routes:reoptimized", {
+      routeIds: reoptimizedRouteIds,
+      reason: reason ?? disruptionType,
+      triggeredBy: "ws-disruption",
+    });
+
+    await db.insert(notificationsTable).values({
+      organizationId,
+      type: "route_started",
+      title: "Auto re-optimization triggered",
+      message: `${reoptimizedRouteIds.length} route(s) re-optimized via real-time disruption: ${reason ?? disruptionType}`,
+      relatedEntityId: reoptimizedRouteIds[0],
+    });
+
+    console.log(`[WS] Auto-reoptimized ${reoptimizedRouteIds.length} routes for org ${organizationId} due to ${disruptionType}`);
+  }
+}
+
+function debouncedReoptimize(event: DisruptionEvent) {
+  const key = `${event.organizationId}:${event.routeIds?.join(",") ?? event.affectedStopId ?? "all"}`;
+  const existing = pendingReoptimizations.get(key);
+  if (existing) clearTimeout(existing);
+
+  pendingReoptimizations.set(key, setTimeout(async () => {
+    pendingReoptimizations.delete(key);
+    try {
+      await handleDisruptionReoptimize(event);
+    } catch (err) {
+      console.error(`[WS] Auto-reoptimize failed for org ${event.organizationId}:`, err);
+    }
+  }, REOPT_DEBOUNCE_MS));
+}
+
+export { broadcast, debouncedReoptimize, type DisruptionEvent };

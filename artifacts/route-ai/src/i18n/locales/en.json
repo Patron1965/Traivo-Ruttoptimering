@@ -171,7 +171,12 @@
     "chargingStopsInserted": "{{count}} charging stop(s) inserted",
     "stopsCouldntBeAssigned": "{{count}} stops couldn't be assigned",
     "selectStopsAndVehicles": "Select stops and vehicles to preview optimization",
-    "loadingPlanner": "Loading planner..."
+    "loadingPlanner": "Loading planner...",
+    "optimizationWeights": "Optimization Weights",
+    "distanceWeight": "Distance",
+    "co2Weight": "CO₂ Emissions",
+    "etaPrecisionWeight": "ETA Precision",
+    "alnsOptimizer": "ALNS Multi-Objective"
   },
   "sustainability": {
     "title": "Sustainability",
@@ -193,7 +198,10 @@
     "fossilCo2": "Fossil CO\u2082",
     "evCo2": "EV CO\u2082",
     "hybridCo2": "Hybrid CO\u2082",
-    "hybridEmissions": "Hybrid Emissions"
+    "hybridEmissions": "Hybrid Emissions",
+    "optimizationMetrics": "Optimization Metrics",
+    "timeWindowSlack": "Time Window Slack",
+    "optimizerUsed": "Optimizer"
   },
   "vehicles": {
     "title": "Fleet Management",

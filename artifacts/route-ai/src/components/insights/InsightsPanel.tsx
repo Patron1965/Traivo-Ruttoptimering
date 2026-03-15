@@ -50,6 +50,7 @@ const categoryIcons: Record<string, typeof Zap> = {
   planning: Zap,
   sustainability: Leaf,
   capacity: Battery,
+  predictive: AlertTriangle,
 };
 
 export function InsightsPanel({ dashboardUpdatedAt }: { dashboardUpdatedAt?: number }) {
