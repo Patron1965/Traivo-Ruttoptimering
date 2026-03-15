@@ -614,5 +614,10 @@
     "recommendation": "Optimal Charging Window",
     "chargeVehiclesBetween": "Charge your vehicles between {{start}}-{{end}} for the lowest cost",
     "cheaper": "cheaper"
+  },
+  "voice": {
+    "clickToTalk": "Click to talk",
+    "listening": "Listening...",
+    "transcribing": "Transcribing..."
   }
 }

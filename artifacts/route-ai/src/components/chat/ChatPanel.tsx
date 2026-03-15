@@ -3,6 +3,7 @@ import { MessageSquare, X, Send, Bot, User, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ORG_ID } from "@/lib/constants";
 import { useTranslation } from "react-i18next";
+import { VoiceButton } from "./VoiceButton";
 
 interface Message {
   role: "user" | "assistant";
@@ -39,8 +40,8 @@ export function ChatPanel() {
     }
   }, [isOpen]);
 
-  const sendMessage = useCallback(async () => {
-    const text = input.trim();
+  const sendMessage = useCallback(async (overrideText?: string) => {
+    const text = (overrideText ?? input).trim();
     if (!text || isStreaming) return;
 
     const userMsg: Message = { role: "user", content: text };
@@ -128,6 +129,10 @@ export function ChatPanel() {
       setIsStreaming(false);
     }
   }, [input, isStreaming, messages, t]);
+
+  const handleVoiceTranscription = useCallback((text: string) => {
+    sendMessage(text);
+  }, [sendMessage]);
 
   return (
     <>
@@ -219,6 +224,7 @@ export function ChatPanel() {
               disabled={isStreaming}
               className="flex-1 bg-muted border-none rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50"
             />
+            <VoiceButton onTranscription={handleVoiceTranscription} disabled={isStreaming} />
             <button
               type="submit"
               disabled={!input.trim() || isStreaming}

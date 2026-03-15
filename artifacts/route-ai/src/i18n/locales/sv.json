@@ -614,5 +614,10 @@
     "recommendation": "Optimalt laddningsfönster",
     "chargeVehiclesBetween": "Ladda dina fordon mellan {{start}}-{{end}} för lägst kostnad",
     "cheaper": "billigare"
+  },
+  "voice": {
+    "clickToTalk": "Klicka för att prata",
+    "listening": "Lyssnar...",
+    "transcribing": "Transkriberar..."
   }
 }

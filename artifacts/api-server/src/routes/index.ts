@@ -21,6 +21,7 @@ import analyticsRouter from "./analytics";
 import driverPreferencesRouter from "./driver-preferences";
 import predictionsRouter from "./predictions";
 import energyRouter from "./energy";
+import voiceRouter from "./voice";
 
 const router: IRouter = Router();
 
@@ -46,5 +47,6 @@ router.use(analyticsRouter);
 router.use(driverPreferencesRouter);
 router.use(predictionsRouter);
 router.use(energyRouter);
+router.use(voiceRouter);
 
 export default router;
