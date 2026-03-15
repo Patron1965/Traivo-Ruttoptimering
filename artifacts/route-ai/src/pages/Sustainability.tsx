@@ -1,8 +1,8 @@
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useSustainabilityStats } from "@/hooks/use-sustainability";
 import { LoadingState, ErrorState } from "@/components/ui/LoadingState";
-import { Leaf, TreePine, TrendingDown, Zap, Fuel, Car, Target, Clock, CheckCircle2, AlertTriangle } from "lucide-react";
-import { useMemo } from "react";
+import { Leaf, TreePine, TrendingDown, Zap, Fuel, Car, Target, Clock, CheckCircle2, AlertTriangle, BatteryCharging, DollarSign } from "lucide-react";
+import { useMemo, useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
   BarChart,
@@ -20,6 +20,8 @@ import {
   Line,
   Area,
   AreaChart,
+  ReferenceLine,
+  ReferenceArea,
 } from "recharts";
 
 export default function Sustainability() {
@@ -127,6 +129,8 @@ export default function Sustainability() {
             </div>
           </div>
         </div>
+
+        <EnergyPriceSection />
 
         {etaMetrics && (
           <div className="bg-card rounded-2xl border border-card-border p-6 shadow-xl shadow-black/5">
@@ -332,6 +336,168 @@ export default function Sustainability() {
         </div>
       </div>
     </AppLayout>
+  );
+}
+
+interface EnergyPricePoint {
+  timestamp: string;
+  priceEurMwh: number;
+  priceSekKwh: number;
+}
+
+interface ChargingWindow {
+  start: string;
+  end: string;
+  avgPriceEurMwh: number;
+  avgPriceSekKwh: number;
+  savingsPercent: number;
+}
+
+function EnergyPriceSection() {
+  const { t } = useTranslation();
+  const [prices, setPrices] = useState<EnergyPricePoint[]>([]);
+  const [optimalWindow, setOptimalWindow] = useState<ChargingWindow | null>(null);
+  const [area, setArea] = useState("SE3");
+
+  useEffect(() => {
+    const apiBase = import.meta.env.VITE_API_URL || "/api";
+
+    fetch(`${apiBase}/energy/prices?area=${area}&hours=24`)
+      .then((r) => r.json())
+      .then((data) => { if (Array.isArray(data)) setPrices(data); })
+      .catch(() => {});
+
+    fetch(`${apiBase}/energy/optimal-window?area=${area}&duration=120`)
+      .then((r) => r.json())
+      .then((data) => { if (data && data.start) setOptimalWindow(data); })
+      .catch(() => {});
+  }, [area]);
+
+  const avgPrice = useMemo(() => {
+    if (prices.length === 0) return 0;
+    return prices.reduce((s, p) => s + p.priceSekKwh, 0) / prices.length;
+  }, [prices]);
+
+  const minPrice = useMemo(() => {
+    if (prices.length === 0) return 0;
+    return Math.min(...prices.map((p) => p.priceSekKwh));
+  }, [prices]);
+
+  const maxPrice = useMemo(() => {
+    if (prices.length === 0) return 0;
+    return Math.max(...prices.map((p) => p.priceSekKwh));
+  }, [prices]);
+
+  const chartData = useMemo(() => {
+    return prices.map((p) => {
+      const d = new Date(p.timestamp);
+      return {
+        hour: d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        price: p.priceSekKwh,
+        priceEur: p.priceEurMwh,
+      };
+    });
+  }, [prices]);
+
+  if (prices.length === 0) return null;
+
+  const windowStartTime = optimalWindow
+    ? new Date(optimalWindow.start).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    : null;
+  const windowEndTime = optimalWindow
+    ? new Date(optimalWindow.end).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    : null;
+
+  return (
+    <div className="bg-card rounded-2xl border border-card-border p-6 shadow-xl shadow-black/5">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-bold flex items-center gap-2">
+          <BatteryCharging className="h-5 w-5 text-yellow-500" /> {t("energy.title")}
+        </h2>
+        <select
+          value={area}
+          onChange={(e) => setArea(e.target.value)}
+          className="bg-muted border border-border rounded-lg px-3 py-1.5 text-sm font-medium"
+        >
+          <option value="SE1">SE1</option>
+          <option value="SE2">SE2</option>
+          <option value="SE3">SE3</option>
+          <option value="SE4">SE4</option>
+        </select>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="rounded-xl bg-muted/30 p-4 border border-border/50">
+          <p className="text-xs text-muted-foreground mb-1">{t("energy.avgPrice")}</p>
+          <p className="text-lg font-bold">{avgPrice.toFixed(2)} SEK/kWh</p>
+        </div>
+        <div className="rounded-xl bg-muted/30 p-4 border border-border/50">
+          <p className="text-xs text-muted-foreground mb-1">{t("energy.lowestPrice")}</p>
+          <p className="text-lg font-bold text-emerald-500">{minPrice.toFixed(2)} SEK/kWh</p>
+        </div>
+        <div className="rounded-xl bg-muted/30 p-4 border border-border/50">
+          <p className="text-xs text-muted-foreground mb-1">{t("energy.highestPrice")}</p>
+          <p className="text-lg font-bold text-red-500">{maxPrice.toFixed(2)} SEK/kWh</p>
+        </div>
+        {optimalWindow && (
+          <div className="rounded-xl bg-emerald-500/10 p-4 border border-emerald-500/30">
+            <p className="text-xs text-muted-foreground mb-1">{t("energy.savings")}</p>
+            <p className="text-lg font-bold text-emerald-500">{optimalWindow.savingsPercent}%</p>
+            <p className="text-[10px] text-muted-foreground mt-1">{t("energy.vsAvgCharging")}</p>
+          </div>
+        )}
+      </div>
+
+      <div className="h-64 mb-6">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={chartData}>
+            <defs>
+              <linearGradient id="priceGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#eab308" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="#eab308" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+            <XAxis dataKey="hour" tick={{ fontSize: 10 }} stroke="var(--color-muted-foreground)" />
+            <YAxis tick={{ fontSize: 10 }} stroke="var(--color-muted-foreground)" unit=" SEK" />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: "var(--color-card)",
+                borderColor: "var(--color-border)",
+                borderRadius: 12,
+                fontSize: 12,
+              }}
+              formatter={(value: number) => [`${value.toFixed(2)} SEK/kWh`, t("energy.price")]}
+            />
+            <ReferenceLine y={avgPrice} stroke="#f97316" strokeDasharray="5 5" label={{ value: t("energy.avg"), position: "right", fontSize: 10 }} />
+            <Area
+              type="monotone"
+              dataKey="price"
+              stroke="#eab308"
+              fill="url(#priceGradient)"
+              strokeWidth={2}
+              dot={false}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+
+      {optimalWindow && (
+        <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/30 p-4 flex items-start gap-3">
+          <BatteryCharging className="h-5 w-5 text-emerald-500 mt-0.5 shrink-0" />
+          <div>
+            <p className="font-bold text-sm text-emerald-500">{t("energy.recommendation")}</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {t("energy.chargeVehiclesBetween", {
+                start: windowStartTime,
+                end: windowEndTime,
+              })}{" "}
+              ({optimalWindow.avgPriceSekKwh.toFixed(2)} SEK/kWh — {optimalWindow.savingsPercent}% {t("energy.cheaper")})
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -601,5 +601,18 @@
     "levelExtreme": "Extreme congestion",
     "delay": "Predicted delay",
     "confidence": "Confidence"
+  },
+  "energy": {
+    "title": "Electricity Prices & Charging Optimization",
+    "avgPrice": "Average Price Today",
+    "lowestPrice": "Lowest Price",
+    "highestPrice": "Highest Price",
+    "savings": "Potential Savings",
+    "vsAvgCharging": "vs average charging time",
+    "price": "Price",
+    "avg": "Avg",
+    "recommendation": "Optimal Charging Window",
+    "chargeVehiclesBetween": "Charge your vehicles between {{start}}-{{end}} for the lowest cost",
+    "cheaper": "cheaper"
   }
 }

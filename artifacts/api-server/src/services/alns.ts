@@ -475,6 +475,9 @@ function chargingStationRemoval(
   return removed;
 }
 
+// Future: Integrate electricity spot prices (SE1-SE4) from the electricity service
+// to prefer charging stations during low-price windows. Use getOptimalChargingWindow()
+// to score insertion candidates by energy cost, not just distance/SoC.
 function chargingStationInsertion(
   solution: ALNSSolution,
   vehicles: ALNSVehicle[],

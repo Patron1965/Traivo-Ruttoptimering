@@ -601,5 +601,18 @@
     "levelExtreme": "Extrem trängsel",
     "delay": "Beräknad fördröjning",
     "confidence": "Konfidens"
+  },
+  "energy": {
+    "title": "Elpriser & Laddningsoptimering",
+    "avgPrice": "Genomsnittspris idag",
+    "lowestPrice": "Lägsta pris",
+    "highestPrice": "Högsta pris",
+    "savings": "Potentiell besparing",
+    "vsAvgCharging": "jämfört med jämn laddning",
+    "price": "Pris",
+    "avg": "Snitt",
+    "recommendation": "Optimalt laddningsfönster",
+    "chargeVehiclesBetween": "Ladda dina fordon mellan {{start}}-{{end}} för lägst kostnad",
+    "cheaper": "billigare"
   }
 }

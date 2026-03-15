@@ -6,9 +6,11 @@ const config = validateEnv();
 import app from "./app";
 import { autoSeed } from "./lib/auto-seed";
 import { setupWebSocket } from "./ws";
+import { startPriceRefresh } from "./services/electricity";
 
 const server = createServer(app);
 setupWebSocket(server);
+startPriceRefresh();
 
 autoSeed()
   .then(() => {

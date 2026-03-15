@@ -20,6 +20,7 @@ import deliveryNotificationsRouter from "./delivery-notifications";
 import analyticsRouter from "./analytics";
 import driverPreferencesRouter from "./driver-preferences";
 import predictionsRouter from "./predictions";
+import energyRouter from "./energy";
 
 const router: IRouter = Router();
 
@@ -44,5 +45,6 @@ router.use(deliveryNotificationsRouter);
 router.use(analyticsRouter);
 router.use(driverPreferencesRouter);
 router.use(predictionsRouter);
+router.use(energyRouter);
 
 export default router;
