@@ -4,14 +4,15 @@ import { useVehiclePositions } from "@/hooks/use-tracking";
 import { useAuth } from "@/lib/auth-context";
 import { ORG_ID } from "@/lib/constants";
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from "react-leaflet";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { MapPin, Navigation, Clock, Package, CheckCircle2, XCircle, SkipForward, Truck, Phone, Smile, Settings, Save, FileCheck } from "lucide-react";
+import { MapPin, Navigation, Clock, Package, CheckCircle2, XCircle, SkipForward, Truck, Phone, Smile, Settings, Save, FileCheck, ChevronDown } from "lucide-react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { cn } from "@/lib/utils";
 import { ProofOfDelivery } from "@/components/pod/ProofOfDelivery";
+import { fetchRouteGeometry } from "@/lib/osrm";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -50,6 +51,13 @@ interface DriverPreferences {
   happinessScore: number;
 }
 
+interface Vehicle {
+  id: string;
+  name: string;
+  licensePlate: string;
+  type: string;
+}
+
 export default function DriverView() {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -60,8 +68,21 @@ export default function DriverView() {
   const [showPrefs, setShowPrefs] = useState(false);
   const [prefsForm, setPrefsForm] = useState<Partial<DriverPreferences>>({});
   const [podStopId, setPodStopId] = useState<string | null>(null);
+  const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
+  const [routeStops, setRouteStops] = useState<Stop[]>([]);
+  const [routeGeometry, setRouteGeometry] = useState<[number, number][]>([]);
+  const [showRouteSelector, setShowRouteSelector] = useState(false);
 
   const driverId = user?.driverId;
+
+  const { data: vehicles } = useQuery<Vehicle[]>({
+    queryKey: ["vehicles", ORG_ID],
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE}/api/vehicles?organizationId=${ORG_ID}`);
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+  });
 
   const { data: prefs } = useQuery<DriverPreferences>({
     queryKey: ["/api/drivers", driverId, "preferences"],
@@ -97,20 +118,49 @@ export default function DriverView() {
     (r) => r.status === "in_progress" || r.status === "optimized"
   );
 
-  const currentRoute = activeRoutes[0];
-  const [routeStops, setRouteStops] = useState<Stop[]>([]);
+  const vehicleMap = new Map((vehicles || []).map(v => [v.id, v]));
 
-  const fetchStops = async (routeId: string) => {
+  const routesWithVehicle = activeRoutes.map(r => ({
+    ...r,
+    vehicle: vehicleMap.get(r.vehicleId || "") || null,
+  }));
+
+  useEffect(() => {
+    if (!selectedRouteId && activeRoutes.length > 0) {
+      setSelectedRouteId(activeRoutes[0].id);
+    }
+  }, [activeRoutes, selectedRouteId]);
+
+  const currentRoute = activeRoutes.find(r => r.id === selectedRouteId) || null;
+  const currentVehicle = currentRoute ? vehicleMap.get(currentRoute.vehicleId || "") : null;
+
+  const fetchStops = useCallback(async (routeId: string) => {
     try {
       const res = await fetch(`${API_BASE}/api/routes/${routeId}/stops?organizationId=${ORG_ID}`);
       const data = await res.json();
       setRouteStops(data);
     } catch {}
-  };
+  }, []);
 
-  if (currentRoute && routeStops.length === 0) {
-    fetchStops(currentRoute.id);
-  }
+  useEffect(() => {
+    if (selectedRouteId) {
+      setRouteStops([]);
+      setRouteGeometry([]);
+      fetchStops(selectedRouteId);
+    }
+  }, [selectedRouteId, fetchStops]);
+
+  useEffect(() => {
+    if (routeStops.length < 2) {
+      setRouteGeometry([]);
+      return;
+    }
+
+    const sorted = [...routeStops].sort((a, b) => (a.sequenceOrder || 0) - (b.sequenceOrder || 0));
+    const waypoints: [number, number][] = sorted.map(s => [s.latitude, s.longitude]);
+
+    fetchRouteGeometry(waypoints).then(setRouteGeometry);
+  }, [routeStops]);
 
   const sortedStops = [...routeStops].sort((a, b) => (a.sequenceOrder || 0) - (b.sequenceOrder || 0));
   const nextStop = sortedStops.find((s) => s.status === "pending" || s.status === "in_progress");
@@ -167,35 +217,85 @@ export default function DriverView() {
                 </Popup>
               </Marker>
             ))}
-            {sortedStops.length > 1 && (
+            {routeGeometry.length > 1 && (
               <Polyline
-                positions={sortedStops.map((s) => [s.latitude, s.longitude] as [number, number])}
+                positions={routeGeometry}
                 color="#3b82f6"
-                weight={3}
-                opacity={0.6}
+                weight={4}
+                opacity={0.7}
+                smoothFactor={1}
               />
             )}
           </MapContainer>
 
           {currentRoute && (
-            <div className="absolute top-3 left-3 right-3 z-[1000] bg-background/90 backdrop-blur-md rounded-xl p-3 border border-border shadow-lg">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Truck className="h-4 w-4 text-primary" />
-                  <span className="font-bold text-sm">{currentRoute.name}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  {driverId && (
-                    <div className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium" style={{ backgroundColor: `${happinessColor}20`, color: happinessColor }}>
-                      <Smile className="h-3 w-3" />
-                      {happinessPercent}%
+            <div className="absolute top-3 left-3 right-3 z-[1000]">
+              <div className="bg-background/90 backdrop-blur-md rounded-xl p-3 border border-border shadow-lg">
+                <button
+                  onClick={() => setShowRouteSelector(!showRouteSelector)}
+                  className="w-full flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-2">
+                    <Truck className="h-4 w-4 text-primary" />
+                    <div className="text-left">
+                      <span className="font-bold text-sm block">{currentRoute.name}</span>
+                      {currentVehicle && (
+                        <span className="text-xs text-muted-foreground">
+                          {currentVehicle.name} • {currentVehicle.licensePlate}
+                        </span>
+                      )}
                     </div>
-                  )}
-                  <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                    {completedCount}/{totalCount}
-                  </span>
-                </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {driverId && (
+                      <div className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium" style={{ backgroundColor: `${happinessColor}20`, color: happinessColor }}>
+                        <Smile className="h-3 w-3" />
+                        {happinessPercent}%
+                      </div>
+                    )}
+                    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                      {completedCount}/{totalCount}
+                    </span>
+                    <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", showRouteSelector && "rotate-180")} />
+                  </div>
+                </button>
               </div>
+
+              {showRouteSelector && routesWithVehicle.length > 1 && (
+                <div className="mt-1 bg-background/95 backdrop-blur-md rounded-xl border border-border shadow-lg overflow-hidden">
+                  {routesWithVehicle.map(r => (
+                    <button
+                      key={r.id}
+                      onClick={() => {
+                        setSelectedRouteId(r.id);
+                        setShowRouteSelector(false);
+                      }}
+                      className={cn(
+                        "w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-muted/50 transition-colors border-b border-border last:border-0",
+                        r.id === selectedRouteId && "bg-primary/5"
+                      )}
+                    >
+                      <div className={cn(
+                        "w-8 h-8 rounded-lg flex items-center justify-center shrink-0",
+                        r.id === selectedRouteId ? "bg-primary text-white" : "bg-muted text-muted-foreground"
+                      )}>
+                        <Truck className="h-4 w-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{r.name}</p>
+                        {r.vehicle && (
+                          <p className="text-xs text-muted-foreground truncate">
+                            {r.vehicle.name} • {r.vehicle.licensePlate}
+                          </p>
+                        )}
+                      </div>
+                      {r.id === selectedRouteId && (
+                        <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
