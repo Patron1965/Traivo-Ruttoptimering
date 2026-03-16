@@ -93,7 +93,7 @@ ${unassignedSummary}${otherRouteSummary}
 - Total CO₂: ${allRoutes.reduce((sum, r) => sum + (Number(r.co2EmissionsKg) || 0), 0).toFixed(1)}kg`;
 }
 
-const SYSTEM_PROMPT = `You are RouteAI Assistant, an intelligent fleet management and route optimization assistant for Stockholm Logistics AB. You help operators understand their fleet status, route performance, and delivery operations.
+const SYSTEM_PROMPT = `You are Traivo Route Assistant, an intelligent fleet management and route optimization assistant for Stockholm Logistics AB. You help operators understand their fleet status, route performance, and delivery operations.
 
 You have access to real-time fleet data provided below. Answer questions accurately based on this data. When asked about specific metrics, cite the actual numbers. Be concise but helpful.
 

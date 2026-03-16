@@ -62,7 +62,7 @@ export function Sidebar({ className }: { className?: string }) {
         <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-emerald-500 flex items-center justify-center shadow-lg shadow-primary/20">
           <Command className="h-4 w-4 text-primary-foreground" />
         </div>
-        <span className="font-display font-bold text-xl tracking-tight text-sidebar-foreground">Route<span className="text-primary">AI</span></span>
+        <span className="font-display font-bold text-xl tracking-tight text-sidebar-foreground">Traivo <span className="text-primary">Route</span></span>
       </div>
       
       <nav className="flex-1 px-4 space-y-1 overflow-y-auto">

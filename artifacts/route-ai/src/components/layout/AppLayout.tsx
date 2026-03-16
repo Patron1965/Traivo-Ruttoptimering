@@ -34,7 +34,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
             <Button variant="ghost" size="icon" onClick={() => setMobileOpen(true)} className="-ml-2 md:hidden">
               <Menu className="h-6 w-6" />
             </Button>
-            <span className="font-display font-bold text-lg ml-2 md:hidden">Route<span className="text-primary">AI</span></span>
+            <span className="font-display font-bold text-lg ml-2 md:hidden">Traivo <span className="text-primary">Route</span></span>
           </div>
           <div className="flex items-center gap-2">
             <NotificationBell />

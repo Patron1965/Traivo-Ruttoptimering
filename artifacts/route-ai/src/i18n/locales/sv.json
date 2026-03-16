@@ -339,8 +339,8 @@
     "loadingHistory": "Laddar rutthistorik..."
   },
   "chat": {
-    "greeting": "Hej! Jag \u00e4r din RouteAI-assistent. Fr\u00e5ga mig vad som helst om din flotta, rutter, stopp eller h\u00e5llbarhetsm\u00e5tt.",
-    "title": "RouteAI-assistent",
+    "greeting": "Hej! Jag \u00e4r din Traivo Route-assistent. Fr\u00e5ga mig vad som helst om din flotta, rutter, stopp eller h\u00e5llbarhetsm\u00e5tt.",
+    "title": "Traivo Route-assistent",
     "subtitle": "Fr\u00e5ga om din flotta",
     "placeholder": "Fr\u00e5ga om rutter, fordon, stopp...",
     "thinking": "T\u00e4nker...",
@@ -441,7 +441,7 @@
     "address": "Adress",
     "timeWindow": "Tidsf\u00f6nster",
     "vehicle": "Fordon",
-    "poweredBy": "Drivs av RouteAI",
+    "poweredBy": "Drivs av Traivo Route",
     "updatesAutomatically": "Uppdateras automatiskt",
     "estimatedArrival": "Beräknad ankomst",
     "eta": "Beräknad ankomst",
@@ -687,7 +687,7 @@
   },
   "webhooks": {
     "title": "Webhooks",
-    "subtitle": "Koppla RouteAI till externa tjänster via webhooks",
+    "subtitle": "Koppla Traivo Route till externa tjänster via webhooks",
     "addWebhook": "Lägg till webhook",
     "createNew": "Skapa ny webhook",
     "name": "Namn",
@@ -708,9 +708,9 @@
     "delete": "Ta bort",
     "secretCopied": "Hemlighet kopierad",
     "empty": "Inga webhooks konfigurerade",
-    "emptyDesc": "Lägg till en webhook för att koppla RouteAI till externa tjänster som Zapier, Slack eller dina egna API:er.",
+    "emptyDesc": "Lägg till en webhook för att koppla Traivo Route till externa tjänster som Zapier, Slack eller dina egna API:er.",
     "zapierTitle": "Zapier-integration",
-    "zapierDesc": "Koppla RouteAI till 5 000+ appar med Zapier. Använd Webhooks by Zapier för att ta emot händelser.",
+    "zapierDesc": "Koppla Traivo Route till 5 000+ appar med Zapier. Använd Webhooks by Zapier för att ta emot händelser.",
     "zapierStep1": "Skapa en ny Zap i Zapier och välj \"Webhooks by Zapier\" som trigger",
     "zapierStep2": "Kopiera webhook-URL:en från Zapier",
     "zapierStep3": "Klistra in URL:en nedan och välj vilka händelser som ska skickas"

@@ -39,7 +39,7 @@ function addHeader(doc: jsPDF, title: string, subtitle: string) {
   doc.setTextColor(0, 191, 179);
   doc.setFontSize(20);
   doc.setFont("helvetica", "bold");
-  doc.text("RouteAI", 14, 18);
+  doc.text("Traivo Route", 14, 18);
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(14);
   doc.text(title, 14, 32);
@@ -126,7 +126,7 @@ export function exportAnalyticsPdf(data: AnalyticsPdfData) {
     });
   }
 
-  doc.save(`routeai-analytics-${new Date().toISOString().slice(0, 10)}.pdf`);
+  doc.save(`traivo-route-analytics-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
 export function exportDriverPdf(data: DriverPdfData) {
@@ -186,5 +186,5 @@ export function exportDriverPdf(data: DriverPdfData) {
     margin: { left: 14, right: 14 },
   });
 
-  doc.save(`routeai-driver-${data.driverName.replace(/\s+/g, "-").toLowerCase()}-${new Date().toISOString().slice(0, 10)}.pdf`);
+  doc.save(`traivo-route-driver-${data.driverName.replace(/\s+/g, "-").toLowerCase()}-${new Date().toISOString().slice(0, 10)}.pdf`);
 }

@@ -1,8 +1,8 @@
-# RouteAI
+# Traivo Route
 
 ## Overview
 
-RouteAI is an AI-driven route optimization and fleet management system designed to streamline logistics operations. Its primary purpose is to provide an efficient and intelligent solution for businesses managing delivery fleets. Key capabilities include advanced route optimization, real-time fleet tracking, sustainability insights, and AI-powered operational assistance. The project aims to reduce operational costs, minimize environmental impact through CO₂ emission tracking, and enhance delivery efficiency and customer satisfaction. The business vision is to become the leading intelligent logistics platform, offering significant market potential by improving efficiency and sustainability for delivery-based businesses.
+Traivo Route is an AI-driven route optimization and fleet management system designed to streamline logistics operations. Its primary purpose is to provide an efficient and intelligent solution for businesses managing delivery fleets. Key capabilities include advanced route optimization, real-time fleet tracking, sustainability insights, and AI-powered operational assistance. The project aims to reduce operational costs, minimize environmental impact through CO₂ emission tracking, and enhance delivery efficiency and customer satisfaction. The business vision is to become the leading intelligent logistics platform, offering significant market potential by improving efficiency and sustainability for delivery-based businesses.
 
 ## User Preferences
 
@@ -16,7 +16,7 @@ RouteAI is an AI-driven route optimization and fleet management system designed 
 
 ## System Architecture
 
-RouteAI is built as a pnpm workspace monorepo using Node.js 24 and TypeScript 5.9. The core API is developed with Express 5 and WebSockets, utilizing PostgreSQL with Drizzle ORM for data persistence.
+Traivo Route is built as a pnpm workspace monorepo using Node.js 24 and TypeScript 5.9. The core API is developed with Express 5 and WebSockets, utilizing PostgreSQL with Drizzle ORM for data persistence.
 
 **UI/UX Decisions:**
 The frontend, `artifacts/route-ai`, is a React + Vite application featuring a dark/light theme UI. It incorporates Leaflet maps for route visualization and `react-leaflet-cluster` for marker clustering. UI components include `recharts` for data visualization and `lucide-react` for icons. The application supports internationalization with Swedish (default) and English languages. A Command Palette provides quick search functionality. Route polylines are status-colored to visually represent their state.

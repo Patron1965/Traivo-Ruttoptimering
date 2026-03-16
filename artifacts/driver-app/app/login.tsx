@@ -52,7 +52,7 @@ export default function LoginScreen() {
           <Feather name="truck" size={32} color="#FFF" />
         </View>
         <Text style={[styles.title, { color: c.text, fontFamily: "Inter_700Bold" }]}>
-          RouteAI Driver
+          Traivo Route Driver
         </Text>
         <Text style={[styles.subtitle, { color: c.textSecondary, fontFamily: "Inter_400Regular" }]}>
           Select your profile to get started

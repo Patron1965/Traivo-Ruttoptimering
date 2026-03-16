@@ -93,7 +93,7 @@ export async function dispatchTestToSingleHook(
     timestamp: new Date().toISOString(),
     organizationId: hook.organizationId,
     data: {
-      message: "This is a test webhook from RouteAI",
+      message: "This is a test webhook from Traivo Route",
     },
   };
 
