@@ -104,6 +104,7 @@
     "driverView": "Driver View",
     "analytics": "Analytics",
     "webhooks": "Webhooks",
+    "shopify": "Shopify",
     "orgName": "Stockholm Logistics AB"
   },
   "dashboard": {
@@ -713,5 +714,32 @@
     "zapierStep1": "Create a new Zap in Zapier and select \"Webhooks by Zapier\" as the trigger",
     "zapierStep2": "Copy the webhook URL from Zapier",
     "zapierStep3": "Paste the URL below and select which events to send"
+  },
+  "shopify": {
+    "title": "Shopify Integration",
+    "subtitle": "Import orders from your Shopify store as delivery stops",
+    "connectionStatus": "Connection Status",
+    "connected": "Connected",
+    "notConnected": "Not connected",
+    "store": "Store",
+    "totalImported": "Total Orders Imported",
+    "lastSync": "Last Sync",
+    "never": "Never",
+    "importOrders": "Import Orders",
+    "disconnect": "Disconnect",
+    "connectDescription": "Connect your Shopify store to automatically import unfulfilled orders as delivery stops. You'll need an Admin API access token.",
+    "connectStore": "Connect Shopify Store",
+    "shopDomain": "Shop Domain",
+    "accessToken": "Admin API Access Token",
+    "tokenHelp": "Create a custom app in Shopify Admin → Settings → Apps and get the Admin API access token",
+    "connect": "Connect",
+    "cancel": "Cancel",
+    "importComplete": "Import Complete",
+    "importResult": "Found {{found}} orders, imported {{imported}}, skipped {{skipped}}",
+    "importHistory": "Import History",
+    "found": "found",
+    "imported": "imported",
+    "skipped": "skipped",
+    "errors": "errors"
   }
 }

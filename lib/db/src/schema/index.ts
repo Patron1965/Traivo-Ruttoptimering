@@ -14,3 +14,4 @@ export * from "./driver-preferences";
 export * from "./energy-prices";
 export * from "./delivery-proofs";
 export * from "./webhooks";
+export * from "./shopify-integrations";

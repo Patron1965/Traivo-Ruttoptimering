@@ -26,6 +26,8 @@ export const stopsTable = pgTable("stops", {
   trackingCode: text("tracking_code"),
   contactName: text("contact_name"),
   contactEmail: text("contact_email"),
+  shopifyOrderId: text("shopify_order_id"),
+  shopifyOrderName: text("shopify_order_name"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => [
   uniqueIndex("stops_tracking_code_unique").on(table.trackingCode),

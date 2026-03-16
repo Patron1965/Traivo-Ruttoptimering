@@ -49,6 +49,7 @@ The frontend, `artifacts/route-ai`, is a React + Vite application featuring a da
 - **Automated Customer Notifications with Live ETA:** Email notifications for approaching, delivered, or failed deliveries with tracking links and a notification history.
 - **Native Driver App (Expo):** A React Native / Expo mobile app for drivers with route management, map visualization, and PoD capabilities.
 - **Webhooks & Zapier Integration:** Configurable webhooks for external service integration with HMAC-SHA256 signing.
+- **Shopify Order Import:** Connect Shopify stores via Admin API access token, import unfulfilled orders as delivery stops with geocoded addresses, track import history, and update fulfillment status back to Shopify when deliveries complete. Settings page at `/shopify`.
 
 **System Design Choices:**
 - **Rate Limiting:** Per-tenant rate limiting.

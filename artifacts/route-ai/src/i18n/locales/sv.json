@@ -104,6 +104,7 @@
     "driverView": "Förarvy",
     "analytics": "Analys",
     "webhooks": "Webhooks",
+    "shopify": "Shopify",
     "orgName": "Stockholm Logistics AB"
   },
   "dashboard": {
@@ -713,5 +714,32 @@
     "zapierStep1": "Skapa en ny Zap i Zapier och välj \"Webhooks by Zapier\" som trigger",
     "zapierStep2": "Kopiera webhook-URL:en från Zapier",
     "zapierStep3": "Klistra in URL:en nedan och välj vilka händelser som ska skickas"
+  },
+  "shopify": {
+    "title": "Shopify-integration",
+    "subtitle": "Importera ordrar från din Shopify-butik som leveransstopp",
+    "connectionStatus": "Anslutningsstatus",
+    "connected": "Ansluten",
+    "notConnected": "Ej ansluten",
+    "store": "Butik",
+    "totalImported": "Totalt importerade ordrar",
+    "lastSync": "Senaste synk",
+    "never": "Aldrig",
+    "importOrders": "Importera ordrar",
+    "disconnect": "Koppla bort",
+    "connectDescription": "Koppla din Shopify-butik för att automatiskt importera ej levererade ordrar som leveransstopp. Du behöver en Admin API-åtkomstnyckel.",
+    "connectStore": "Koppla Shopify-butik",
+    "shopDomain": "Butiksdomän",
+    "accessToken": "Admin API-åtkomstnyckel",
+    "tokenHelp": "Skapa en anpassad app i Shopify Admin → Inställningar → Appar och hämta Admin API-åtkomstnyckeln",
+    "connect": "Anslut",
+    "cancel": "Avbryt",
+    "importComplete": "Import klar",
+    "importResult": "Hittade {{found}} ordrar, importerade {{imported}}, hoppade över {{skipped}}",
+    "importHistory": "Importhistorik",
+    "found": "hittade",
+    "imported": "importerade",
+    "skipped": "överhoppade",
+    "errors": "fel"
   }
 }
