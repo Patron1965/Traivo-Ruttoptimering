@@ -1151,14 +1151,178 @@ export interface ALNSResult {
   routeEvaluations: Map<string, RouteEvaluation>;
 }
 
+function kMeansCluster(nodes: ALNSNode[], k: number, maxIter = 20): ALNSNode[][] {
+  if (nodes.length <= k) return nodes.map(n => [n]);
+
+  const centroids: { lat: number; lng: number }[] = [];
+  const step = Math.floor(nodes.length / k);
+  const sorted = [...nodes].sort((a, b) => a.latitude - b.latitude || a.longitude - b.longitude);
+  for (let i = 0; i < k; i++) {
+    const n = sorted[Math.min(i * step, sorted.length - 1)];
+    centroids.push({ lat: n.latitude, lng: n.longitude });
+  }
+
+  let assignments = new Array<number>(nodes.length).fill(0);
+
+  for (let iter = 0; iter < maxIter; iter++) {
+    let changed = false;
+    for (let i = 0; i < nodes.length; i++) {
+      let bestCluster = 0;
+      let bestDist = Infinity;
+      for (let c = 0; c < k; c++) {
+        const d = haversineDistance(nodes[i].latitude, nodes[i].longitude, centroids[c].lat, centroids[c].lng);
+        if (d < bestDist) {
+          bestDist = d;
+          bestCluster = c;
+        }
+      }
+      if (assignments[i] !== bestCluster) {
+        assignments[i] = bestCluster;
+        changed = true;
+      }
+    }
+    if (!changed) break;
+
+    for (let c = 0; c < k; c++) {
+      let sumLat = 0, sumLng = 0, count = 0;
+      for (let i = 0; i < nodes.length; i++) {
+        if (assignments[i] === c) {
+          sumLat += nodes[i].latitude;
+          sumLng += nodes[i].longitude;
+          count++;
+        }
+      }
+      if (count > 0) {
+        centroids[c] = { lat: sumLat / count, lng: sumLng / count };
+      }
+    }
+  }
+
+  const clusters: ALNSNode[][] = Array.from({ length: k }, () => []);
+  for (let i = 0; i < nodes.length; i++) {
+    clusters[assignments[i]].push(nodes[i]);
+  }
+  return clusters.filter(c => c.length > 0);
+}
+
+export interface ClusteredOptimizationProgress {
+  totalClusters: number;
+  completedClusters: number;
+  phase: "clustering" | "optimizing" | "merging" | "complete";
+  elapsedMs: number;
+}
+
 export function optimizeWithALNS(
   stops: ALNSNode[],
   vehicles: ALNSVehicle[],
   depotLat: number,
   depotLon: number,
   startTime: Date,
-  config: Partial<ALNSConfig> = {}
+  config: Partial<ALNSConfig> = {},
+  onProgress?: (progress: ClusteredOptimizationProgress) => void
 ): ALNSResult {
+  const CLUSTER_THRESHOLD = 100;
+  const startMs = Date.now();
+
+  if (stops.length > CLUSTER_THRESHOLD && vehicles.length >= 2) {
+    onProgress?.({ totalClusters: 0, completedClusters: 0, phase: "clustering", elapsedMs: 0 });
+
+    const numClusters = Math.max(2, Math.min(vehicles.length, Math.ceil(stops.length / 60)));
+    const clusters = kMeansCluster(stops, numClusters);
+
+    const vehiclesPerCluster: ALNSVehicle[][] = Array.from({ length: clusters.length }, () => []);
+    const sortedVehicles = [...vehicles].sort((a, b) => b.capacityKg - a.capacityKg);
+    const clusterWeights = clusters.map(c => c.reduce((s, n) => s + n.weightKg, 0));
+
+    const vehicleAssigned = new Set<string>();
+    const clusterOrder = clusterWeights.map((w, i) => ({ w, i })).sort((a, b) => b.w - a.w);
+
+    for (const { i: ci } of clusterOrder) {
+      for (const v of sortedVehicles) {
+        if (vehicleAssigned.has(v.id)) continue;
+        vehicleAssigned.add(v.id);
+        vehiclesPerCluster[ci].push(v);
+        break;
+      }
+    }
+
+    let extraIdx = 0;
+    for (const v of sortedVehicles) {
+      if (vehicleAssigned.has(v.id)) continue;
+      vehiclesPerCluster[extraIdx % clusters.length].push(v);
+      vehicleAssigned.add(v.id);
+      extraIdx++;
+    }
+
+    const timeBudget = config.timeLimitMs ?? 30000;
+    const perClusterTime = Math.max(5000, Math.floor(timeBudget / clusters.length));
+
+    const allRoutes: ALNSRoute[] = [];
+    const allUnassigned: ALNSNode[] = [];
+    let mergedBreakdown: CostBreakdown = {
+      distanceCost: 0, co2Cost: 0, etaPrecisionCost: 0, driverPenaltyCost: 0,
+      totalDistanceKm: 0, totalCo2Kg: 0, totalTimeWindowSlackMin: 0, totalDriverPenalty: 0,
+    };
+
+    for (let ci = 0; ci < clusters.length; ci++) {
+      const clusterVehicles = vehiclesPerCluster[ci];
+      if (clusterVehicles.length === 0) {
+        allUnassigned.push(...clusters[ci]);
+        continue;
+      }
+
+      onProgress?.({
+        totalClusters: clusters.length,
+        completedClusters: ci,
+        phase: "optimizing",
+        elapsedMs: Date.now() - startMs,
+      });
+
+      const clusterConfig = { ...config, timeLimitMs: perClusterTime };
+      const initial = buildInitialSolutionFromCW(clusters[ci], clusterVehicles, depotLat, depotLon, startTime);
+      const best = runALNS(initial, clusterVehicles, depotLat, depotLon, startTime, clusterConfig);
+
+      allRoutes.push(...best.routes.filter(r => r.nodes.length > 0));
+      allUnassigned.push(...best.unassigned);
+
+      const bd = best.costBreakdown;
+      mergedBreakdown.distanceCost += bd.distanceCost;
+      mergedBreakdown.co2Cost += bd.co2Cost;
+      mergedBreakdown.etaPrecisionCost += bd.etaPrecisionCost;
+      mergedBreakdown.driverPenaltyCost += bd.driverPenaltyCost ?? 0;
+      mergedBreakdown.totalDistanceKm += bd.totalDistanceKm;
+      mergedBreakdown.totalCo2Kg += bd.totalCo2Kg;
+      mergedBreakdown.totalTimeWindowSlackMin += bd.totalTimeWindowSlackMin;
+      mergedBreakdown.totalDriverPenalty += bd.totalDriverPenalty ?? 0;
+    }
+
+    onProgress?.({ totalClusters: clusters.length, completedClusters: clusters.length, phase: "merging", elapsedMs: Date.now() - startMs });
+
+    for (const v of vehicles) {
+      if (!allRoutes.some(r => r.vehicleId === v.id)) {
+        allRoutes.push({ vehicleId: v.id, nodes: [], totalWeight: 0, totalVolume: 0 });
+      }
+    }
+
+    const vehicleMap = new Map(vehicles.map(v => [v.id, v]));
+    const driverConstraintsMap = new Map<string, ALNSDriverConstraints>();
+    if (config.driverConstraints) {
+      for (const dc of config.driverConstraints) driverConstraintsMap.set(dc.vehicleId, dc);
+    }
+    const routeEvaluations = new Map<string, RouteEvaluation>();
+    for (const route of allRoutes) {
+      const vehicle = vehicleMap.get(route.vehicleId);
+      if (!vehicle || route.nodes.length === 0) continue;
+      const constraints = driverConstraintsMap.get(route.vehicleId);
+      const evalResult = evaluateRoute(route, vehicle, depotLat, depotLon, startTime, constraints);
+      routeEvaluations.set(route.vehicleId, evalResult);
+    }
+
+    onProgress?.({ totalClusters: clusters.length, completedClusters: clusters.length, phase: "complete", elapsedMs: Date.now() - startMs });
+
+    return { routes: allRoutes, unassigned: allUnassigned, costBreakdown: mergedBreakdown, routeEvaluations };
+  }
+
   const initialSolution = buildInitialSolutionFromCW(stops, vehicles, depotLat, depotLon, startTime);
   const bestSolution = runALNS(initialSolution, vehicles, depotLat, depotLon, startTime, config);
 

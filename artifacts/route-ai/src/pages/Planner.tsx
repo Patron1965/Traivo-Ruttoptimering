@@ -2,13 +2,13 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { useVehicles } from "@/hooks/use-vehicles";
 import { useDrivers } from "@/hooks/use-drivers";
 import { useStops } from "@/hooks/use-stops";
-import { useOptimizeRoutes } from "@/hooks/use-routes";
+import { useOptimizeRoutes, getActiveJobProgress } from "@/hooks/use-routes";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { ORG_ID, DEPOT_LOCATION } from "@/lib/constants";
-import { Cpu, CheckCircle2, AlertCircle, Truck, MapPin, GripVertical, Zap, BatteryCharging, User, SlidersHorizontal, Thermometer } from "lucide-react";
+import { Cpu, CheckCircle2, AlertCircle, Truck, MapPin, GripVertical, Zap, BatteryCharging, User, SlidersHorizontal, Thermometer, Search, Loader2 } from "lucide-react";
 import { RouteMap } from "@/components/map/RouteMap";
 import { formatDistance } from "@/lib/utils";
 import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
@@ -59,9 +59,20 @@ export default function Planner() {
   const [co2Weight, setCo2Weight] = useState(0.25);
   const [etaPrecisionWeight, setEtaPrecisionWeight] = useState(0.15);
   const [driverHappinessWeight, setDriverHappinessWeight] = useState(0.15);
+  const [stopSearch, setStopSearch] = useState("");
 
   const unassignedStops = useMemo(() => stops?.filter(s => !s.routeId) || [], [stops]);
   const activeVehicles = useMemo(() => vehicles?.filter(v => v.isActive) || [], [vehicles]);
+
+  const filteredStops = useMemo(() => {
+    if (!stopSearch.trim()) return unassignedStops;
+    const q = stopSearch.toLowerCase();
+    return unassignedStops.filter(s =>
+      (s.address?.toLowerCase().includes(q)) ||
+      (s.notes?.toLowerCase().includes(q)) ||
+      (s.customerName?.toLowerCase().includes(q))
+    );
+  }, [unassignedStops, stopSearch]);
 
   const stopsById = useMemo(() => {
     const map = new Map<string, Stop>();
@@ -318,7 +329,7 @@ export default function Planner() {
                 </section>
 
                 <section>
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center justify-between mb-3">
                     <h3 className="font-bold text-lg flex items-center gap-2">
                       <MapPin className="h-5 w-5" /> {t("planner.unassignedStops")}
                     </h3>
@@ -327,11 +338,29 @@ export default function Planner() {
                       <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setSelectedStopIds(new Set())}>{t("common.none")}</Button>
                     </div>
                   </div>
-                  <div className="space-y-2">
+
+                  {unassignedStops.length > 10 && (
+                    <div className="relative mb-3">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <input
+                        type="text"
+                        value={stopSearch}
+                        onChange={e => setStopSearch(e.target.value)}
+                        placeholder={t("planner.searchStops")}
+                        className="w-full pl-9 pr-3 py-2 rounded-lg border border-border bg-muted/30 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50 placeholder:text-muted-foreground/60"
+                      />
+                    </div>
+                  )}
+
+                  <p className="text-xs text-muted-foreground mb-2">
+                    {t("planner.selectedOfTotal", { selected: selectedStopIds.size, total: unassignedStops.length })}
+                  </p>
+
+                  <div className="space-y-2 max-h-[400px] overflow-y-auto">
                     {unassignedStops.length === 0 ? (
                       <p className="text-sm text-muted-foreground italic p-4 text-center border border-dashed rounded-xl">{t("planner.noUnassignedStops")}</p>
                     ) : (
-                      unassignedStops.map(s => (
+                      filteredStops.map(s => (
                         <div key={s.id} className="flex items-start space-x-3 p-3 rounded-xl border border-border/50 hover:bg-muted/50 transition-colors">
                           <Checkbox id={`s-${s.id}`} checked={selectedStopIds.has(s.id)} onCheckedChange={() => toggleStop(s.id)} className="mt-1" />
                           <label htmlFor={`s-${s.id}`} className="flex-1 cursor-pointer">
@@ -389,13 +418,17 @@ export default function Planner() {
                   </div>
                 </div>
               )}
+              {optimizeMutation.isPending && <OptimizationProgressPanel stopCount={selectedStopIds.size} t={t} />}
               <Button 
                 className="w-full py-6 text-lg font-bold shadow-xl shadow-primary/20 group"
                 onClick={handleOptimize}
                 disabled={selectedVehicleIds.size === 0 || selectedStopIds.size === 0 || optimizeMutation.isPending}
               >
                 {optimizeMutation.isPending ? (
-                  t("planner.optimizingRoutes")
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    {t("planner.optimizingRoutes")}
+                  </span>
                 ) : (
                   <>
                     {t("planner.generateRoutes")} <Cpu className="ml-2 h-5 w-5 group-hover:rotate-12 transition-transform" />
@@ -475,5 +508,55 @@ export default function Planner() {
         </div>
       </div>
     </AppLayout>
+  );
+}
+
+function OptimizationProgressPanel({ stopCount, t }: { stopCount: number; t: (key: string, opts?: Record<string, unknown>) => string }) {
+  const [progress, setProgress] = useState(getActiveJobProgress());
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    const startTime = Date.now();
+    const interval = setInterval(() => {
+      setProgress(getActiveJobProgress());
+      setElapsed(Math.floor((Date.now() - startTime) / 1000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const phaseLabel = progress?.phase === "clustering" ? t("planner.phaseCluster")
+    : progress?.phase === "optimizing" ? t("planner.phaseOptimize")
+    : progress?.phase === "merging" ? t("planner.phaseMerge")
+    : progress?.phase === "complete" ? t("planner.phaseComplete")
+    : t("planner.optimizingRoutes");
+
+  const pct = progress && progress.totalClusters > 0
+    ? Math.round((progress.completedClusters / progress.totalClusters) * 100)
+    : null;
+
+  return (
+    <div className="p-3 rounded-xl border border-primary/30 bg-primary/5 space-y-2 animate-in fade-in">
+      <div className="flex items-center gap-2 text-sm font-medium text-primary">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        {stopCount > 100
+          ? t("planner.largeOptimization", { count: stopCount })
+          : t("planner.optimizingRoutes")}
+      </div>
+      <p className="text-xs text-muted-foreground">{phaseLabel}</p>
+      {progress && progress.totalClusters > 1 && (
+        <p className="text-xs text-muted-foreground">
+          {t("planner.clusterProgress", { completed: progress.completedClusters, total: progress.totalClusters })}
+        </p>
+      )}
+      <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+        <div
+          className="bg-primary h-full rounded-full transition-all duration-500"
+          style={{ width: pct != null ? `${Math.max(5, pct)}%` : "100%", animation: pct == null ? "pulse 1.5s infinite" : undefined }}
+        />
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {elapsed}s {t("planner.estimatedTime", { seconds: Math.max(1, Math.ceil(stopCount / 10) - elapsed) })}
+      </p>
+    </div>
   );
 }

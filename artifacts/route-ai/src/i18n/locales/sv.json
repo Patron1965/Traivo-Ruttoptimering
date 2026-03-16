@@ -180,7 +180,17 @@
     "co2Weight": "CO₂-utsläpp",
     "etaPrecisionWeight": "ETA-precision",
     "driverHappinessWeight": "Förarnöjdhet",
-    "alnsOptimizer": "ALNS Multikriterier"
+    "alnsOptimizer": "ALNS Multikriterier",
+    "searchStops": "Sök adress eller namn...",
+    "selectedOfTotal": "{{selected}} av {{total}} valda",
+    "asyncOptimizing": "Optimerar i bakgrunden...",
+    "clusterProgress": "Kluster {{completed}}/{{total}}",
+    "phaseCluster": "Klustrar adresser...",
+    "phaseOptimize": "Optimerar rutter...",
+    "phaseMerge": "Sammanfogar resultat...",
+    "phaseComplete": "Klar!",
+    "largeOptimization": "Stor optimering ({{count}} stopp)",
+    "estimatedTime": "Beräknad tid: ~{{seconds}}s"
   },
   "sustainability": {
     "title": "H\u00e5llbarhet",

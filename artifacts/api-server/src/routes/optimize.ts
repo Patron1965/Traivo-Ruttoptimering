@@ -19,6 +19,7 @@ import {
   type ALNSConfig,
   type ALNSDriverConstraints,
   type OptimizationWeights,
+  type ClusteredOptimizationProgress,
 } from "../services/alns";
 import { broadcast } from "../ws";
 import {
@@ -27,6 +28,29 @@ import {
   setActiveOptimizer,
   removeActiveOptimizer,
 } from "../services/continuous-optimizer";
+
+interface OptimizationJob {
+  id: string;
+  organizationId: string;
+  status: "running" | "complete" | "error";
+  progress: ClusteredOptimizationProgress | null;
+  result: unknown;
+  error: string | null;
+  createdAt: number;
+  stopCount: number;
+  vehicleCount: number;
+}
+
+const optimizationJobs = new Map<string, OptimizationJob>();
+
+setInterval(() => {
+  const cutoff = Date.now() - 30 * 60 * 1000;
+  for (const [id, job] of optimizationJobs) {
+    if (job.createdAt < cutoff && job.status !== "running") {
+      optimizationJobs.delete(id);
+    }
+  }
+}, 5 * 60 * 1000);
 
 function generateTrackingCodeRaw(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -86,7 +110,8 @@ function normalizeWeights(w: { distanceWeight: number; co2Weight: number; etaPre
 
 const ExtendedOptimizeBody = OptimizeRoutesBody.extend({
   optimizationWeights: OptimizationWeightsSchema.optional(),
-  timeBudgetMs: z.number().min(1000).max(30000).optional().default(30000),
+  timeBudgetMs: z.number().min(1000).max(120000).optional().default(30000),
+  async: z.boolean().optional().default(false),
 });
 
 const ReoptimizeBody = z.object({
@@ -101,258 +126,331 @@ const ReoptimizeBody = z.object({
 
 const router: IRouter = Router();
 
+async function persistOptimizationResult(
+  result: { routes: ALNSRoute[]; unassigned: ALNSNode[]; costBreakdown: any },
+  vehicles: any[],
+  organizationId: string,
+  depotLatitude: number,
+  depotLongitude: number,
+  weights: OptimizationWeights,
+  driverConstraints: ALNSDriverConstraints[],
+  reqDate?: string,
+) {
+  const optimizedRoutes = [];
+  let totalDistanceKm = 0;
+  let totalDurationMin = 0;
+
+  for (const alnsRoute of result.routes) {
+    if (alnsRoute.nodes.length === 0) continue;
+
+    const vehicle = vehicles.find((v: any) => v.id === alnsRoute.vehicleId);
+    if (!vehicle) continue;
+
+    const [route] = await db
+      .insert(routesTable)
+      .values({
+        organizationId,
+        vehicleId: vehicle.id,
+        name: `${vehicle.name} - Optimized`,
+        date: new Date(),
+        status: "optimized",
+        totalStops: alnsRoute.nodes.filter(n => !n.isChargingStation).length,
+      })
+      .returning();
+
+    let routeDistance = 0;
+    let routeDuration = 0;
+    const optimizedStops: Array<{
+      stopId: string;
+      sequenceOrder: number;
+      estimatedArrival: string;
+      distanceFromPreviousKm: number;
+      isChargingStop?: boolean;
+      chargingStationName?: string;
+    }> = [];
+    let currentTime = new Date();
+    let seqOrder = 0;
+    let prevLat = depotLatitude;
+    let prevLon = depotLongitude;
+
+    for (const node of alnsRoute.nodes) {
+      const dist = cachedDistance(prevLat, prevLon, node.latitude, node.longitude);
+      const dur = estimateDurationMin(dist, currentTime);
+
+      routeDistance += dist;
+      const arrivalTime = new Date(currentTime.getTime() + dur * 60000);
+
+      seqOrder++;
+
+      if (node.isChargingStation) {
+        const chargeDur = node.chargingDurationMin ?? 30;
+        routeDuration += dur + chargeDur;
+
+        optimizedStops.push({
+          stopId: node.id,
+          sequenceOrder: seqOrder,
+          estimatedArrival: arrivalTime.toISOString(),
+          distanceFromPreviousKm: Math.round(dist * 100) / 100,
+          isChargingStop: true,
+          chargingStationName: node.chargingStationName,
+        });
+
+        currentTime = new Date(arrivalTime.getTime() + chargeDur * 60000);
+      } else {
+        routeDuration += dur + node.serviceDurationMin;
+
+        const effectiveStart = node.timeWindowStart && node.timeWindowStart.getTime() > arrivalTime.getTime()
+          ? node.timeWindowStart
+          : arrivalTime;
+
+        const trackingCode = await generateUniqueTrackingCode();
+        await db
+          .update(stopsTable)
+          .set({ routeId: route.id, sequenceOrder: seqOrder, trackingCode })
+          .where(and(eq(stopsTable.id, node.id), eq(stopsTable.organizationId, organizationId)));
+
+        optimizedStops.push({
+          stopId: node.id,
+          sequenceOrder: seqOrder,
+          estimatedArrival: effectiveStart.toISOString(),
+          distanceFromPreviousKm: Math.round(dist * 100) / 100,
+        });
+
+        currentTime = new Date(effectiveStart.getTime() + node.serviceDurationMin * 60000);
+      }
+
+      prevLat = node.latitude;
+      prevLon = node.longitude;
+    }
+
+    const co2 = estimateCo2(routeDistance, vehicle.vehicleType, alnsRoute.totalWeight, vehicle.capacityKg);
+
+    await db
+      .update(routesTable)
+      .set({
+        totalDistanceKm: Math.round(routeDistance * 100) / 100,
+        totalDurationMin: Math.round(routeDuration * 100) / 100,
+        co2EmissionsKg: Math.round(co2 * 100) / 100,
+      })
+      .where(eq(routesTable.id, route.id));
+
+    totalDistanceKm += routeDistance;
+    totalDurationMin += routeDuration;
+
+    const chargingCount = alnsRoute.nodes.filter(n => n.isChargingStation).length;
+
+    optimizedRoutes.push({
+      vehicleId: vehicle.id,
+      routeId: route.id,
+      stops: optimizedStops,
+      distanceKm: Math.round(routeDistance * 100) / 100,
+      durationMin: Math.round(routeDuration * 100) / 100,
+      co2EmissionsKg: Math.round(co2 * 100) / 100,
+      chargingStopsInserted: chargingCount,
+    });
+  }
+
+  const routeDate = reqDate ? new Date(reqDate) : new Date();
+
+  return {
+    routes: optimizedRoutes,
+    totalDistanceKm: Math.round(totalDistanceKm * 100) / 100,
+    totalDurationMin: Math.round(totalDurationMin * 100) / 100,
+    unassignedStopIds: result.unassigned.map(n => n.id),
+    trafficCondition: getTrafficDescription(routeDate),
+    etaModel: "predictive",
+    optimizer: "alns",
+    optimizationWeights: weights,
+    driverConstraintsApplied: driverConstraints.map(dc => ({
+      vehicleId: dc.vehicleId,
+      driverName: dc.driverName,
+      maxHours: dc.maxDrivingHoursPerDay,
+      avoidNight: dc.avoidNightDriving,
+      preferredWindow: `${dc.preferredStartTime.slice(0, 5)} - ${dc.preferredEndTime.slice(0, 5)}`,
+    })),
+    costBreakdown: {
+      totalDistanceKm: Math.round(result.costBreakdown.totalDistanceKm * 100) / 100,
+      totalCo2Kg: Math.round(result.costBreakdown.totalCo2Kg * 100) / 100,
+      totalTimeWindowSlackMin: Math.round(result.costBreakdown.totalTimeWindowSlackMin * 100) / 100,
+      totalDriverPenalty: Math.round(result.costBreakdown.totalDriverPenalty * 100) / 100,
+      driverPenaltyCost: Math.round(result.costBreakdown.driverPenaltyCost * 100) / 100,
+    },
+  };
+}
+
+async function loadOptimizationInputs(parsed: any) {
+  const { organizationId, vehicleIds, stopIds, depotLatitude, depotLongitude, timeBudgetMs } = parsed;
+
+  const weights = normalizeWeights({
+    distanceWeight: parsed.optimizationWeights?.distanceWeight ?? 0.45,
+    co2Weight: parsed.optimizationWeights?.co2Weight ?? 0.25,
+    etaPrecisionWeight: parsed.optimizationWeights?.etaPrecisionWeight ?? 0.15,
+    driverHappinessWeight: parsed.optimizationWeights?.driverHappinessWeight ?? 0.15,
+  });
+
+  const vehicles = await db
+    .select()
+    .from(vehiclesTable)
+    .where(and(inArray(vehiclesTable.id, vehicleIds), eq(vehiclesTable.organizationId, organizationId)));
+
+  if (vehicles.length !== vehicleIds.length) {
+    throw new Error("One or more vehicles do not belong to the specified organization");
+  }
+
+  const stops = await db
+    .select()
+    .from(stopsTable)
+    .where(and(inArray(stopsTable.id, stopIds), eq(stopsTable.organizationId, organizationId)));
+
+  if (stops.length !== stopIds.length) {
+    throw new Error("One or more stops do not belong to the specified organization");
+  }
+
+  const alnsNodes: ALNSNode[] = stops.map(s => ({
+    id: s.id,
+    latitude: s.latitude,
+    longitude: s.longitude,
+    timeWindowStart: s.timeWindowStart,
+    timeWindowEnd: s.timeWindowEnd,
+    serviceDurationMin: s.serviceDurationMin,
+    weightKg: Number(s.weightKg) || 0,
+    volumeM3: Number(s.volumeM3) || 0,
+  }));
+
+  const alnsVehicles: ALNSVehicle[] = vehicles.map(v => ({
+    id: v.id,
+    vehicleType: v.vehicleType,
+    capacityKg: v.capacityKg,
+    capacityVolume: v.capacityVolume,
+    rangeKm: v.rangeKm,
+  }));
+
+  const orgDrivers = await db
+    .select()
+    .from(driversTable)
+    .where(and(eq(driversTable.organizationId, organizationId), eq(driversTable.isActive, true)));
+  const drivers = orgDrivers.filter(d => d.vehicleId && vehicleIds.includes(d.vehicleId));
+
+  const driverConstraints: ALNSDriverConstraints[] = [];
+  if (drivers.length > 0) {
+    const driverIds = drivers.map(d => d.id);
+    const allPrefs = await db
+      .select()
+      .from(driverPreferencesTable)
+      .where(inArray(driverPreferencesTable.driverId, driverIds));
+
+    const prefsMap = new Map(allPrefs.map(p => [p.driverId, p]));
+    for (const driver of drivers) {
+      if (!driver.vehicleId) continue;
+      const prefs = prefsMap.get(driver.id);
+      driverConstraints.push({
+        vehicleId: driver.vehicleId,
+        driverName: driver.name,
+        preferredStartTime: prefs?.preferredStartTime ?? "07:00:00",
+        preferredEndTime: prefs?.preferredEndTime ?? "16:00:00",
+        maxDrivingHoursPerDay: prefs?.maxDrivingHoursPerDay ?? 8,
+        avoidNightDriving: prefs?.avoidNightDriving ?? false,
+        breakFrequencyMinutes: prefs?.breakFrequencyMinutes ?? 120,
+        preferredBreakDurationMin: prefs?.preferredBreakDurationMin ?? 15,
+      });
+    }
+  }
+
+  return { organizationId, depotLatitude, depotLongitude, timeBudgetMs, weights, vehicles, alnsNodes, alnsVehicles, driverConstraints };
+}
+
 router.post("/optimize", async (req, res) => {
   try {
     const parsed = ExtendedOptimizeBody.parse(req.body);
-    const { organizationId, vehicleIds, stopIds, depotLatitude, depotLongitude, timeBudgetMs } = parsed;
+    const inputs = await loadOptimizationInputs(parsed);
+    const { organizationId, depotLatitude, depotLongitude, timeBudgetMs, weights, vehicles, alnsNodes, alnsVehicles, driverConstraints } = inputs;
 
-    const weights = normalizeWeights({
-      distanceWeight: parsed.optimizationWeights?.distanceWeight ?? 0.45,
-      co2Weight: parsed.optimizationWeights?.co2Weight ?? 0.25,
-      etaPrecisionWeight: parsed.optimizationWeights?.etaPrecisionWeight ?? 0.15,
-      driverHappinessWeight: parsed.optimizationWeights?.driverHappinessWeight ?? 0.15,
-    });
+    const ASYNC_THRESHOLD = 100;
+    const useAsync = parsed.async || alnsNodes.length > ASYNC_THRESHOLD;
 
-    const vehicles = await db
-      .select()
-      .from(vehiclesTable)
-      .where(
-        and(
-          inArray(vehiclesTable.id, vehicleIds),
-          eq(vehiclesTable.organizationId, organizationId)
-        )
-      );
+    if (useAsync) {
+      const jobId = crypto.randomUUID();
+      const job: OptimizationJob = {
+        id: jobId,
+        organizationId,
+        status: "running",
+        progress: null,
+        result: null,
+        error: null,
+        createdAt: Date.now(),
+        stopCount: alnsNodes.length,
+        vehicleCount: alnsVehicles.length,
+      };
+      optimizationJobs.set(jobId, job);
 
-    if (vehicles.length !== vehicleIds.length) {
-      res.status(400).json({ error: "One or more vehicles do not belong to the specified organization" });
+      res.json({ jobId, status: "running", stopCount: alnsNodes.length, vehicleCount: alnsVehicles.length });
+
+      setImmediate(async () => {
+        try {
+          const startTime = new Date();
+          const result = optimizeWithALNS(
+            alnsNodes, alnsVehicles, depotLatitude, depotLongitude, startTime,
+            { weights, timeLimitMs: timeBudgetMs, driverConstraints },
+            (progress) => { job.progress = progress; }
+          );
+
+          const persisted = await persistOptimizationResult(
+            result, vehicles, organizationId, depotLatitude, depotLongitude,
+            weights, driverConstraints, (req.body as Record<string, unknown>).date as string | undefined,
+          );
+
+          job.status = "complete";
+          job.result = persisted;
+          job.progress = { totalClusters: job.progress?.totalClusters ?? 1, completedClusters: job.progress?.totalClusters ?? 1, phase: "complete", elapsedMs: Date.now() - job.createdAt };
+
+          broadcast(organizationId, "optimization:complete", { jobId, result: persisted });
+        } catch (err: any) {
+          job.status = "error";
+          job.error = err.message || "Optimization failed";
+        }
+      });
+
       return;
-    }
-
-    const stops = await db
-      .select()
-      .from(stopsTable)
-      .where(
-        and(
-          inArray(stopsTable.id, stopIds),
-          eq(stopsTable.organizationId, organizationId)
-        )
-      );
-
-    if (stops.length !== stopIds.length) {
-      res.status(400).json({ error: "One or more stops do not belong to the specified organization" });
-      return;
-    }
-
-    const alnsNodes: ALNSNode[] = stops.map(s => ({
-      id: s.id,
-      latitude: s.latitude,
-      longitude: s.longitude,
-      timeWindowStart: s.timeWindowStart,
-      timeWindowEnd: s.timeWindowEnd,
-      serviceDurationMin: s.serviceDurationMin,
-      weightKg: Number(s.weightKg) || 0,
-      volumeM3: Number(s.volumeM3) || 0,
-    }));
-
-    const alnsVehicles: ALNSVehicle[] = vehicles.map(v => ({
-      id: v.id,
-      vehicleType: v.vehicleType,
-      capacityKg: v.capacityKg,
-      capacityVolume: v.capacityVolume,
-      rangeKm: v.rangeKm,
-    }));
-
-    const orgDrivers = await db
-      .select()
-      .from(driversTable)
-      .where(
-        and(
-          eq(driversTable.organizationId, organizationId),
-          eq(driversTable.isActive, true)
-        )
-      );
-    const drivers = orgDrivers.filter(d => d.vehicleId && vehicleIds.includes(d.vehicleId));
-
-    const driverConstraints: ALNSDriverConstraints[] = [];
-    if (drivers.length > 0) {
-      const driverIds = drivers.map(d => d.id);
-      const allPrefs = await db
-        .select()
-        .from(driverPreferencesTable)
-        .where(inArray(driverPreferencesTable.driverId, driverIds));
-
-      const prefsMap = new Map(allPrefs.map(p => [p.driverId, p]));
-      for (const driver of drivers) {
-        if (!driver.vehicleId) continue;
-        const prefs = prefsMap.get(driver.id);
-        driverConstraints.push({
-          vehicleId: driver.vehicleId,
-          driverName: driver.name,
-          preferredStartTime: prefs?.preferredStartTime ?? "07:00:00",
-          preferredEndTime: prefs?.preferredEndTime ?? "16:00:00",
-          maxDrivingHoursPerDay: prefs?.maxDrivingHoursPerDay ?? 8,
-          avoidNightDriving: prefs?.avoidNightDriving ?? false,
-          breakFrequencyMinutes: prefs?.breakFrequencyMinutes ?? 120,
-          preferredBreakDurationMin: prefs?.preferredBreakDurationMin ?? 15,
-        });
-      }
     }
 
     const startTime = new Date();
     const result = optimizeWithALNS(
-      alnsNodes,
-      alnsVehicles,
-      depotLatitude,
-      depotLongitude,
-      startTime,
+      alnsNodes, alnsVehicles, depotLatitude, depotLongitude, startTime,
       { weights, timeLimitMs: timeBudgetMs, driverConstraints }
     );
 
-    const optimizedRoutes = [];
-    let totalDistanceKm = 0;
-    let totalDurationMin = 0;
+    const persisted = await persistOptimizationResult(
+      result, vehicles, organizationId, depotLatitude, depotLongitude,
+      weights, driverConstraints, (req.body as Record<string, unknown>).date as string | undefined,
+    );
 
-    for (const alnsRoute of result.routes) {
-      if (alnsRoute.nodes.length === 0) continue;
-
-      const vehicle = vehicles.find(v => v.id === alnsRoute.vehicleId);
-      if (!vehicle) continue;
-
-      const [route] = await db
-        .insert(routesTable)
-        .values({
-          organizationId,
-          vehicleId: vehicle.id,
-          name: `${vehicle.name} - Optimized`,
-          date: new Date(),
-          status: "optimized",
-          totalStops: alnsRoute.nodes.filter(n => !n.isChargingStation).length,
-        })
-        .returning();
-
-      let routeDistance = 0;
-      let routeDuration = 0;
-      const optimizedStops: Array<{
-        stopId: string;
-        sequenceOrder: number;
-        estimatedArrival: string;
-        distanceFromPreviousKm: number;
-        isChargingStop?: boolean;
-        chargingStationName?: string;
-      }> = [];
-      let currentTime = new Date();
-      let seqOrder = 0;
-      let prevLat = depotLatitude;
-      let prevLon = depotLongitude;
-
-      for (const node of alnsRoute.nodes) {
-        const dist = cachedDistance(prevLat, prevLon, node.latitude, node.longitude);
-        const dur = estimateDurationMin(dist, currentTime);
-
-        routeDistance += dist;
-        const arrivalTime = new Date(currentTime.getTime() + dur * 60000);
-
-        seqOrder++;
-
-        if (node.isChargingStation) {
-          const chargeDur = node.chargingDurationMin ?? 30;
-          routeDuration += dur + chargeDur;
-
-          optimizedStops.push({
-            stopId: node.id,
-            sequenceOrder: seqOrder,
-            estimatedArrival: arrivalTime.toISOString(),
-            distanceFromPreviousKm: Math.round(dist * 100) / 100,
-            isChargingStop: true,
-            chargingStationName: node.chargingStationName,
-          });
-
-          currentTime = new Date(arrivalTime.getTime() + chargeDur * 60000);
-        } else {
-          routeDuration += dur + node.serviceDurationMin;
-
-          const effectiveStart = node.timeWindowStart && node.timeWindowStart.getTime() > arrivalTime.getTime()
-            ? node.timeWindowStart
-            : arrivalTime;
-
-          const trackingCode = await generateUniqueTrackingCode();
-          await db
-            .update(stopsTable)
-            .set({ routeId: route.id, sequenceOrder: seqOrder, trackingCode })
-            .where(and(eq(stopsTable.id, node.id), eq(stopsTable.organizationId, organizationId)));
-
-          optimizedStops.push({
-            stopId: node.id,
-            sequenceOrder: seqOrder,
-            estimatedArrival: effectiveStart.toISOString(),
-            distanceFromPreviousKm: Math.round(dist * 100) / 100,
-          });
-
-          currentTime = new Date(effectiveStart.getTime() + node.serviceDurationMin * 60000);
-        }
-
-        prevLat = node.latitude;
-        prevLon = node.longitude;
-      }
-
-      const co2 = estimateCo2(routeDistance, vehicle.vehicleType, alnsRoute.totalWeight, vehicle.capacityKg);
-
-      await db
-        .update(routesTable)
-        .set({
-          totalDistanceKm: Math.round(routeDistance * 100) / 100,
-          totalDurationMin: Math.round(routeDuration * 100) / 100,
-          co2EmissionsKg: Math.round(co2 * 100) / 100,
-        })
-        .where(eq(routesTable.id, route.id));
-
-      totalDistanceKm += routeDistance;
-      totalDurationMin += routeDuration;
-
-      const chargingCount = alnsRoute.nodes.filter(n => n.isChargingStation).length;
-
-      optimizedRoutes.push({
-        vehicleId: vehicle.id,
-        routeId: route.id,
-        stops: optimizedStops,
-        distanceKm: Math.round(routeDistance * 100) / 100,
-        durationMin: Math.round(routeDuration * 100) / 100,
-        co2EmissionsKg: Math.round(co2 * 100) / 100,
-        chargingStopsInserted: chargingCount,
-      });
-    }
-
-    const routeDate = (req.body as Record<string, unknown>).date
-      ? new Date((req.body as Record<string, unknown>).date as string)
-      : new Date();
-
-    res.json({
-      routes: optimizedRoutes,
-      totalDistanceKm: Math.round(totalDistanceKm * 100) / 100,
-      totalDurationMin: Math.round(totalDurationMin * 100) / 100,
-      unassignedStopIds: result.unassigned.map(n => n.id),
-      trafficCondition: getTrafficDescription(routeDate),
-      etaModel: "predictive",
-      optimizer: "alns",
-      optimizationWeights: weights,
-      driverConstraintsApplied: driverConstraints.map(dc => ({
-        vehicleId: dc.vehicleId,
-        driverName: dc.driverName,
-        maxHours: dc.maxDrivingHoursPerDay,
-        avoidNight: dc.avoidNightDriving,
-        preferredWindow: `${dc.preferredStartTime.slice(0, 5)} - ${dc.preferredEndTime.slice(0, 5)}`,
-      })),
-      costBreakdown: {
-        totalDistanceKm: Math.round(result.costBreakdown.totalDistanceKm * 100) / 100,
-        totalCo2Kg: Math.round(result.costBreakdown.totalCo2Kg * 100) / 100,
-        totalTimeWindowSlackMin: Math.round(result.costBreakdown.totalTimeWindowSlackMin * 100) / 100,
-        totalDriverPenalty: Math.round(result.costBreakdown.totalDriverPenalty * 100) / 100,
-        driverPenaltyCost: Math.round(result.costBreakdown.driverPenaltyCost * 100) / 100,
-      },
-    });
+    res.json(persisted);
   } catch (err) {
     handleError(res, err);
   }
+});
+
+router.get("/optimize/status/:jobId", (req, res) => {
+  const job = optimizationJobs.get(req.params.jobId);
+  if (!job) {
+    res.status(404).json({ error: "Job not found" });
+    return;
+  }
+  const orgId = req.query.organizationId as string | undefined;
+  if (orgId && job.organizationId !== orgId) {
+    res.status(404).json({ error: "Job not found" });
+    return;
+  }
+  res.json({
+    jobId: job.id,
+    status: job.status,
+    progress: job.progress,
+    stopCount: job.stopCount,
+    vehicleCount: job.vehicleCount,
+    result: job.status === "complete" ? job.result : undefined,
+    error: job.error,
+    elapsedMs: Date.now() - job.createdAt,
+  });
 });
 
 router.post("/optimize/reoptimize", async (req, res) => {

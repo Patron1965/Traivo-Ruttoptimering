@@ -58,6 +58,29 @@ interface OptimizeParams {
   depotLatitude: number;
   depotLongitude: number;
   optimizationWeights?: OptimizationWeights;
+  timeBudgetMs?: number;
+}
+
+export interface OptimizationJobStatus {
+  jobId: string;
+  status: "running" | "complete" | "error";
+  progress: {
+    totalClusters: number;
+    completedClusters: number;
+    phase: "clustering" | "optimizing" | "merging" | "complete";
+    elapsedMs: number;
+  } | null;
+  stopCount: number;
+  vehicleCount: number;
+  result?: OptimizeResponse;
+  error?: string;
+  elapsedMs: number;
+}
+
+let activeJobProgress: OptimizationJobStatus["progress"] | null = null;
+
+export function getActiveJobProgress() {
+  return activeJobProgress;
 }
 
 export function useOptimizeRoutes() {
@@ -65,21 +88,74 @@ export function useOptimizeRoutes() {
   return useMutation<OptimizeResponse, Error, { data: OptimizeParams }>({
     mutationKey: ["optimizeRoutes"],
     mutationFn: async ({ data }) => {
+      activeJobProgress = null;
+      const isLarge = data.stopIds.length > 100;
+      const timeBudget = isLarge ? Math.max(data.timeBudgetMs ?? 30000, 60000) : (data.timeBudgetMs ?? 30000);
+
       const res = await fetch("/api/optimize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ ...data, async: isLarge, timeBudgetMs: timeBudget }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Optimization failed" }));
         throw new Error(err.error || "Optimization failed");
       }
-      return res.json();
+      const json = await res.json();
+
+      if (json.jobId) {
+        return await pollJobUntilComplete(json.jobId);
+      }
+
+      return json;
     },
     onSuccess: () => {
+      activeJobProgress = null;
       queryClient.invalidateQueries({ queryKey: ["/api/routes"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stops"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+    },
+    onError: () => {
+      activeJobProgress = null;
+    },
+  });
+}
+
+async function pollJobUntilComplete(jobId: string): Promise<OptimizeResponse> {
+  const maxWait = 150000;
+  const start = Date.now();
+
+  while (Date.now() - start < maxWait) {
+    await new Promise(r => setTimeout(r, 1500));
+    const res = await fetch(`/api/optimize/status/${jobId}`);
+    if (!res.ok) throw new Error("Failed to check optimization status");
+    const status: OptimizationJobStatus = await res.json();
+
+    activeJobProgress = status.progress;
+
+    if (status.status === "complete" && status.result) {
+      return status.result;
+    }
+    if (status.status === "error") {
+      throw new Error(status.error || "Optimization failed");
+    }
+  }
+  throw new Error("Optimization timed out");
+}
+
+export function useOptimizationJobStatus(jobId: string | null) {
+  return useQuery<OptimizationJobStatus>({
+    queryKey: ["/api/optimize/status", jobId],
+    queryFn: async () => {
+      const res = await fetch(`/api/optimize/status/${jobId}`);
+      if (!res.ok) throw new Error("Job not found");
+      return res.json();
+    },
+    enabled: !!jobId,
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if (data?.status === "complete" || data?.status === "error") return false;
+      return 1500;
     },
   });
 }

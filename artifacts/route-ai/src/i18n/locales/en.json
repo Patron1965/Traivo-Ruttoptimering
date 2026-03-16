@@ -180,7 +180,17 @@
     "co2Weight": "CO₂ Emissions",
     "etaPrecisionWeight": "ETA Precision",
     "driverHappinessWeight": "Driver Happiness",
-    "alnsOptimizer": "ALNS Multi-Objective"
+    "alnsOptimizer": "ALNS Multi-Objective",
+    "searchStops": "Search address or name...",
+    "selectedOfTotal": "{{selected}} of {{total}} selected",
+    "asyncOptimizing": "Optimizing in background...",
+    "clusterProgress": "Cluster {{completed}}/{{total}}",
+    "phaseCluster": "Clustering addresses...",
+    "phaseOptimize": "Optimizing routes...",
+    "phaseMerge": "Merging results...",
+    "phaseComplete": "Complete!",
+    "largeOptimization": "Large optimization ({{count}} stops)",
+    "estimatedTime": "Estimated time: ~{{seconds}}s"
   },
   "sustainability": {
     "title": "Sustainability",
