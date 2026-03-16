@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Map as MapIcon, Truck, MapPin, Route as RouteIcon, Command, Cpu, Leaf, Clock, Users, PlusCircle, CalendarClock, Shield, ChevronDown, Smartphone, BarChart3, Sun, Moon, Webhook, ShoppingBag } from "lucide-react";
+import { LayoutDashboard, Map as MapIcon, Truck, MapPin, Route as RouteIcon, Command, Cpu, Leaf, Clock, Users, PlusCircle, CalendarClock, Shield, ChevronDown, Smartphone, BarChart3, Sun, Moon, Webhook, ShoppingBag, CreditCard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { LanguageSwitcher } from "./LanguageSwitcher";
@@ -28,6 +28,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/analytics", labelKey: "sidebar.analytics", icon: BarChart3, roles: ["admin", "dispatcher"] },
   { href: "/webhooks", labelKey: "sidebar.webhooks", icon: Webhook, roles: ["admin"] },
   { href: "/shopify", labelKey: "sidebar.shopify", icon: ShoppingBag, roles: ["admin"] },
+  { href: "/billing", labelKey: "sidebar.billing", icon: CreditCard, roles: ["admin"] },
   { href: "/history", labelKey: "sidebar.routeHistory", icon: Clock },
   { href: "/driver-view", labelKey: "sidebar.driverView", icon: Smartphone, roles: ["driver"] },
 ];

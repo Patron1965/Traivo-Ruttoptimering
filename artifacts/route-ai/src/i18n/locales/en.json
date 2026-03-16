@@ -105,6 +105,7 @@
     "analytics": "Analytics",
     "webhooks": "Webhooks",
     "shopify": "Shopify",
+    "billing": "Billing",
     "orgName": "Stockholm Logistics AB"
   },
   "dashboard": {
@@ -741,5 +742,38 @@
     "imported": "imported",
     "skipped": "skipped",
     "errors": "errors"
+  },
+  "billing": {
+    "title": "Billing & Plans",
+    "subtitle": "Manage your subscription, view usage and compare plans",
+    "statusActive": "Active",
+    "statusTrial": "Trial",
+    "statusPastDue": "Past Due",
+    "statusCanceled": "Canceled",
+    "statusPaused": "Paused",
+    "free": "Free",
+    "custom": "Custom",
+    "contactUs": "Contact us",
+    "contactSales": "Contact Sales",
+    "month": "month",
+    "upgrade": "Upgrade Plan",
+    "cancelPlan": "Cancel Plan",
+    "upgraded": "Plan upgraded",
+    "upgradedDesc": "Your plan has been successfully upgraded.",
+    "cancelScheduled": "Cancellation scheduled",
+    "cancelScheduledDesc": "Your plan will be canceled at the end of the current billing period.",
+    "cancelPending": "Cancellation scheduled at end of period",
+    "trialEnds": "Trial ends {{date}}",
+    "periodEnds": "Current period ends {{date}}",
+    "usage": "Usage",
+    "usageDesc": "Current usage in this billing period",
+    "vehicles": "Vehicles",
+    "drivers": "Drivers",
+    "stopsMonth": "Stops / month",
+    "unlimited": "Unlimited",
+    "allPlans": "Available Plans",
+    "allPlansDesc": "Compare features and choose the right plan for your team",
+    "current": "Current",
+    "switchTo": "Switch to {{plan}}"
   }
 }

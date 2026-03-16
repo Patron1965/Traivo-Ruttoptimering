@@ -56,6 +56,7 @@ The frontend, `artifacts/route-ai`, is a React + Vite application featuring a da
 - **Security:** Helmet security headers and CORS.
 - **Environment Variables:** Zod-based validation.
 - **Service-Oriented Logic:** Business logic organized into services.
+- **Subscription & Billing:** Three-tier plan system (Starter/Pro/Enterprise) with `subscription_plans` and `subscriptions` tables. Plan enforcement tracks vehicle, driver and stop limits per organization. Billing page at `/billing` shows current plan, usage meters, and plan comparison. Self-service signup with 14-day trial on Starter plan.
 
 ## External Dependencies
 

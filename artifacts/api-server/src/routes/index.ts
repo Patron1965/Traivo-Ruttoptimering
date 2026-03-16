@@ -26,6 +26,7 @@ import storageRouter from "./storage";
 import proofRouter from "./proof";
 import webhooksRouter from "./webhooks";
 import shopifyRouter from "./shopify";
+import subscriptionsRouter from "./subscriptions";
 
 const router: IRouter = Router();
 
@@ -56,5 +57,6 @@ router.use(energyRouter);
 router.use(voiceRouter);
 router.use(webhooksRouter);
 router.use(shopifyRouter);
+router.use(subscriptionsRouter);
 
 export default router;

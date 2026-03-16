@@ -105,6 +105,7 @@
     "analytics": "Analys",
     "webhooks": "Webhooks",
     "shopify": "Shopify",
+    "billing": "Fakturering",
     "orgName": "Stockholm Logistics AB"
   },
   "dashboard": {
@@ -741,5 +742,38 @@
     "imported": "importerade",
     "skipped": "överhoppade",
     "errors": "fel"
+  },
+  "billing": {
+    "title": "Fakturering & Planer",
+    "subtitle": "Hantera din prenumeration, se förbrukning och jämför planer",
+    "statusActive": "Aktiv",
+    "statusTrial": "Provperiod",
+    "statusPastDue": "Förfallen",
+    "statusCanceled": "Avbruten",
+    "statusPaused": "Pausad",
+    "free": "Gratis",
+    "custom": "Anpassat",
+    "contactUs": "Kontakta oss",
+    "contactSales": "Kontakta sälj",
+    "month": "månad",
+    "upgrade": "Uppgradera plan",
+    "cancelPlan": "Avbryt plan",
+    "upgraded": "Plan uppgraderad",
+    "upgradedDesc": "Din plan har uppgraderats.",
+    "cancelScheduled": "Uppsägning schemalagd",
+    "cancelScheduledDesc": "Din plan avslutas vid slutet av nuvarande faktureringsperiod.",
+    "cancelPending": "Uppsägning schemalagd vid periodens slut",
+    "trialEnds": "Provperioden slutar {{date}}",
+    "periodEnds": "Nuvarande period slutar {{date}}",
+    "usage": "Förbrukning",
+    "usageDesc": "Aktuell förbrukning denna faktureringsperiod",
+    "vehicles": "Fordon",
+    "drivers": "Förare",
+    "stopsMonth": "Stopp / månad",
+    "unlimited": "Obegränsat",
+    "allPlans": "Tillgängliga planer",
+    "allPlansDesc": "Jämför funktioner och välj rätt plan för ditt team",
+    "current": "Nuvarande",
+    "switchTo": "Byt till {{plan}}"
   }
 }
