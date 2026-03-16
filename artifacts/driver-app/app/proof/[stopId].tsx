@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Platform,
   Alert,
+  PanResponder,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useLocalSearchParams, router } from "expo-router";
@@ -28,6 +29,189 @@ interface Proof {
   notes?: string;
 }
 
+function SignaturePad({ onSave, onCancel }: { onSave: (data: string) => void; onCancel: () => void }) {
+  const c = Colors.light;
+  const pathsRef = useRef<{ x: number; y: number }[][]>([]);
+  const currentPathRef = useRef<{ x: number; y: number }[]>([]);
+  const [pathCount, setPathCount] = useState(0);
+  const svgWidth = 300;
+  const svgHeight = 200;
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: (evt) => {
+        const { locationX, locationY } = evt.nativeEvent;
+        currentPathRef.current = [{ x: locationX, y: locationY }];
+      },
+      onPanResponderMove: (evt) => {
+        const { locationX, locationY } = evt.nativeEvent;
+        currentPathRef.current.push({ x: locationX, y: locationY });
+        setPathCount((c) => c + 1);
+      },
+      onPanResponderRelease: () => {
+        if (currentPathRef.current.length > 1) {
+          pathsRef.current.push([...currentPathRef.current]);
+        }
+        currentPathRef.current = [];
+        setPathCount((c) => c + 1);
+      },
+    })
+  ).current;
+
+  const allPaths = [...pathsRef.current];
+  if (currentPathRef.current.length > 1) {
+    allPaths.push(currentPathRef.current);
+  }
+
+  const buildPathD = (points: { x: number; y: number }[]) => {
+    if (points.length < 2) return "";
+    let d = `M${points[0].x.toFixed(1)},${points[0].y.toFixed(1)}`;
+    for (let i = 1; i < points.length; i++) {
+      d += ` L${points[i].x.toFixed(1)},${points[i].y.toFixed(1)}`;
+    }
+    return d;
+  };
+
+  const handleClear = () => {
+    pathsRef.current = [];
+    currentPathRef.current = [];
+    setPathCount(0);
+  };
+
+  const handleSave = () => {
+    if (pathsRef.current.length === 0) return;
+    const svgPaths = pathsRef.current.map((pts) => buildPathD(pts)).join(" ");
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${svgWidth} ${svgHeight}"><path d="${svgPaths}" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    let base64: string;
+    if (typeof btoa === "function") {
+      base64 = btoa(svg);
+    } else {
+      base64 = Buffer.from(svg, "utf-8").toString("base64");
+    }
+    onSave(`data:image/svg+xml;base64,${base64}`);
+  };
+
+  return (
+    <View style={signStyles.container}>
+      <View
+        style={[signStyles.canvas, { borderColor: c.border }]}
+        {...panResponder.panHandlers}
+      >
+        {allPaths.length === 0 && (
+          <Text style={[signStyles.placeholder, { color: c.textTertiary }]}>
+            Sign here
+          </Text>
+        )}
+        {allPaths.map((pts, i) =>
+          pts.length > 1 ? (
+            <View
+              key={`${i}-${pathCount}`}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+            >
+              {pts.slice(1).map((pt, j) => {
+                const prev = pts[j];
+                const dx = pt.x - prev.x;
+                const dy = pt.y - prev.y;
+                const len = Math.sqrt(dx * dx + dy * dy);
+                const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+                return (
+                  <View
+                    key={j}
+                    style={{
+                      position: "absolute",
+                      left: prev.x,
+                      top: prev.y - 1,
+                      width: len,
+                      height: 2,
+                      backgroundColor: "#000",
+                      transform: [{ rotate: `${angle}deg` }],
+                      transformOrigin: "left center",
+                    }}
+                  />
+                );
+              })}
+            </View>
+          ) : null
+        )}
+      </View>
+      <View style={signStyles.actions}>
+        <Pressable
+          onPress={handleClear}
+          style={({ pressed }) => [
+            signStyles.btn,
+            { borderColor: c.border, opacity: pressed ? 0.8 : 1 },
+          ]}
+        >
+          <Feather name="trash-2" size={16} color={c.textSecondary} />
+          <Text style={[signStyles.btnText, { color: c.textSecondary, fontFamily: "Inter_500Medium" }]}>
+            Clear
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={onCancel}
+          style={({ pressed }) => [
+            signStyles.btn,
+            { borderColor: c.border, opacity: pressed ? 0.8 : 1 },
+          ]}
+        >
+          <Text style={[signStyles.btnText, { color: c.textSecondary, fontFamily: "Inter_500Medium" }]}>
+            Cancel
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={handleSave}
+          disabled={pathsRef.current.length === 0}
+          style={({ pressed }) => [
+            signStyles.btn,
+            signStyles.btnPrimary,
+            {
+              backgroundColor: pathsRef.current.length === 0 ? c.textTertiary : c.primary,
+              opacity: pressed ? 0.8 : 1,
+            },
+          ]}
+        >
+          <Feather name="check" size={16} color="#FFF" />
+          <Text style={[signStyles.btnText, { color: "#FFF", fontFamily: "Inter_600SemiBold" }]}>
+            Accept
+          </Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+const signStyles = StyleSheet.create({
+  container: { gap: 12 },
+  canvas: {
+    width: "100%",
+    height: 200,
+    borderWidth: 2,
+    borderRadius: 12,
+    borderStyle: "dashed",
+    justifyContent: "center",
+    alignItems: "center",
+    overflow: "hidden",
+    backgroundColor: "#FAFAFA",
+  },
+  placeholder: { fontSize: 16, position: "absolute" },
+  actions: { flexDirection: "row", gap: 8, justifyContent: "flex-end" },
+  btn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  btnPrimary: { borderWidth: 0 },
+  btnText: { fontSize: 14 },
+});
+
 export default function ProofScreen() {
   const { stopId } = useLocalSearchParams<{ stopId: string }>();
   const c = Colors.light;
@@ -37,6 +221,7 @@ export default function ProofScreen() {
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [showSignaturePad, setShowSignaturePad] = useState(false);
 
   const takePhoto = async () => {
     const permResult = await ImagePicker.requestCameraPermissionsAsync();
@@ -61,6 +246,12 @@ export default function ProofScreen() {
       if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setProofs((p) => [...p, { type: "photo", data: `data:image/jpeg;base64,${result.assets[0].base64}` }]);
     }
+  };
+
+  const handleSignatureSave = (data: string) => {
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setProofs((p) => [...p, { type: "signature", data }]);
+    setShowSignaturePad(false);
   };
 
   const addBarcode = () => {
@@ -134,23 +325,25 @@ export default function ProofScreen() {
           </Pressable>
 
           <Pressable
-            onPress={() => {
-              Alert.alert("Coming Soon", "Signature capture will be available in a future update.");
-            }}
+            onPress={() => setShowSignaturePad(true)}
             style={({ pressed }) => [
               styles.captureBtn,
-              { backgroundColor: c.primary + "10", borderColor: c.primary + "20", opacity: pressed ? 0.85 : 0.6 },
+              { backgroundColor: c.primary + "10", borderColor: c.primary + "20", opacity: pressed ? 0.85 : 1 },
             ]}
           >
             <Feather name="edit-3" size={24} color={c.primary} />
             <Text style={[styles.captureBtnText, { color: c.primary, fontFamily: "Inter_600SemiBold" }]}>
               Signature
             </Text>
-            <Text style={{ fontSize: 10, color: c.textTertiary, fontFamily: "Inter_400Regular" }}>
-              Coming soon
-            </Text>
           </Pressable>
         </View>
+
+        {showSignaturePad && (
+          <SignaturePad
+            onSave={handleSignatureSave}
+            onCancel={() => setShowSignaturePad(false)}
+          />
+        )}
 
         <View style={styles.barcodeRow}>
           <TextInput

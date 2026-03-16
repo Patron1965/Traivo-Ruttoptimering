@@ -43,6 +43,16 @@ export interface Driver {
   vehicleId: string | null;
 }
 
+export interface Vehicle {
+  id: string;
+  name: string;
+  licensePlate: string | null;
+  type: string | null;
+  capacityKg: number | null;
+  capacityM3: number | null;
+  organizationId: string;
+}
+
 export interface Route {
   id: string;
   name: string;
@@ -86,11 +96,15 @@ export interface DriverPreferences {
 }
 
 export interface DriverStats {
-  driverId: string;
   totalRoutes: number;
-  totalStops: number;
-  completedStops: number;
-  failedStops: number;
+  completedRoutes: number;
+  totalDeliveries: number;
+  completedDeliveries: number;
+  failedDeliveries: number;
+  skippedDeliveries: number;
+  onTimeRate: number | null;
+  avgServiceDurationMin: number | null;
+  totalDistanceKm: number | null;
   happinessScore: number | null;
 }
 
@@ -139,4 +153,70 @@ export const api = {
 
   getStopProofs: (stopId: string) =>
     request<unknown[]>(`/stops/${stopId}/proofs?organizationId=${ORG_ID}`),
+
+  getVehicles: () =>
+    request<Vehicle[]>(`/vehicles?organizationId=${ORG_ID}`),
+
+  getVehicle: (id: string) =>
+    request<Vehicle>(`/vehicles/${id}?organizationId=${ORG_ID}`),
 };
+
+function decodePolyline(encoded: string): [number, number][] {
+  const points: [number, number][] = [];
+  let index = 0;
+  let lat = 0;
+  let lng = 0;
+
+  while (index < encoded.length) {
+    let shift = 0;
+    let result = 0;
+    let byte: number;
+
+    do {
+      byte = encoded.charCodeAt(index++) - 63;
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20);
+    lat += result & 1 ? ~(result >> 1) : result >> 1;
+
+    shift = 0;
+    result = 0;
+    do {
+      byte = encoded.charCodeAt(index++) - 63;
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20);
+    lng += result & 1 ? ~(result >> 1) : result >> 1;
+
+    points.push([lat / 1e5, lng / 1e5]);
+  }
+
+  return points;
+}
+
+const routeGeometryCache = new Map<string, { latitude: number; longitude: number }[]>();
+
+export async function fetchRouteGeometry(
+  waypoints: { latitude: number; longitude: number }[],
+): Promise<{ latitude: number; longitude: number }[]> {
+  if (waypoints.length < 2) return waypoints;
+
+  const key = waypoints.map((w) => `${w.latitude.toFixed(5)},${w.longitude.toFixed(5)}`).join("|");
+  if (routeGeometryCache.has(key)) return routeGeometryCache.get(key)!;
+
+  const coords = waypoints.map((w) => `${w.longitude},${w.latitude}`).join(";");
+  const url = `${BASE_URL}/osrm/route?coords=${encodeURIComponent(coords)}`;
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return waypoints;
+    const data = await res.json();
+    if (data.code !== "Ok" || !data.routes?.[0]) return waypoints;
+    const decoded = decodePolyline(data.routes[0].geometry);
+    const result = decoded.map(([lat, lng]) => ({ latitude: lat, longitude: lng }));
+    routeGeometryCache.set(key, result);
+    return result;
+  } catch {
+    return waypoints;
+  }
+}

@@ -22,7 +22,7 @@ import { api } from "@/lib/api";
 
 function ScoreGauge({ score }: { score: number }) {
   const c = Colors.light;
-  const pct = Math.round(score * 100);
+  const pct = score > 1 ? Math.round(score) : Math.round(score * 100);
   const color = pct >= 70 ? c.success : pct >= 40 ? c.warning : c.danger;
 
   return (
@@ -147,7 +147,7 @@ export default function SettingsTab() {
             <View style={[styles.statDivider, { backgroundColor: c.border }]} />
             <View style={styles.statItem}>
               <Text style={[styles.statValue, { color: c.success, fontFamily: "Inter_700Bold" }]}>
-                {stats.completedStops}
+                {stats.completedDeliveries}
               </Text>
               <Text style={[styles.statLabel, { color: c.textSecondary, fontFamily: "Inter_400Regular" }]}>
                 Delivered
@@ -156,7 +156,7 @@ export default function SettingsTab() {
             <View style={[styles.statDivider, { backgroundColor: c.border }]} />
             <View style={styles.statItem}>
               <Text style={[styles.statValue, { color: c.danger, fontFamily: "Inter_700Bold" }]}>
-                {stats.failedStops}
+                {stats.failedDeliveries}
               </Text>
               <Text style={[styles.statLabel, { color: c.textSecondary, fontFamily: "Inter_400Regular" }]}>
                 Failed

@@ -1,4 +1,4 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   RefreshControl,
   Platform,
   Alert,
+  Modal,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -18,7 +19,7 @@ import * as Haptics from "expo-haptics";
 import { useTabBarHeight } from "@/hooks/useTabBarHeight";
 import Colors from "@/constants/colors";
 import { useAuth } from "@/context/AuthContext";
-import { api, type Stop, type Route } from "@/lib/api";
+import { api, type Stop, type Route, type Vehicle } from "@/lib/api";
 
 const STATUS_CONFIG: Record<string, { color: string; icon: string; label: string }> = {
   pending: { color: Colors.light.textTertiary, icon: "clock", label: "Pending" },
@@ -185,6 +186,8 @@ export default function RoutesTab() {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useTabBarHeight();
   const queryClient = useQueryClient();
+  const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
+  const [showRouteSelector, setShowRouteSelector] = useState(false);
 
   const { data: routes, isLoading: routesLoading, refetch: refetchRoutes } = useQuery({
     queryKey: ["routes", driver?.id],
@@ -192,9 +195,31 @@ export default function RoutesTab() {
     enabled: !!driver,
   });
 
-  const activeRoute = routes?.find(
-    (r) => r.status === "in_progress" || r.status === "optimized"
+  const { data: vehicles } = useQuery({
+    queryKey: ["vehicles"],
+    queryFn: () => api.getVehicles(),
+  });
+
+  const vehicleMap = useMemo(() => {
+    const map = new Map<string, Vehicle>();
+    vehicles?.forEach((v) => map.set(v.id, v));
+    return map;
+  }, [vehicles]);
+
+  const activeRoutes = useMemo(
+    () => (routes ?? []).filter((r) => r.status === "in_progress" || r.status === "optimized"),
+    [routes],
   );
+
+  const activeRoute = useMemo(() => {
+    if (selectedRouteId) {
+      const found = activeRoutes.find((r) => r.id === selectedRouteId);
+      if (found) return found;
+    }
+    return activeRoutes[0] ?? null;
+  }, [activeRoutes, selectedRouteId]);
+
+  const routeVehicle = activeRoute?.vehicleId ? vehicleMap.get(activeRoute.vehicleId) : null;
 
   const { data: stops, isLoading: stopsLoading, refetch: refetchStops } = useQuery({
     queryKey: ["stops", activeRoute?.id],
@@ -244,6 +269,14 @@ export default function RoutesTab() {
     if (activeRoute) refetchStops();
   }, [refetchRoutes, refetchStops, activeRoute]);
 
+  const selectRoute = (routeId: string) => {
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    setSelectedRouteId(routeId);
+    setShowRouteSelector(false);
+  };
+
   const isLoading = routesLoading || stopsLoading;
 
   return (
@@ -258,14 +291,33 @@ export default function RoutesTab() {
           },
         ]}
       >
-        <View>
-          <Text style={[styles.greeting, { color: c.textSecondary, fontFamily: "Inter_500Medium" }]}>
-            Hello, {driver?.name?.split(" ")[0] ?? "Driver"}
-          </Text>
-          <Text style={[styles.headerTitle, { color: c.text, fontFamily: "Inter_700Bold" }]}>
-            {activeRoute ? activeRoute.name : "No Active Route"}
-          </Text>
-        </View>
+        <Pressable
+          onPress={() => activeRoutes.length > 1 && setShowRouteSelector(true)}
+          style={styles.headerLeft}
+        >
+          <View>
+            <Text style={[styles.greeting, { color: c.textSecondary, fontFamily: "Inter_500Medium" }]}>
+              Hello, {driver?.name?.split(" ")[0] ?? "Driver"}
+            </Text>
+            <View style={styles.routeNameRow}>
+              <Text style={[styles.headerTitle, { color: c.text, fontFamily: "Inter_700Bold" }]}>
+                {activeRoute ? activeRoute.name : "No Active Route"}
+              </Text>
+              {activeRoutes.length > 1 && (
+                <Feather name="chevron-down" size={18} color={c.textSecondary} style={{ marginLeft: 4 }} />
+              )}
+            </View>
+            {routeVehicle && (
+              <View style={styles.vehicleRow}>
+                <Feather name="truck" size={12} color={c.textSecondary} />
+                <Text style={[styles.vehicleText, { color: c.textSecondary, fontFamily: "Inter_400Regular" }]}>
+                  {routeVehicle.name}
+                  {routeVehicle.licensePlate ? ` \u2022 ${routeVehicle.licensePlate}` : ""}
+                </Text>
+              </View>
+            )}
+          </View>
+        </Pressable>
         {activeRoute && (
           <View style={[styles.progressChip, { backgroundColor: c.primary + "15" }]}>
             <Text style={[styles.progressText, { color: c.primary, fontFamily: "Inter_700Bold" }]}>
@@ -315,6 +367,68 @@ export default function RoutesTab() {
           )}
         />
       )}
+
+      <Modal
+        visible={showRouteSelector}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowRouteSelector(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setShowRouteSelector(false)}
+        >
+          <View
+            style={[
+              styles.modalSheet,
+              {
+                backgroundColor: c.surface,
+                paddingBottom: insets.bottom + 16,
+              },
+            ]}
+          >
+            <View style={styles.modalHandle} />
+            <Text style={[styles.modalTitle, { color: c.text, fontFamily: "Inter_700Bold" }]}>
+              Select Route
+            </Text>
+            {activeRoutes.map((route) => {
+              const vehicle = route.vehicleId ? vehicleMap.get(route.vehicleId) : null;
+              const isSelected = route.id === activeRoute?.id;
+              return (
+                <Pressable
+                  key={route.id}
+                  onPress={() => selectRoute(route.id)}
+                  style={({ pressed }) => [
+                    styles.routeOption,
+                    {
+                      backgroundColor: isSelected ? c.primary + "10" : "transparent",
+                      borderColor: isSelected ? c.primary + "40" : c.border,
+                      opacity: pressed ? 0.85 : 1,
+                    },
+                  ]}
+                >
+                  <View style={[styles.routeOptionIcon, { backgroundColor: c.primary + "15" }]}>
+                    <Feather name="map" size={20} color={c.primary} />
+                  </View>
+                  <View style={styles.routeOptionInfo}>
+                    <Text style={[styles.routeOptionName, { color: c.text, fontFamily: "Inter_600SemiBold" }]}>
+                      {route.name}
+                    </Text>
+                    {vehicle && (
+                      <Text style={[styles.routeOptionVehicle, { color: c.textSecondary, fontFamily: "Inter_400Regular" }]}>
+                        {vehicle.name}{vehicle.licensePlate ? ` \u2022 ${vehicle.licensePlate}` : ""}
+                      </Text>
+                    )}
+                  </View>
+                  {isSelected && (
+                    <Feather name="check-circle" size={20} color={c.primary} />
+                  )}
+                </Pressable>
+              );
+            })}
+          </View>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -329,8 +443,12 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     borderBottomWidth: 1,
   },
+  headerLeft: { flex: 1 },
   greeting: { fontSize: 14, marginBottom: 2 },
+  routeNameRow: { flexDirection: "row", alignItems: "center" },
   headerTitle: { fontSize: 22 },
+  vehicleRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 },
+  vehicleText: { fontSize: 13 },
   progressChip: {
     paddingHorizontal: 14,
     paddingVertical: 8,
@@ -396,4 +514,42 @@ const styles = StyleSheet.create({
   },
   actionBtnWide: { flex: 1 },
   actionLabel: { fontSize: 14 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "flex-end",
+  },
+  modalSheet: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    gap: 12,
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#CCC",
+    alignSelf: "center",
+    marginBottom: 8,
+  },
+  modalTitle: { fontSize: 20, marginBottom: 4 },
+  routeOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 12,
+  },
+  routeOptionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  routeOptionInfo: { flex: 1, gap: 2 },
+  routeOptionName: { fontSize: 16 },
+  routeOptionVehicle: { fontSize: 13 },
 });

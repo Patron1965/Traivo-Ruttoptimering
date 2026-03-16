@@ -47,7 +47,7 @@ The frontend, `artifacts/route-ai`, is a React + Vite application featuring a da
 - **Return Handling:** Reschedule failed deliveries.
 - **Proof of Delivery (PoD):** Drivers can capture photo, signature, or barcode proof at stops, displayed on the public tracking page.
 - **Automated Customer Notifications with Live ETA:** Email notifications for approaching, delivered, or failed deliveries with tracking links and a notification history.
-- **Native Driver App (Expo):** A React Native / Expo mobile app for drivers with route management, map visualization, and PoD capabilities.
+- **Native Driver App (Expo):** A React Native / Expo mobile app ("Traivo Route Driver") for drivers with route management, map visualization, and PoD capabilities. Features include: multi-route selector with vehicle info (name + license plate), OSRM road-following route polylines on the map, driver preferences editing (start/end time, max hours, night driving), happiness score gauge, and full proof-of-delivery (photo capture, touch-based signature pad, barcode entry).
 - **Webhooks & Zapier Integration:** Configurable webhooks for external service integration with HMAC-SHA256 signing.
 - **Shopify Order Import:** Connect Shopify stores via Admin API access token, import unfulfilled orders as delivery stops with geocoded addresses, track import history, and update fulfillment status back to Shopify when deliveries complete. Settings page at `/shopify`.
 

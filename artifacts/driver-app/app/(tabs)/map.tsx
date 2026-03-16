@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -15,7 +15,7 @@ import * as Haptics from "expo-haptics";
 import { useTabBarHeight } from "@/hooks/useTabBarHeight";
 import Colors from "@/constants/colors";
 import { useAuth } from "@/context/AuthContext";
-import { api, type Stop } from "@/lib/api";
+import { api, type Stop, fetchRouteGeometry } from "@/lib/api";
 import NativeMap from "@/components/NativeMap";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -30,6 +30,7 @@ export default function MapTab() {
   const { driver } = useAuth();
   const insets = useSafeAreaInsets();
   const tabBarHeight = useTabBarHeight();
+  const [routeGeometry, setRouteGeometry] = useState<{ latitude: number; longitude: number }[]>([]);
 
   const { data: routes } = useQuery({
     queryKey: ["routes", driver?.id],
@@ -68,10 +69,27 @@ export default function MapTab() {
     [validStops, c.textTertiary],
   );
 
-  const polylineCoords = useMemo(
+  const straightLineCoords = useMemo(
     () => validStops.map((s) => ({ latitude: s.latitude!, longitude: s.longitude! })),
     [validStops],
   );
+
+  useEffect(() => {
+    if (straightLineCoords.length < 2) {
+      setRouteGeometry([]);
+      return;
+    }
+
+    let cancelled = false;
+    fetchRouteGeometry(straightLineCoords).then((geometry) => {
+      if (!cancelled) {
+        setRouteGeometry(geometry);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [straightLineCoords]);
+
+  const polylineCoords = routeGeometry.length > 0 ? routeGeometry : straightLineCoords;
 
   const openNavigation = (stop: Stop) => {
     if (!stop.latitude || !stop.longitude) return;
