@@ -82,13 +82,13 @@ export function PredictionLayer({ visible }: { visible: boolean }) {
         <CircleMarker
           key={`${cell.lat}-${cell.lng}`}
           center={[cell.lat, cell.lng]}
-          radius={Math.max(8, 18 * cell.congestionScore)}
+          radius={Math.max(18, 40 * cell.congestionScore)}
           pathOptions={{
             fillColor: getCongestionColor(cell.congestionScore),
-            fillOpacity: opacity * cell.congestionScore,
+            fillOpacity: opacity * Math.max(0.35, cell.congestionScore * 0.85),
             color: getCongestionColor(cell.congestionScore),
-            weight: 0,
-            opacity: opacity,
+            weight: 2,
+            opacity: opacity * 0.7,
           }}
         >
           <Tooltip direction="top" sticky>
