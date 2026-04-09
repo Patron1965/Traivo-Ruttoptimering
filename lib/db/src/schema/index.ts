@@ -16,3 +16,4 @@ export * from "./delivery-proofs";
 export * from "./webhooks";
 export * from "./shopify-integrations";
 export * from "./subscriptions";
+export * from "./driver-behavior";

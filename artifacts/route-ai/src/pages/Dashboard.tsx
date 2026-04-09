@@ -2,6 +2,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { useDashboardStats } from "@/hooks/use-dashboard";
 import { LoadingState, ErrorState } from "@/components/ui/LoadingState";
 import { InsightsPanel } from "@/components/insights/InsightsPanel";
+import { WeatherTrafficWidget } from "@/components/weather/WeatherTrafficWidget";
 import { Truck, MapPin, Route, Clock, Leaf, Gauge, Users } from "lucide-react";
 import { formatDistance, formatDuration } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
@@ -43,6 +44,8 @@ export default function Dashboard() {
             icon={<Clock className="h-5 w-5 text-violet-500" />} 
           />
         </div>
+
+        <WeatherTrafficWidget />
 
         <InsightsPanel dashboardUpdatedAt={dataUpdatedAt} />
 

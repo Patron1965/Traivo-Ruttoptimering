@@ -27,6 +27,9 @@ import proofRouter from "./proof";
 import webhooksRouter from "./webhooks";
 import shopifyRouter from "./shopify";
 import subscriptionsRouter from "./subscriptions";
+import weatherRouter from "./weather";
+import trafficRouter from "./traffic";
+import driverLearningRouter from "./driver-learning";
 
 const router: IRouter = Router();
 
@@ -58,5 +61,8 @@ router.use(voiceRouter);
 router.use(webhooksRouter);
 router.use(shopifyRouter);
 router.use(subscriptionsRouter);
+router.use(weatherRouter);
+router.use(trafficRouter);
+router.use(driverLearningRouter);
 
 export default router;

@@ -20,7 +20,9 @@ import {
   type ALNSDriverConstraints,
   type OptimizationWeights,
   type ClusteredOptimizationProgress,
+  type EnvironmentContext,
 } from "../services/alns";
+import { getWeatherForLocation, getWeatherSeverity } from "../services/weather-service";
 import { broadcast } from "../ws";
 import {
   ContinuousOptimizer,
@@ -387,10 +389,16 @@ router.post("/optimize", async (req, res) => {
 
       setImmediate(async () => {
         try {
+          const weather = await getWeatherForLocation(depotLatitude, depotLongitude);
+          const environment: EnvironmentContext = {
+            weatherImpact: weather.drivingImpact,
+            evRangeMultiplier: weather.evRangeMultiplier,
+          };
+
           const startTime = new Date();
           const result = await optimizeWithALNS(
             alnsNodes, alnsVehicles, depotLatitude, depotLongitude, startTime,
-            { weights, timeLimitMs: timeBudgetMs, driverConstraints },
+            { weights, timeLimitMs: timeBudgetMs, driverConstraints, environment },
             (progress) => { job.progress = progress; }
           );
 
@@ -413,10 +421,16 @@ router.post("/optimize", async (req, res) => {
       return;
     }
 
+    const weather = await getWeatherForLocation(depotLatitude, depotLongitude);
+    const environment: EnvironmentContext = {
+      weatherImpact: weather.drivingImpact,
+      evRangeMultiplier: weather.evRangeMultiplier,
+    };
+
     const startTime = new Date();
     const result = await optimizeWithALNS(
       alnsNodes, alnsVehicles, depotLatitude, depotLongitude, startTime,
-      { weights, timeLimitMs: timeBudgetMs, driverConstraints }
+      { weights, timeLimitMs: timeBudgetMs, driverConstraints, environment }
     );
 
     const persisted = await persistOptimizationResult(
@@ -424,7 +438,15 @@ router.post("/optimize", async (req, res) => {
       weights, driverConstraints, (req.body as Record<string, unknown>).date as string | undefined,
     );
 
-    res.json(persisted);
+    res.json({
+      ...persisted,
+      weatherConditions: {
+        description: weather.description,
+        severity: getWeatherSeverity(weather),
+        drivingImpact: weather.drivingImpact,
+        temperature: weather.temperature,
+      },
+    });
   } catch (err) {
     handleError(res, err);
   }

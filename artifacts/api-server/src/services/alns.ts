@@ -1,5 +1,15 @@
 import { estimateDurationMinPredictive } from "./eta";
 import { getCachedOsrmDistance, precomputeDistanceMatrix, isOsrmConfigured } from "./osrm";
+import { getSegmentTrafficMultiplier } from "./traffic-service";
+
+export interface EnvironmentContext {
+  weatherImpact: number;
+  evRangeMultiplier: number;
+}
+
+const DEFAULT_ENV_CTX: EnvironmentContext = { weatherImpact: 1.0, evRangeMultiplier: 1.0 };
+
+let _envCtx: EnvironmentContext = DEFAULT_ENV_CTX;
 
 export interface ALNSNode {
   id: string;
@@ -204,14 +214,29 @@ function cachedDuration(lat1: number, lon1: number, lat2: number, lon2: number):
 }
 
 function estimateDuration(distanceKm: number, departureTime?: Date, lat1?: number, lon1?: number, lat2?: number, lon2?: number): number {
+  let baseDuration: number;
+
   if (lat1 != null && lon1 != null && lat2 != null && lon2 != null) {
     const osrmDur = cachedDuration(lat1, lon1, lat2, lon2);
-    if (osrmDur !== undefined) return osrmDur;
+    if (osrmDur !== undefined) {
+      baseDuration = osrmDur;
+    } else if (departureTime) {
+      baseDuration = estimateDurationMinPredictive(distanceKm, departureTime);
+    } else {
+      baseDuration = (distanceKm / 35) * 60;
+    }
+
+    const trafficMult = getSegmentTrafficMultiplier(lat1, lon1, lat2, lon2, departureTime);
+    return baseDuration * Math.max(trafficMult, _envCtx.weatherImpact);
   }
+
   if (departureTime) {
-    return estimateDurationMinPredictive(distanceKm, departureTime);
+    baseDuration = estimateDurationMinPredictive(distanceKm, departureTime);
+  } else {
+    baseDuration = (distanceKm / 35) * 60;
   }
-  return (distanceKm / 35) * 60;
+
+  return baseDuration * _envCtx.weatherImpact;
 }
 
 function estimateCo2(distanceKm: number, vehicleType: string, loadKg = 0, capacityKg = 1000): number {
@@ -304,7 +329,8 @@ function evaluateRoute(
   for (const node of route.nodes) {
     const dist = cachedDistance(prevLat, prevLon, node.latitude, node.longitude);
 
-    if (vehicle.rangeKm && rangeUsed + dist > vehicle.rangeKm * 0.95) {
+    const effectiveRange = vehicle.rangeKm ? vehicle.rangeKm * _envCtx.evRangeMultiplier : null;
+    if (effectiveRange && rangeUsed + dist > effectiveRange * 0.95) {
       return { feasible: false, totalDistanceKm: totalDist, totalCo2Kg: 0, totalTimeWindowSlackMin: Infinity, endTime: currentTime, rangeUsedKm: rangeUsed, chargingInsertions, driverPenalty: 0 };
     }
 
@@ -344,7 +370,8 @@ function evaluateRoute(
   }
 
   const returnDist = cachedDistance(prevLat, prevLon, depotLat, depotLon);
-  if (vehicle.rangeKm && rangeUsed + returnDist > vehicle.rangeKm * 0.9) {
+  const returnRange = vehicle.rangeKm ? vehicle.rangeKm * _envCtx.evRangeMultiplier : null;
+  if (returnRange && rangeUsed + returnDist > returnRange * 0.9) {
     return { feasible: false, totalDistanceKm: totalDist, totalCo2Kg: 0, totalTimeWindowSlackMin: Infinity, endTime: currentTime, rangeUsedKm: rangeUsed, chargingInsertions, driverPenalty: 0 };
   }
 
@@ -1175,6 +1202,7 @@ export interface ALNSConfig {
   coolingRate: number;
   initialTemperature: number;
   driverConstraints?: ALNSDriverConstraints[];
+  environment?: EnvironmentContext;
 }
 
 const DEFAULT_CONFIG: ALNSConfig = {
@@ -1197,6 +1225,8 @@ export function runALNS(
   const cfg: ALNSConfig = { ...DEFAULT_CONFIG, ...config };
   const weights = cfg.weights;
   const startMs = Date.now();
+
+  _envCtx = cfg.environment ?? DEFAULT_ENV_CTX;
 
   const driverConstraintsMap = new Map<string, ALNSDriverConstraints>();
   if (cfg.driverConstraints) {

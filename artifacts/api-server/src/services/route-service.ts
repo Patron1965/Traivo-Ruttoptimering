@@ -3,6 +3,7 @@ import { db, routesTable, stopsTable, vehiclesTable, driversTable, driverPrefere
 import { dispatchWebhookEvent } from "./webhooks";
 import { computeHappinessScore } from "./happiness-score";
 import { broadcastDataChange } from "./realtime";
+import { autoLogCompletedRoute } from "./driver-learning-service";
 
 export interface CreateRouteData {
   organizationId: string;
@@ -63,6 +64,7 @@ export async function updateRoute(id: string, organizationId: string, data: Upda
 
   if (data.status === "completed" && route.vehicleId) {
     updateHappinessScoreForVehicle(route.vehicleId, route.organizationId).catch(() => {});
+    autoLogCompletedRoute(route.id).catch(() => {});
   }
 
   if (data.status) {

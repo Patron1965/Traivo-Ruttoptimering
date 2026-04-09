@@ -25,6 +25,7 @@ import {
   Save,
 } from "lucide-react";
 import { exportDriverPdf } from "@/lib/pdf-export";
+import { DriverLearningPanel } from "@/components/drivers/DriverLearningPanel";
 import {
   BarChart,
   Bar,
@@ -417,6 +418,8 @@ export default function DriverPerformance({ id }: { id: string }) {
             </div>
           </div>
         </div>
+
+        <DriverLearningPanel driverId={id} />
       </div>
     </AppLayout>
   );
