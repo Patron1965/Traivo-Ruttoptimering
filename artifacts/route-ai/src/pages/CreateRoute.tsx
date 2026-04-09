@@ -733,11 +733,31 @@ export default function CreateRoute() {
               )}
             </div>
 
+            {!canSave && !saving && (
+              <div className="text-xs text-muted-foreground space-y-1">
+                {routeName.trim() === "" && (
+                  <p className="flex items-center gap-1.5">
+                    <span className="text-amber-500">●</span> {t("createRoute.missingName")}
+                  </p>
+                )}
+                {!selectedVehicleId && (
+                  <p className="flex items-center gap-1.5">
+                    <span className="text-amber-500">●</span> {t("createRoute.missingVehicle")}
+                  </p>
+                )}
+                {selectedStopIds.size === 0 && (
+                  <p className="flex items-center gap-1.5">
+                    <span className="text-amber-500">●</span> {t("createRoute.missingStops")}
+                  </p>
+                )}
+              </div>
+            )}
+
             <Button
               onClick={handleSave}
               disabled={!canSave}
               size="lg"
-              className="w-full gap-2 h-12 text-base font-bold rounded-xl"
+              className={`w-full gap-2 h-12 text-base font-bold rounded-xl ${!canSave ? "opacity-50 cursor-not-allowed" : ""}`}
             >
               {saving ? (
                 <>
