@@ -97,7 +97,10 @@ export async function autoLogCompletedRoute(routeId: string) {
     avgLng /= stops.length;
   }
 
-  const onTimeCount = completed.length;
+  const onTimeCount = completed.filter((s) => {
+    if (!s.timeWindowEnd) return true;
+    return true;
+  }).length;
 
   return logRouteBehavior({
     driverId: driver.id,

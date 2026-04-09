@@ -25,6 +25,10 @@ import {
   AlertTriangle,
   ExternalLink,
   RefreshCw,
+  Search,
+  ChevronDown,
+  X,
+  Phone,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -64,6 +68,8 @@ export default function CreateRoute() {
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
   const [selectedStopIds, setSelectedStopIds] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
+  const [vehicleSearch, setVehicleSearch] = useState("");
+  const [driverDropdownOpen, setDriverDropdownOpen] = useState<string | null>(null);
 
   const routesById = useMemo(() => {
     const map = new Map<string, string>();
@@ -90,6 +96,29 @@ export default function CreateRoute() {
     vehicles?.forEach((v) => map.set(v.id, v.name));
     return map;
   }, [vehicles]);
+
+  const driverByVehicleId = useMemo(() => {
+    const map = new Map<string, typeof activeDrivers[number]>();
+    activeDrivers.forEach((d) => {
+      if (d.vehicleId) map.set(d.vehicleId, d);
+    });
+    return map;
+  }, [activeDrivers]);
+
+  const filteredVehicles = useMemo(() => {
+    if (!vehicles) return [];
+    if (!vehicleSearch.trim()) return vehicles;
+    const q = vehicleSearch.toLowerCase().trim();
+    return vehicles.filter((v) => {
+      const linkedDriver = driverByVehicleId.get(v.id);
+      return (
+        v.name.toLowerCase().includes(q) ||
+        v.licensePlate.toLowerCase().includes(q) ||
+        (linkedDriver?.name?.toLowerCase().includes(q)) ||
+        (linkedDriver?.phone?.toLowerCase().includes(q))
+      );
+    });
+  }, [vehicles, vehicleSearch, driverByVehicleId]);
 
   const selectedVehicle = vehicles?.find((v) => v.id === selectedVehicleId);
   const selectedDriver = activeDrivers.find((d) => d.id === selectedDriverId);
@@ -258,15 +287,19 @@ export default function CreateRoute() {
                 <div className="h-9 w-9 rounded-xl bg-blue-500/10 flex items-center justify-center">
                   <Truck className="h-5 w-5 text-blue-400" />
                 </div>
-                <h2 className="font-bold text-lg">{t("createRoute.selectVehicle")}</h2>
+                <h2 className="font-bold text-lg">{t("createRoute.vehicleAndDriver")}</h2>
+                <span className="text-xs text-muted-foreground ml-auto">
+                  {t("createRoute.driverOptional")}
+                </span>
               </div>
-              {loadingVehicles ? (
-                <SectionSkeleton rows={2} />
-              ) : errorVehicles ? (
+
+              {(loadingVehicles || loadingDrivers) ? (
+                <SectionSkeleton rows={3} />
+              ) : (errorVehicles || errorDrivers) ? (
                 <div className="text-sm text-destructive py-6 text-center space-y-2">
                   <AlertTriangle className="h-8 w-8 mx-auto opacity-60" />
                   <p>{t("createRoute.loadError")}</p>
-                  <Button variant="outline" size="sm" className="text-xs gap-1" onClick={() => refetchVehicles()}>
+                  <Button variant="outline" size="sm" className="text-xs gap-1" onClick={() => { refetchVehicles(); refetchDrivers(); }}>
                     <RefreshCw className="h-3 w-3" />
                     {t("createRoute.retry")}
                   </Button>
@@ -283,132 +316,240 @@ export default function CreateRoute() {
                   </Link>
                 </div>
               ) : (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {vehicles.map((v) => (
-                    <button
-                      key={v.id}
-                      onClick={() => {
-                        setSelectedVehicleId(v.id === selectedVehicleId ? null : v.id);
-                      }}
-                      className={cn(
-                        "text-left p-4 rounded-xl border-2 transition-all duration-200",
-                        selectedVehicleId === v.id
-                          ? "border-primary bg-primary/5 shadow-lg shadow-primary/10"
-                          : "border-border hover:border-muted-foreground/30 hover:bg-muted/30"
-                      )}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-bold">{v.name}</span>
-                        {selectedVehicleId === v.id && (
-                          <div className="h-6 w-6 rounded-full bg-primary flex items-center justify-center">
-                            <Check className="h-3.5 w-3.5 text-primary-foreground" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                        {v.vehicleType === "electric" ? (
-                          <span className="flex items-center gap-1 text-emerald-400">
-                            <Zap className="h-3 w-3" /> EV
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-1">
-                            <Fuel className="h-3 w-3" /> {t("createRoute.fossil")}
-                          </span>
-                        )}
-                        <span>{v.licensePlate}</span>
-                        <span>{v.capacityKg} kg</span>
-                        <span>{v.capacityVolume} m³</span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </section>
-
-            <section className="bg-card border border-border rounded-2xl p-6 space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-xl bg-violet-500/10 flex items-center justify-center">
-                  <User className="h-5 w-5 text-violet-400" />
-                </div>
-                <h2 className="font-bold text-lg">{t("createRoute.selectDriver")}</h2>
-                <span className="text-xs text-muted-foreground ml-auto">
-                  {t("createRoute.driverOptional")}
-                </span>
-              </div>
-              {loadingDrivers ? (
-                <SectionSkeleton rows={2} />
-              ) : errorDrivers ? (
-                <div className="text-sm text-destructive py-6 text-center space-y-2">
-                  <AlertTriangle className="h-8 w-8 mx-auto opacity-60" />
-                  <p>{t("createRoute.loadError")}</p>
-                  <Button variant="outline" size="sm" className="text-xs gap-1" onClick={() => refetchDrivers()}>
-                    <RefreshCw className="h-3 w-3" />
-                    {t("createRoute.retry")}
-                  </Button>
-                </div>
-              ) : activeDrivers.length === 0 ? (
-                <div className="text-sm text-muted-foreground py-6 text-center space-y-2">
-                  <User className="h-8 w-8 mx-auto opacity-30" />
-                  <p>{t("createRoute.noDrivers")}</p>
-                  <Link href="/drivers">
-                    <Button variant="link" size="sm" className="text-xs gap-1">
-                      {t("createRoute.goToDrivers")}
-                      <ExternalLink className="h-3 w-3" />
-                    </Button>
-                  </Link>
-                </div>
-              ) : (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {activeDrivers.map((d) => {
-                    const currentVehicleName = d.vehicleId
-                      ? vehiclesById.get(d.vehicleId)
-                      : null;
-                    const willReassign =
-                      selectedDriverId === d.id &&
-                      d.vehicleId &&
-                      selectedVehicleId &&
-                      d.vehicleId !== selectedVehicleId;
-
-                    return (
-                      <button
-                        key={d.id}
-                        onClick={() =>
-                          setSelectedDriverId(d.id === selectedDriverId ? null : d.id)
-                        }
-                        className={cn(
-                          "text-left p-4 rounded-xl border-2 transition-all duration-200",
-                          selectedDriverId === d.id
-                            ? "border-violet-500 bg-violet-500/5 shadow-lg shadow-violet-500/10"
-                            : "border-border hover:border-muted-foreground/30 hover:bg-muted/30"
-                        )}
-                      >
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-bold">{d.name}</span>
-                          {selectedDriverId === d.id && (
-                            <div className="h-6 w-6 rounded-full bg-violet-500 flex items-center justify-center">
-                              <Check className="h-3.5 w-3.5 text-white" />
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          {d.phone || d.email || ""}
-                          {currentVehicleName && (
-                            <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-muted text-[10px]">
-                              <Truck className="h-2.5 w-2.5" />
-                              {currentVehicleName}
-                            </span>
-                          )}
-                        </div>
-                        {willReassign && (
-                          <p className="text-[10px] text-amber-400 mt-1.5 flex items-center gap-1">
-                            <AlertTriangle className="h-3 w-3" />
-                            {t("createRoute.driverReassignNote")}
-                          </p>
-                        )}
+                <>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <input
+                      type="text"
+                      value={vehicleSearch}
+                      onChange={(e) => setVehicleSearch(e.target.value)}
+                      placeholder={t("createRoute.searchVehicleDriver")}
+                      className="w-full h-10 rounded-xl border border-border bg-background pl-9 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-shadow"
+                    />
+                    {vehicleSearch && (
+                      <button onClick={() => setVehicleSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                        <X className="h-4 w-4" />
                       </button>
-                    );
-                  })}
-                </div>
+                    )}
+                  </div>
+
+                  <div className="hidden sm:grid grid-cols-[1fr_100px_80px_90px_1fr_40px] gap-2 px-3 text-[11px] text-muted-foreground uppercase tracking-wider font-medium">
+                    <span>{t("createRoute.vehicle")}</span>
+                    <span>{t("vehicles.licensePlate")}</span>
+                    <span>{t("common.type")}</span>
+                    <span>{t("vehicles.capacity")}</span>
+                    <span>{t("createRoute.driver")}</span>
+                    <span></span>
+                  </div>
+
+                  <div className="space-y-1 max-h-[400px] overflow-y-auto">
+                    {filteredVehicles.length === 0 ? (
+                      <div className="text-sm text-muted-foreground py-6 text-center">
+                        {t("createRoute.noSearchResults")}
+                      </div>
+                    ) : (
+                      filteredVehicles.map((v) => {
+                        const linkedDriver = driverByVehicleId.get(v.id);
+                        const isSelected = selectedVehicleId === v.id;
+                        const currentDriverForRow = isSelected ? selectedDriver : linkedDriver;
+                        const willReassign =
+                          isSelected &&
+                          selectedDriverId &&
+                          selectedDriver &&
+                          selectedDriver.vehicleId &&
+                          selectedDriver.vehicleId !== v.id;
+
+                        return (
+                          <div key={v.id} className="relative">
+                            <button
+                              onClick={() => {
+                                if (isSelected) {
+                                  setSelectedVehicleId(null);
+                                  setSelectedDriverId(null);
+                                } else {
+                                  setSelectedVehicleId(v.id);
+                                  const driver = driverByVehicleId.get(v.id);
+                                  setSelectedDriverId(driver?.id || null);
+                                }
+                                setDriverDropdownOpen(null);
+                              }}
+                              className={cn(
+                                "w-full text-left px-3 py-2.5 rounded-xl border-2 transition-all duration-150",
+                                isSelected
+                                  ? "border-primary bg-primary/5 shadow-md shadow-primary/10"
+                                  : "border-transparent hover:border-muted-foreground/20 hover:bg-muted/30"
+                              )}
+                            >
+                              <div className="sm:grid sm:grid-cols-[1fr_100px_80px_90px_1fr_40px] sm:gap-2 sm:items-center">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  {isSelected && (
+                                    <div className="h-5 w-5 rounded-full bg-primary flex items-center justify-center shrink-0">
+                                      <Check className="h-3 w-3 text-primary-foreground" />
+                                    </div>
+                                  )}
+                                  <span className={cn("font-semibold text-sm truncate", !isSelected && "ml-7")}>
+                                    {v.name}
+                                  </span>
+                                </div>
+
+                                <span className="hidden sm:block text-xs text-muted-foreground truncate">
+                                  {v.licensePlate}
+                                </span>
+
+                                <span className="hidden sm:flex items-center gap-1 text-xs">
+                                  {v.vehicleType === "electric" ? (
+                                    <span className="flex items-center gap-1 text-emerald-400">
+                                      <Zap className="h-3 w-3" /> EV
+                                    </span>
+                                  ) : (
+                                    <span className="flex items-center gap-1 text-muted-foreground">
+                                      <Fuel className="h-3 w-3" /> {t("createRoute.fossil")}
+                                    </span>
+                                  )}
+                                </span>
+
+                                <span className="hidden sm:block text-xs text-muted-foreground">
+                                  {v.capacityKg}kg / {v.capacityVolume}m³
+                                </span>
+
+                                <div className="hidden sm:flex items-center gap-2 min-w-0">
+                                  {currentDriverForRow ? (
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <User className="h-3 w-3 text-violet-400 shrink-0" />
+                                      <span className="text-xs truncate">{currentDriverForRow.name}</span>
+                                      {currentDriverForRow.phone && (
+                                        <span className="flex items-center gap-1 text-[11px] text-muted-foreground shrink-0">
+                                          <Phone className="h-2.5 w-2.5" />
+                                          {currentDriverForRow.phone}
+                                        </span>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground italic">{t("drivers.noDriver")}</span>
+                                  )}
+                                </div>
+
+                                <div className="hidden sm:block">
+                                  {isSelected && activeDrivers.length > 0 && (
+                                    <span
+                                      role="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setDriverDropdownOpen(driverDropdownOpen === v.id ? null : v.id);
+                                      }}
+                                      className="inline-flex items-center justify-center h-7 w-7 rounded-lg hover:bg-muted transition-colors"
+                                    >
+                                      <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="sm:hidden mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                                <span>{v.licensePlate}</span>
+                                <span className="text-[10px]">•</span>
+                                {v.vehicleType === "electric" ? (
+                                  <span className="flex items-center gap-1 text-emerald-400">
+                                    <Zap className="h-3 w-3" /> EV
+                                  </span>
+                                ) : (
+                                  <span className="flex items-center gap-1">
+                                    <Fuel className="h-3 w-3" /> {t("createRoute.fossil")}
+                                  </span>
+                                )}
+                                <span className="text-[10px]">•</span>
+                                <span>{v.capacityKg}kg / {v.capacityVolume}m³</span>
+                              </div>
+
+                              <div className="sm:hidden mt-1 flex items-center gap-2 text-xs">
+                                {currentDriverForRow ? (
+                                  <>
+                                    <User className="h-3 w-3 text-violet-400 shrink-0" />
+                                    <span className="truncate">{currentDriverForRow.name}</span>
+                                    {currentDriverForRow.phone && (
+                                      <span className="flex items-center gap-1 text-muted-foreground">
+                                        <Phone className="h-2.5 w-2.5" />
+                                        {currentDriverForRow.phone}
+                                      </span>
+                                    )}
+                                  </>
+                                ) : (
+                                  <span className="text-muted-foreground italic">{t("drivers.noDriver")}</span>
+                                )}
+                                {isSelected && activeDrivers.length > 0 && (
+                                  <span
+                                    role="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setDriverDropdownOpen(driverDropdownOpen === v.id ? null : v.id);
+                                    }}
+                                    className="ml-auto inline-flex items-center gap-1 text-[11px] text-primary"
+                                  >
+                                    {t("createRoute.changeDriver")}
+                                    <ChevronDown className="h-3 w-3" />
+                                  </span>
+                                )}
+                              </div>
+
+                              {willReassign && (
+                                <p className="text-[10px] text-amber-400 mt-1.5 flex items-center gap-1">
+                                  <AlertTriangle className="h-3 w-3" />
+                                  {t("createRoute.driverReassignNote")}
+                                </p>
+                              )}
+                            </button>
+
+                            {driverDropdownOpen === v.id && isSelected && (
+                              <div className="absolute z-20 right-0 sm:right-2 top-full mt-1 w-64 bg-popover border border-border rounded-xl shadow-xl p-1 max-h-48 overflow-y-auto">
+                                <button
+                                  onClick={() => {
+                                    setSelectedDriverId(null);
+                                    setDriverDropdownOpen(null);
+                                  }}
+                                  className={cn(
+                                    "w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-muted transition-colors",
+                                    !selectedDriverId && "bg-muted"
+                                  )}
+                                >
+                                  <span className="text-muted-foreground italic">{t("drivers.noDriver")}</span>
+                                </button>
+                                {activeDrivers.map((d) => (
+                                  <button
+                                    key={d.id}
+                                    onClick={() => {
+                                      setSelectedDriverId(d.id);
+                                      setDriverDropdownOpen(null);
+                                    }}
+                                    className={cn(
+                                      "w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-muted transition-colors",
+                                      selectedDriverId === d.id && "bg-muted"
+                                    )}
+                                  >
+                                    <div className="font-medium">{d.name}</div>
+                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                      {d.phone && (
+                                        <span className="flex items-center gap-1">
+                                          <Phone className="h-2.5 w-2.5" />
+                                          {d.phone}
+                                        </span>
+                                      )}
+                                      {d.vehicleId && vehiclesById.get(d.vehicleId) && (
+                                        <span className="flex items-center gap-1 px-1 py-0.5 rounded bg-muted/50 text-[10px]">
+                                          <Truck className="h-2.5 w-2.5" />
+                                          {vehiclesById.get(d.vehicleId)}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </>
               )}
             </section>
 
