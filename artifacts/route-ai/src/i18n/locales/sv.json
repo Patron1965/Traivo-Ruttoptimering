@@ -615,7 +615,8 @@
     "costReduced": "Kostnaden minskade med {{percent}}%",
     "stopped": "Optimering stoppad",
     "stoppedDesc": "{{iterations}} iterationer — total förbättring {{percent}}%",
-    "startError": "Kunde inte starta optimering"
+    "startError": "Kunde inte starta optimering",
+    "noPendingStops": "Inga väntande stopp hittades i de valda rutterna. Alla stopp kan redan vara levererade."
   },
   "preferences": {
     "title": "Förarpreferenser",

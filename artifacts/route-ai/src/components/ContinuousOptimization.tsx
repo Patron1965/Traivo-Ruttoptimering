@@ -175,9 +175,12 @@ export function ContinuousOptimization() {
       });
     },
     onError: (err: Error) => {
+      const description = err.message?.includes("No pending stops")
+        ? t("continuousOpt.noPendingStops")
+        : err.message;
       toast({
         title: t("continuousOpt.startError"),
-        description: err.message,
+        description,
         variant: "destructive",
       });
     },

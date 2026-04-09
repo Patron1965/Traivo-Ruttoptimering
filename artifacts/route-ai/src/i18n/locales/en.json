@@ -615,7 +615,8 @@
     "costReduced": "Cost reduced by {{percent}}%",
     "stopped": "Optimization stopped",
     "stoppedDesc": "{{iterations}} iterations — total improvement {{percent}}%",
-    "startError": "Could not start optimization"
+    "startError": "Could not start optimization",
+    "noPendingStops": "No pending stops found in the selected routes. All stops may already be delivered."
   },
   "preferences": {
     "title": "Driver Preferences",
