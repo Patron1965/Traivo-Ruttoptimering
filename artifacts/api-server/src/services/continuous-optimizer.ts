@@ -29,6 +29,10 @@ export interface ContinuousOptimizerStatus {
   lastImprovementAt: number | null;
   startedAt: number;
   improvementHistory: ImprovementEvent[];
+  maxTotalMinutes: number;
+  maxIdleMinutes: number;
+  elapsedMs: number;
+  idleMs: number;
 }
 
 interface ContinuousOptimizerOptions {
@@ -99,17 +103,19 @@ export class ContinuousOptimizer extends EventEmitter {
       startTime
     );
 
+    const alnsConfig: Record<string, unknown> = {
+      timeLimitMs: this.options.microIterationMs,
+      maxIterations: 200,
+    };
+    if (this.options.weights) alnsConfig.weights = this.options.weights;
+
     const initialResult = runALNS(
       this.currentSolution,
       this.vehicles,
       this.depotLat,
       this.depotLon,
       startTime,
-      {
-        timeLimitMs: this.options.microIterationMs,
-        weights: this.options.weights,
-        maxIterations: 200,
-      }
+      alnsConfig as Parameters<typeof runALNS>[5]
     );
 
     this.currentSolution = initialResult;
@@ -134,6 +140,11 @@ export class ContinuousOptimizer extends EventEmitter {
   }
 
   getStatus(): ContinuousOptimizerStatus {
+    const now = Date.now();
+    const elapsedMs = this.startedAt ? now - this.startedAt : 0;
+    const idleMs = this.lastImprovementAt
+      ? now - this.lastImprovementAt
+      : elapsedMs;
     return {
       running: this.running,
       organizationId: this.organizationId,
@@ -147,6 +158,10 @@ export class ContinuousOptimizer extends EventEmitter {
       lastImprovementAt: this.lastImprovementAt,
       startedAt: this.startedAt,
       improvementHistory: [...this.improvementHistory],
+      maxTotalMinutes: this.options.maxTotalMinutes,
+      maxIdleMinutes: this.options.maxIdleMinutes,
+      elapsedMs,
+      idleMs,
     };
   }
 
@@ -211,19 +226,21 @@ export class ContinuousOptimizer extends EventEmitter {
 
       const previousCost = this.bestCost;
 
+      const loopConfig: Record<string, unknown> = {
+        timeLimitMs: this.options.microIterationMs,
+        maxIterations: 500,
+        initialTemperature: Math.max(10, 100 - this.iteration * 2),
+        coolingRate: 0.999,
+      };
+      if (this.options.weights) loopConfig.weights = this.options.weights;
+
       const result = runALNS(
         this.currentSolution!,
         this.vehicles,
         this.depotLat,
         this.depotLon,
         startTime,
-        {
-          timeLimitMs: this.options.microIterationMs,
-          weights: this.options.weights,
-          maxIterations: 500,
-          initialTemperature: Math.max(10, 100 - this.iteration * 2),
-          coolingRate: 0.999,
-        }
+        loopConfig as Parameters<typeof runALNS>[5]
       );
 
       this.iteration++;

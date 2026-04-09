@@ -617,7 +617,12 @@
     "stopped": "Optimering stoppad",
     "stoppedDesc": "{{iterations}} iterationer — total förbättring {{percent}}%",
     "startError": "Kunde inte starta optimering",
-    "noPendingStops": "Inga väntande stopp hittades i de valda rutterna. Alla stopp kan redan vara levererade."
+    "noPendingStops": "Inga väntande stopp hittades i de valda rutterna. Alla stopp kan redan vara levererade.",
+    "phaseInit": "Initierar...",
+    "phaseExploring": "Utforskar lösningar...",
+    "phaseOptimizing": "Optimerar rutter...",
+    "phaseConverging": "Konvergerar...",
+    "costProgress": "Kostnadsutveckling"
   },
   "preferences": {
     "title": "Förarpreferenser",

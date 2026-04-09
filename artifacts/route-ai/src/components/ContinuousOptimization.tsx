@@ -13,6 +13,7 @@ import {
   TrendingDown,
   Activity,
   Timer,
+  Gauge,
 } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
@@ -42,6 +43,10 @@ interface OptimizerStatus {
   totalImprovementPercent: number;
   lastImprovementAt: number | null;
   startedAt: number;
+  maxTotalMinutes?: number;
+  maxIdleMinutes?: number;
+  elapsedMs?: number;
+  idleMs?: number;
 }
 
 export function ContinuousOptimization() {
@@ -54,6 +59,7 @@ export function ContinuousOptimization() {
     iteration: number;
     totalImprovementPercent: number;
     bestCost: number;
+    initialCost: number;
   } | null>(null);
   const startTimeRef = useRef<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
@@ -67,10 +73,13 @@ export function ContinuousOptimization() {
       if (!res.ok) throw new Error("Failed to fetch status");
       return res.json();
     },
-    refetchInterval: 10000,
+    refetchInterval: 3000,
   });
 
   const isRunning = liveStatus?.running ?? status?.running ?? false;
+  const maxTotalMinutes = status?.maxTotalMinutes ?? 30;
+  const maxIdleMinutes = status?.maxIdleMinutes ?? 5;
+  const maxTotalSeconds = maxTotalMinutes * 60;
 
   useEffect(() => {
     if (status?.running && status.startedAt) {
@@ -80,6 +89,7 @@ export function ContinuousOptimization() {
         iteration: status.iteration,
         totalImprovementPercent: status.totalImprovementPercent,
         bestCost: status.bestCost,
+        initialCost: status.initialCost,
       });
     }
   }, [status]);
@@ -100,12 +110,13 @@ export function ContinuousOptimization() {
       (data: unknown) => {
         const event = data as ImprovementEvent;
         setImprovements((prev) => [...prev.slice(-9), event]);
-        setLiveStatus({
+        setLiveStatus((prev) => ({
           running: true,
           iteration: event.iteration,
           totalImprovementPercent: event.totalImprovementPercent,
           bestCost: event.cost,
-        });
+          initialCost: prev?.initialCost ?? event.previousCost,
+        }));
 
         if (event.deltaPercent > 5) {
           toast({
@@ -169,6 +180,7 @@ export function ContinuousOptimization() {
         iteration: 0,
         totalImprovementPercent: 0,
         bestCost: data.status?.bestCost ?? 0,
+        initialCost: data.status?.initialCost ?? 0,
       });
       queryClient.invalidateQueries({
         queryKey: ["continuous-optimizer-status"],
@@ -216,6 +228,23 @@ export function ContinuousOptimization() {
   const currentImprovement =
     liveStatus?.totalImprovementPercent ?? 0;
   const currentIteration = liveStatus?.iteration ?? 0;
+  const currentBestCost = liveStatus?.bestCost ?? 0;
+  const currentInitialCost = liveStatus?.initialCost ?? 0;
+
+  const progressPercent = isRunning
+    ? Math.min(100, (elapsed / maxTotalSeconds) * 100)
+    : 0;
+
+  const getPhaseLabel = (): string => {
+    if (!isRunning) return "";
+    if (currentIteration === 0) return t("continuousOpt.phaseInit");
+    if (currentIteration <= 3) return t("continuousOpt.phaseExploring");
+    const lastImpTime = status?.lastImprovementAt;
+    if (lastImpTime && Date.now() - lastImpTime > maxIdleMinutes * 60_000 * 0.5) {
+      return t("continuousOpt.phaseConverging");
+    }
+    return t("continuousOpt.phaseOptimizing");
+  };
 
   return (
     <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
@@ -271,45 +300,89 @@ export function ContinuousOptimization() {
       </div>
 
       {isRunning && (
-        <div className="grid grid-cols-3 gap-3">
-          <div className="p-3 rounded-xl bg-muted/30 border border-border/50">
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
-              <Activity className="h-3 w-3" />
-              {t("continuousOpt.iterations")}
+        <>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground flex items-center gap-1.5">
+                <Gauge className="h-3 w-3" />
+                {getPhaseLabel()}
+              </span>
+              <span className="text-muted-foreground tabular-nums">
+                {formatTime(elapsed)} / {formatTime(maxTotalSeconds)}
+              </span>
             </div>
-            <p className="text-lg font-bold tabular-nums">
-              {currentIteration}
-            </p>
+            <div className="h-2 rounded-full bg-muted/50 overflow-hidden">
+              <div
+                className={cn(
+                  "h-full rounded-full transition-all duration-1000 ease-linear",
+                  currentImprovement > 0
+                    ? "bg-gradient-to-r from-emerald-500 to-emerald-400"
+                    : "bg-gradient-to-r from-primary/70 to-primary"
+                )}
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
           </div>
 
-          <div className="p-3 rounded-xl bg-muted/30 border border-border/50">
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
-              <TrendingDown className="h-3 w-3" />
-              {t("continuousOpt.improvement")}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="p-3 rounded-xl bg-muted/30 border border-border/50">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+                <Activity className="h-3 w-3" />
+                {t("continuousOpt.iterations")}
+              </div>
+              <p className="text-lg font-bold tabular-nums">
+                {currentIteration}
+              </p>
             </div>
-            <p
-              className={cn(
-                "text-lg font-bold tabular-nums",
-                currentImprovement > 0
-                  ? "text-emerald-400"
-                  : "text-muted-foreground"
-              )}
-            >
-              {currentImprovement > 0 ? "-" : ""}
-              {currentImprovement.toFixed(1)}%
-            </p>
+
+            <div className="p-3 rounded-xl bg-muted/30 border border-border/50">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+                <TrendingDown className="h-3 w-3" />
+                {t("continuousOpt.improvement")}
+              </div>
+              <p
+                className={cn(
+                  "text-lg font-bold tabular-nums",
+                  currentImprovement > 0
+                    ? "text-emerald-400"
+                    : "text-muted-foreground"
+                )}
+              >
+                {currentImprovement > 0 ? "-" : ""}
+                {currentImprovement.toFixed(1)}%
+              </p>
+            </div>
+
+            <div className="p-3 rounded-xl bg-muted/30 border border-border/50">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+                <Timer className="h-3 w-3" />
+                {t("continuousOpt.elapsed")}
+              </div>
+              <p className="text-lg font-bold tabular-nums">
+                {formatTime(elapsed)}
+              </p>
+            </div>
           </div>
 
-          <div className="p-3 rounded-xl bg-muted/30 border border-border/50">
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
-              <Timer className="h-3 w-3" />
-              {t("continuousOpt.elapsed")}
+          {currentInitialCost > 0 && (
+            <div className="p-3 rounded-xl bg-muted/30 border border-border/50">
+              <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+                <span>{t("continuousOpt.costProgress")}</span>
+                <span className="tabular-nums">
+                  {currentBestCost.toFixed(0)} / {currentInitialCost.toFixed(0)}
+                </span>
+              </div>
+              <div className="h-1.5 rounded-full bg-muted/50 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-500"
+                  style={{
+                    width: `${Math.max(5, currentInitialCost > 0 ? (currentBestCost / currentInitialCost) * 100 : 100)}%`,
+                  }}
+                />
+              </div>
             </div>
-            <p className="text-lg font-bold tabular-nums">
-              {formatTime(elapsed)}
-            </p>
-          </div>
-        </div>
+          )}
+        </>
       )}
 
       {isRunning && improvements.length > 0 && (

@@ -617,7 +617,12 @@
     "stopped": "Optimization stopped",
     "stoppedDesc": "{{iterations}} iterations — total improvement {{percent}}%",
     "startError": "Could not start optimization",
-    "noPendingStops": "No pending stops found in the selected routes. All stops may already be delivered."
+    "noPendingStops": "No pending stops found in the selected routes. All stops may already be delivered.",
+    "phaseInit": "Initializing...",
+    "phaseExploring": "Exploring solutions...",
+    "phaseOptimizing": "Optimizing routes...",
+    "phaseConverging": "Converging...",
+    "costProgress": "Cost progress"
   },
   "preferences": {
     "title": "Driver Preferences",
