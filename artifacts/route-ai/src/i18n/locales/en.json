@@ -325,6 +325,7 @@
     "goToVehicles": "Go to Fleet Management",
     "goToDrivers": "Go to Driver Management",
     "noStopsAnywhere": "No stops available. Create delivery stops first.",
+    "allStopsCompleted": "All stops are already delivered. Create new stops to plan a route.",
     "goToStops": "Go to Stops",
     "driverReassignNote": "Will be reassigned to the selected vehicle",
     "stopReassignWarning": "Will be reassigned from its current route",

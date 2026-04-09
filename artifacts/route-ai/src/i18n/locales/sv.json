@@ -325,6 +325,7 @@
     "goToVehicles": "Gå till fordonshantering",
     "goToDrivers": "Gå till förarhantering",
     "noStopsAnywhere": "Inga stopp tillgängliga. Skapa leveransstopp först.",
+    "allStopsCompleted": "Alla stopp är redan levererade. Skapa nya stopp för att planera en rutt.",
     "goToStops": "Gå till stopp",
     "driverReassignNote": "Kommer att omtilldelas till det valda fordonet",
     "stopReassignWarning": "Kommer att omtilldelas från sin nuvarande rutt",

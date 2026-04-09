@@ -598,7 +598,7 @@ export default function CreateRoute() {
               ) : sortedStops.length === 0 ? (
                 <div className="text-sm text-muted-foreground py-6 text-center space-y-2">
                   <MapPin className="h-8 w-8 mx-auto opacity-30" />
-                  <p>{t("createRoute.noStopsAnywhere")}</p>
+                  <p>{allStops && allStops.length > 0 ? t("createRoute.allStopsCompleted") : t("createRoute.noStopsAnywhere")}</p>
                   <Link href="/stops">
                     <Button variant="link" size="sm" className="text-xs gap-1">
                       {t("createRoute.goToStops")}
