@@ -524,6 +524,38 @@ function worstRemoval(
   return removed;
 }
 
+function timeWindowOverlap(a: ALNSNode, b: ALNSNode): number {
+  if (!a.timeWindowStart || !a.timeWindowEnd || !b.timeWindowStart || !b.timeWindowEnd) return 1.0;
+  const overlapStart = Math.max(a.timeWindowStart.getTime(), b.timeWindowStart.getTime());
+  const overlapEnd = Math.min(a.timeWindowEnd.getTime(), b.timeWindowEnd.getTime());
+  if (overlapEnd <= overlapStart) return 0;
+  const aLen = a.timeWindowEnd.getTime() - a.timeWindowStart.getTime();
+  const bLen = b.timeWindowEnd.getTime() - b.timeWindowStart.getTime();
+  const minLen = Math.min(aLen, bLen);
+  return minLen > 0 ? (overlapEnd - overlapStart) / minLen : 0;
+}
+
+function computeRelatednessScore(seed: ALNSNode, other: ALNSNode, maxDist: number, maxWeight: number): number {
+  const spatialDist = cachedDistance(seed.latitude, seed.longitude, other.latitude, other.longitude);
+  const normalizedSpatial = maxDist > 0 ? spatialDist / maxDist : 0;
+  const temporalSim = 1 - timeWindowOverlap(seed, other);
+  const weightDiff = maxWeight > 0 ? Math.abs(seed.weightKg - other.weightKg) / maxWeight : 0;
+  return 0.4 * normalizedSpatial + 0.3 * temporalSim + 0.2 * weightDiff + 0.1 * Math.random();
+}
+
+function precomputeRelatednessScores(
+  seed: ALNSNode,
+  candidates: { node: ALNSNode; route: ALNSRoute }[],
+  maxDist: number,
+  maxWeight: number
+): Map<string, number> {
+  const scores = new Map<string, number>();
+  for (const { node } of candidates) {
+    scores.set(node.id, computeRelatednessScore(seed, node, maxDist, maxWeight));
+  }
+  return scores;
+}
+
 function shawRemoval(solution: ALNSSolution, count: number): ALNSNode[] {
   const removed: ALNSNode[] = [];
   const activeRoutes = solution.routes.filter(r => r.nodes.filter(n => !n.isChargingStation).length > 0);
@@ -541,19 +573,21 @@ function shawRemoval(solution: ALNSSolution, count: number): ALNSNode[] {
   removed.push(seedNode);
 
   const allDeliveryNodes: { node: ALNSNode; route: ALNSRoute }[] = [];
+  let maxDist = 0;
+  let maxWeight = 0;
   for (const r of solution.routes) {
     for (const n of r.nodes) {
       if (!n.isChargingStation) {
         allDeliveryNodes.push({ node: n, route: r });
+        const d = cachedDistance(seedNode.latitude, seedNode.longitude, n.latitude, n.longitude);
+        if (d > maxDist) maxDist = d;
+        if (n.weightKg > maxWeight) maxWeight = n.weightKg;
       }
     }
   }
 
-  allDeliveryNodes.sort((a, b) => {
-    const distA = cachedDistance(seedNode.latitude, seedNode.longitude, a.node.latitude, a.node.longitude);
-    const distB = cachedDistance(seedNode.latitude, seedNode.longitude, b.node.latitude, b.node.longitude);
-    return distA - distB;
-  });
+  const scores = precomputeRelatednessScores(seedNode, allDeliveryNodes, maxDist, maxWeight);
+  allDeliveryNodes.sort((a, b) => (scores.get(a.node.id) ?? Infinity) - (scores.get(b.node.id) ?? Infinity));
 
   for (const { node, route: nodeRoute } of allDeliveryNodes) {
     if (removed.length >= count) break;
@@ -561,6 +595,128 @@ function shawRemoval(solution: ALNSSolution, count: number): ALNSNode[] {
     nodeRoute.nodes = nodeRoute.nodes.filter(n => n.id !== node.id);
     nodeRoute.totalWeight -= node.weightKg;
     nodeRoute.totalVolume -= node.volumeM3;
+    removed.push(node);
+  }
+
+  return removed;
+}
+
+function relatednessRemoval(solution: ALNSSolution, count: number): ALNSNode[] {
+  const removed: ALNSNode[] = [];
+  const allDelivery: { node: ALNSNode; route: ALNSRoute }[] = [];
+  for (const r of solution.routes) {
+    for (const n of r.nodes) {
+      if (!n.isChargingStation) allDelivery.push({ node: n, route: r });
+    }
+  }
+  if (allDelivery.length === 0) return removed;
+
+  const seedIdx = randomInt(allDelivery.length);
+  const seed = allDelivery[seedIdx];
+  seed.route.nodes = seed.route.nodes.filter(n => n.id !== seed.node.id);
+  seed.route.totalWeight -= seed.node.weightKg;
+  seed.route.totalVolume -= seed.node.volumeM3;
+  removed.push(seed.node);
+
+  let maxDist = 0;
+  let maxWeight = 0;
+  for (const { node } of allDelivery) {
+    const d = cachedDistance(seed.node.latitude, seed.node.longitude, node.latitude, node.longitude);
+    if (d > maxDist) maxDist = d;
+    if (node.weightKg > maxWeight) maxWeight = node.weightKg;
+  }
+
+  const remaining = allDelivery.filter(d => d.node.id !== seed.node.id);
+  const scores = precomputeRelatednessScores(seed.node, remaining, maxDist, maxWeight);
+  remaining.sort((a, b) => (scores.get(a.node.id) ?? Infinity) - (scores.get(b.node.id) ?? Infinity));
+
+  for (const { node, route } of remaining) {
+    if (removed.length >= count) break;
+    route.nodes = route.nodes.filter(n => n.id !== node.id);
+    route.totalWeight -= node.weightKg;
+    route.totalVolume -= node.volumeM3;
+    removed.push(node);
+  }
+
+  return removed;
+}
+
+function routeRemoval(solution: ALNSSolution, vehicles: ALNSVehicle[], depotLat: number, depotLon: number, startTime: Date, weights: OptimizationWeights): ALNSNode[] {
+  const removed: ALNSNode[] = [];
+  const vehicleMap = new Map(vehicles.map(v => [v.id, v]));
+
+  const routeCosts = solution.routes
+    .filter(r => r.nodes.filter(n => !n.isChargingStation).length > 0)
+    .map(r => {
+      const v = vehicleMap.get(r.vehicleId);
+      if (!v) return { route: r, costPerStop: 0 };
+      const evalR = evaluateRoute(r, v, depotLat, depotLon, startTime);
+      const deliveryCount = r.nodes.filter(n => !n.isChargingStation).length;
+      return { route: r, costPerStop: deliveryCount > 0 ? evalR.totalDistanceKm / deliveryCount : 0 };
+    })
+    .sort((a, b) => b.costPerStop - a.costPerStop);
+
+  if (routeCosts.length === 0) return removed;
+
+  const worstRoute = routeCosts[0].route;
+  const deliveryNodes = worstRoute.nodes.filter(n => !n.isChargingStation);
+  for (const node of deliveryNodes) {
+    removed.push(node);
+  }
+  worstRoute.nodes = worstRoute.nodes.filter(n => n.isChargingStation);
+  worstRoute.totalWeight = 0;
+  worstRoute.totalVolume = 0;
+
+  return removed;
+}
+
+function timeWindowRemoval(solution: ALNSSolution, count: number, depotLat: number, depotLon: number, startTime: Date): ALNSNode[] {
+  const removed: ALNSNode[] = [];
+  const tightNodes: { node: ALNSNode; route: ALNSRoute; slack: number }[] = [];
+
+  for (const route of solution.routes) {
+    let currentTime = new Date(startTime);
+    let prevLat = depotLat;
+    let prevLon = depotLon;
+
+    for (const node of route.nodes) {
+      const dist = cachedDistance(prevLat, prevLon, node.latitude, node.longitude);
+      const travelMin = estimateDuration(dist, currentTime, prevLat, prevLon, node.latitude, node.longitude);
+      currentTime = new Date(currentTime.getTime() + travelMin * 60000);
+
+      if (node.isChargingStation) {
+        currentTime = new Date(currentTime.getTime() + (node.chargingDurationMin ?? 30) * 60000);
+        prevLat = node.latitude;
+        prevLon = node.longitude;
+        continue;
+      }
+
+      const arrival = currentTime;
+
+      let slack = Infinity;
+      if (node.timeWindowEnd) {
+        slack = (node.timeWindowEnd.getTime() - arrival.getTime()) / 60000;
+        if (slack < 0) slack = -Math.abs(slack) * 2;
+      }
+
+      tightNodes.push({ node, route, slack });
+
+      const effectiveStart = node.timeWindowStart && node.timeWindowStart.getTime() > arrival.getTime()
+        ? node.timeWindowStart : arrival;
+      currentTime = new Date(effectiveStart.getTime() + node.serviceDurationMin * 60000);
+      prevLat = node.latitude;
+      prevLon = node.longitude;
+    }
+  }
+
+  tightNodes.sort((a, b) => a.slack - b.slack);
+
+  for (const { node, route } of tightNodes) {
+    if (removed.length >= count) break;
+    if (removed.some(r => r.id === node.id)) continue;
+    route.nodes = route.nodes.filter(n => n.id !== node.id);
+    route.totalWeight -= node.weightKg;
+    route.totalVolume -= node.volumeM3;
     removed.push(node);
   }
 
@@ -727,13 +883,14 @@ function greedyInsertion(
   }
 }
 
-function regret2Insertion(
+function regretKInsertion(
   solution: ALNSSolution,
   nodesToInsert: ALNSNode[],
   vehicles: ALNSVehicle[],
   depotLat: number,
   depotLon: number,
-  startTime: Date
+  startTime: Date,
+  k = 3
 ): void {
   const vehicleMap = new Map(vehicles.map(v => [v.id, v]));
   const remaining = [...nodesToInsert];
@@ -786,9 +943,14 @@ function regret2Insertion(
 
       if (insertionCosts.length === 0) continue;
 
-      const regretValue = insertionCosts.length >= 2
-        ? insertionCosts[1].cost - insertionCosts[0].cost
-        : 10000;
+      let regretValue: number;
+      if (insertionCosts.length >= k) {
+        regretValue = insertionCosts[k - 1].cost - insertionCosts[0].cost;
+      } else if (insertionCosts.length >= 2) {
+        regretValue = insertionCosts[insertionCosts.length - 1].cost - insertionCosts[0].cost;
+      } else {
+        regretValue = 10000;
+      }
 
       if (regretValue > bestRegretValue) {
         bestRegretValue = regretValue;
@@ -860,6 +1022,151 @@ interface OperatorStats {
   weight: number;
 }
 
+function routeDistance(nodes: ALNSNode[], depotLat: number, depotLon: number): number {
+  if (nodes.length === 0) return 0;
+  let dist = cachedDistance(depotLat, depotLon, nodes[0].latitude, nodes[0].longitude);
+  for (let i = 1; i < nodes.length; i++) {
+    dist += cachedDistance(nodes[i - 1].latitude, nodes[i - 1].longitude, nodes[i].latitude, nodes[i].longitude);
+  }
+  dist += cachedDistance(nodes[nodes.length - 1].latitude, nodes[nodes.length - 1].longitude, depotLat, depotLon);
+  return dist;
+}
+
+function twoOptImprove(route: ALNSRoute, vehicle: ALNSVehicle, depotLat: number, depotLon: number, startTime: Date): boolean {
+  const deliveryIndices: number[] = [];
+  for (let i = 0; i < route.nodes.length; i++) {
+    if (!route.nodes[i].isChargingStation) deliveryIndices.push(i);
+  }
+  if (deliveryIndices.length < 3) return false;
+
+  let improved = false;
+  let bestDist = routeDistance(route.nodes, depotLat, depotLon);
+
+  for (let i = 0; i < deliveryIndices.length - 1; i++) {
+    for (let j = i + 1; j < deliveryIndices.length; j++) {
+      const si = deliveryIndices[i];
+      const sj = deliveryIndices[j];
+
+      const newNodes = [...route.nodes];
+      const segment = newNodes.slice(si, sj + 1).reverse();
+      for (let k = 0; k < segment.length; k++) {
+        newNodes[si + k] = segment[k];
+      }
+
+      const testRoute: ALNSRoute = { ...route, nodes: newNodes };
+      const evalR = evaluateRoute(testRoute, vehicle, depotLat, depotLon, startTime);
+      if (!evalR.feasible) continue;
+
+      const newDist = routeDistance(newNodes, depotLat, depotLon);
+      if (newDist < bestDist - 0.001) {
+        route.nodes = newNodes;
+        bestDist = newDist;
+        improved = true;
+      }
+    }
+  }
+
+  return improved;
+}
+
+function orOptImprove(route: ALNSRoute, vehicle: ALNSVehicle, depotLat: number, depotLon: number, startTime: Date): boolean {
+  const deliveryIndices: number[] = [];
+  for (let i = 0; i < route.nodes.length; i++) {
+    if (!route.nodes[i].isChargingStation) deliveryIndices.push(i);
+  }
+  if (deliveryIndices.length < 3) return false;
+
+  let improved = false;
+
+  for (let segLen = 1; segLen <= 3; segLen++) {
+    for (let i = 0; i <= deliveryIndices.length - segLen; i++) {
+      const segStart = deliveryIndices[i];
+      const segEnd = deliveryIndices[i + segLen - 1];
+
+      const segment = route.nodes.slice(segStart, segEnd + 1);
+      if (segment.some(n => n.isChargingStation)) continue;
+
+      const remaining = [...route.nodes.slice(0, segStart), ...route.nodes.slice(segEnd + 1)];
+
+      const baseDist = routeDistance(route.nodes, depotLat, depotLon);
+
+      for (let j = 0; j <= remaining.length; j++) {
+        if (j === segStart) continue;
+
+        const candidate = [...remaining.slice(0, j), ...segment, ...remaining.slice(j)];
+        const testRoute: ALNSRoute = { ...route, nodes: candidate };
+        const evalR = evaluateRoute(testRoute, vehicle, depotLat, depotLon, startTime);
+        if (!evalR.feasible) continue;
+
+        const newDist = routeDistance(candidate, depotLat, depotLon);
+        if (newDist < baseDist - 0.001) {
+          route.nodes = candidate;
+          improved = true;
+          break;
+        }
+      }
+
+      if (improved) break;
+    }
+    if (improved) break;
+  }
+
+  return improved;
+}
+
+function localSearchPostProcess(
+  solution: ALNSSolution,
+  vehicles: ALNSVehicle[],
+  depotLat: number,
+  depotLon: number,
+  startTime: Date,
+  weights: OptimizationWeights,
+  driverConstraintsMap: Map<string, ALNSDriverConstraints>,
+  timeBudgetMs = 3000,
+  maxPasses = 3
+): void {
+  const vehicleMap = new Map(vehicles.map(v => [v.id, v]));
+  const lsStart = Date.now();
+
+  for (let pass = 0; pass < maxPasses; pass++) {
+    if (Date.now() - lsStart >= timeBudgetMs) break;
+    let anyImproved = false;
+
+    for (const route of solution.routes) {
+      if (Date.now() - lsStart >= timeBudgetMs) break;
+      if (route.nodes.filter(n => !n.isChargingStation).length < 3) continue;
+      const vehicle = vehicleMap.get(route.vehicleId);
+      if (!vehicle) continue;
+
+      const { cost: costBefore } = computeSolutionCost(solution, vehicles, depotLat, depotLon, startTime, weights, driverConstraintsMap);
+      const savedNodes = [...route.nodes.map(n => ({ ...n }))];
+
+      if (twoOptImprove(route, vehicle, depotLat, depotLon, startTime)) {
+        const { cost: costAfter } = computeSolutionCost(solution, vehicles, depotLat, depotLon, startTime, weights, driverConstraintsMap);
+        if (costAfter < costBefore - 0.001) {
+          anyImproved = true;
+        } else {
+          route.nodes = savedNodes;
+        }
+      }
+
+      const savedNodes2 = [...route.nodes.map(n => ({ ...n }))];
+      const { cost: costBefore2 } = computeSolutionCost(solution, vehicles, depotLat, depotLon, startTime, weights, driverConstraintsMap);
+
+      if (orOptImprove(route, vehicle, depotLat, depotLon, startTime)) {
+        const { cost: costAfter2 } = computeSolutionCost(solution, vehicles, depotLat, depotLon, startTime, weights, driverConstraintsMap);
+        if (costAfter2 < costBefore2 - 0.001) {
+          anyImproved = true;
+        } else {
+          route.nodes = savedNodes2;
+        }
+      }
+    }
+
+    if (!anyImproved) break;
+  }
+}
+
 export interface ALNSConfig {
   timeLimitMs: number;
   weights: OptimizationWeights;
@@ -900,11 +1207,11 @@ export function runALNS(
 
   const hasEvVehicles = vehicles.some(v => v.vehicleType === "electric" && v.rangeKm);
   const destroyOps = hasEvVehicles
-    ? ["random", "worst", "shaw", "charging_remove"] as const
-    : ["random", "worst", "shaw"] as const;
+    ? ["random", "worst", "shaw", "relatedness", "route_remove", "timewindow", "charging_remove"] as const
+    : ["random", "worst", "shaw", "relatedness", "route_remove", "timewindow"] as const;
   const repairOps = hasEvVehicles
-    ? ["greedy", "regret2", "charging_insert"] as const
-    : ["greedy", "regret2"] as const;
+    ? ["greedy", "regret3", "charging_insert"] as const
+    : ["greedy", "regret3"] as const;
 
   const destroyStats: Record<string, OperatorStats> = {};
   const repairStats: Record<string, OperatorStats> = {};
@@ -953,6 +1260,15 @@ export function runALNS(
       case "shaw":
         removedNodes = shawRemoval(candidate, removalCount);
         break;
+      case "relatedness":
+        removedNodes = relatednessRemoval(candidate, removalCount);
+        break;
+      case "route_remove":
+        removedNodes = routeRemoval(candidate, vehicles, depotLat, depotLon, startTime, weights);
+        break;
+      case "timewindow":
+        removedNodes = timeWindowRemoval(candidate, removalCount, depotLat, depotLon, startTime);
+        break;
       case "charging_remove":
         removedNodes = chargingStationRemoval(candidate, vehicles);
         break;
@@ -970,8 +1286,8 @@ export function runALNS(
       case "greedy":
         greedyInsertion(candidate, allToInsert, vehicles, depotLat, depotLon, startTime);
         break;
-      case "regret2":
-        regret2Insertion(candidate, allToInsert, vehicles, depotLat, depotLon, startTime);
+      case "regret3":
+        regretKInsertion(candidate, allToInsert, vehicles, depotLat, depotLon, startTime, 3);
         break;
       case "charging_insert":
         greedyInsertion(candidate, allToInsert, vehicles, depotLat, depotLon, startTime);
@@ -1028,6 +1344,14 @@ export function runALNS(
     }
   }
 
+  localSearchPostProcess(bestSolution, vehicles, depotLat, depotLon, startTime, weights, driverConstraintsMap);
+
+  const { cost: finalCost, breakdown: finalBreakdown } = computeSolutionCost(
+    bestSolution, vehicles, depotLat, depotLon, startTime, weights, driverConstraintsMap
+  );
+  bestSolution.cost = finalCost;
+  bestSolution.costBreakdown = finalBreakdown;
+
   return bestSolution;
 }
 
@@ -1077,7 +1401,7 @@ export function buildInitialSolutionFromCW(
       routes,
       unassigned: [],
       cost: 0,
-      costBreakdown: { distanceCost: 0, co2Cost: 0, etaPrecisionCost: 0, totalDistanceKm: 0, totalCo2Kg: 0, totalTimeWindowSlackMin: 0 },
+      costBreakdown: { distanceCost: 0, co2Cost: 0, etaPrecisionCost: 0, driverPenaltyCost: 0, totalDistanceKm: 0, totalCo2Kg: 0, totalTimeWindowSlackMin: 0, totalDriverPenalty: 0 },
     };
   }
 
@@ -1175,7 +1499,7 @@ export function buildInitialSolutionFromCW(
     routes,
     unassigned,
     cost: 0,
-    costBreakdown: { distanceCost: 0, co2Cost: 0, etaPrecisionCost: 0, totalDistanceKm: 0, totalCo2Kg: 0, totalTimeWindowSlackMin: 0 },
+    costBreakdown: { distanceCost: 0, co2Cost: 0, etaPrecisionCost: 0, driverPenaltyCost: 0, totalDistanceKm: 0, totalCo2Kg: 0, totalTimeWindowSlackMin: 0, totalDriverPenalty: 0 },
   };
 
   chargingStationInsertion(initialSolution, vehicles, depotLat, depotLon, startTime);
