@@ -24,7 +24,7 @@ The frontend, `artifacts/route-ai`, is a React + Vite application featuring a da
 **Technical Implementations:**
 - **Monorepo Structure:** Organizes deployable applications (`artifacts/`), shared libraries (`lib/`), and utility scripts (`scripts/`) using pnpm workspaces.
 - **API Design:** RESTful API endpoints for CRUD operations.
-- **WebSocket Integration:** A `/ws` endpoint provides real-time updates and handles disruption-triggered re-optimization.
+- **WebSocket Integration:** A `/ws` endpoint provides real-time updates including live vehicle positions (2s interval), disruption-triggered re-optimization, and **push-based data sync** — all CRUD operations on routes, vehicles, stops, and drivers broadcast `data:<entity>:<change>` events via WebSocket. The frontend `useRealtimeSync` hook (mounted at app level) auto-invalidates React Query caches on incoming events, enabling instant UI updates without manual refresh.
 - **Database Schema:** PostgreSQL schema includes tables for organizations, vehicles, customers, routes, stops, and drivers, with comprehensive tracking and notification features.
 - **Validation:** Zod is used for API request and response validation, with schemas generated from an OpenAPI specification.
 

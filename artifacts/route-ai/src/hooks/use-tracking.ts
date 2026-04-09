@@ -7,7 +7,7 @@ import {
   getGetGeofenceEventsQueryKey,
 } from "@workspace/api-client-react";
 import { ORG_ID } from "@/lib/constants";
-import { initWsClient, onWsMessage, isWsConnected } from "@/lib/ws-client";
+import { onWsMessage, isWsConnected } from "@/lib/ws-client";
 
 export function useVehiclePositions() {
   const queryClient = useQueryClient();
@@ -16,8 +16,6 @@ export function useVehiclePositions() {
   const wsCheckRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    initWsClient(ORG_ID);
-
     const unsub = onWsMessage("vehicles:positions", (data) => {
       queryClient.setQueryData(getGetVehiclePositionsQueryKey(params), data);
       if (!wsActive) setWsActive(true);

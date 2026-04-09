@@ -29,6 +29,7 @@ import { ChatPanel } from "@/components/chat/ChatPanel";
 import { CommandPalette } from "@/components/CommandPalette";
 import { AuthProvider } from "@/lib/auth-context";
 import { ThemeProvider } from "@/context/ThemeContext";
+import { useRealtimeSync } from "@/hooks/use-realtime-sync";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -75,19 +76,26 @@ function AppRouter() {
   );
 }
 
+function RealtimeSyncProvider({ children }: { children: React.ReactNode }) {
+  useRealtimeSync();
+  return <>{children}</>;
+}
+
 function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
         <QueryClientProvider client={queryClient}>
-          <TooltipProvider>
-            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-              <AppRouter />
-            </WouterRouter>
-            <ChatPanel />
-            <CommandPalette />
-            <Toaster />
-          </TooltipProvider>
+          <RealtimeSyncProvider>
+            <TooltipProvider>
+              <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+                <AppRouter />
+              </WouterRouter>
+              <ChatPanel />
+              <CommandPalette />
+              <Toaster />
+            </TooltipProvider>
+          </RealtimeSyncProvider>
         </QueryClientProvider>
       </AuthProvider>
     </ThemeProvider>

@@ -3,6 +3,7 @@ import { db, stopsTable, notificationsTable, vehiclesTable, routesTable } from "
 import { getDistanceCache } from "./alns";
 import { sendFailedNotification } from "./email";
 import { dispatchWebhookEvent } from "./webhooks";
+import { broadcastDataChange } from "./realtime";
 
 export async function listStops(organizationId: string, routeId?: string) {
   const conditions = [eq(stopsTable.organizationId, organizationId)];
@@ -23,6 +24,7 @@ export async function getStop(id: string, organizationId: string) {
 export async function createStop(data: Record<string, unknown>) {
   const [stop] = await db.insert(stopsTable).values(data as any).returning();
   getDistanceCache().invalidate(stop.latitude, stop.longitude);
+  broadcastDataChange(stop.organizationId, "stop", "created", { id: stop.id, address: stop.address });
   return stop;
 }
 
@@ -48,6 +50,7 @@ export async function importStops(organizationId: string, stopRows: any[]) {
   for (const s of created) {
     cache.invalidate(s.latitude, s.longitude);
   }
+  broadcastDataChange(organizationId, "stop", "created", { bulk: true, count: created.length });
   return created;
 }
 
@@ -105,6 +108,7 @@ export async function updateStop(id: string, organizationId: string, data: Recor
     }
   }
 
+  broadcastDataChange(stop.organizationId, "stop", "updated", { id: stop.id, address: stop.address, status: stop.status });
   return stop;
 }
 
@@ -115,6 +119,7 @@ export async function deleteStop(id: string, organizationId: string) {
     .returning();
   if (deleted) {
     getDistanceCache().invalidate(deleted.latitude, deleted.longitude);
+    broadcastDataChange(organizationId, "stop", "deleted", { id });
   }
   return deleted ?? null;
 }

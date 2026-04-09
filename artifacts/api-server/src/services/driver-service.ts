@@ -1,5 +1,6 @@
 import { eq, and, ne } from "drizzle-orm";
 import { db, driversTable, vehiclesTable } from "@workspace/db";
+import { broadcastDataChange } from "./realtime";
 
 export async function listDrivers(organizationId: string) {
   return db.select().from(driversTable).where(eq(driversTable.organizationId, organizationId));
@@ -40,6 +41,7 @@ export async function createDriver(data: {
     .insert(driversTable)
     .values({ name: data.name, phone: data.phone, email: data.email, vehicleId: data.vehicleId, organizationId: data.organizationId, isActive: data.isActive ?? true })
     .returning();
+  broadcastDataChange(data.organizationId, "driver", "created", { id: driver.id, name: driver.name });
   return { data: driver };
 }
 
@@ -77,6 +79,7 @@ export async function updateDriver(id: string, organizationId: string, updates: 
     .returning();
   if (!driver) return { error: "Driver not found", status: 404 };
 
+  broadcastDataChange(organizationId, "driver", "updated", { id: driver.id, name: driver.name });
   return { data: driver };
 }
 
@@ -85,5 +88,8 @@ export async function deleteDriver(id: string, organizationId: string) {
     .delete(driversTable)
     .where(and(eq(driversTable.id, id), eq(driversTable.organizationId, organizationId)))
     .returning();
+  if (deleted) {
+    broadcastDataChange(organizationId, "driver", "deleted", { id });
+  }
   return deleted ?? null;
 }

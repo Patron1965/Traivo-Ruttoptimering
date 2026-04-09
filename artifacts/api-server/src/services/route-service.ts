@@ -2,6 +2,7 @@ import { eq, and } from "drizzle-orm";
 import { db, routesTable, stopsTable, vehiclesTable, driversTable, driverPreferencesTable } from "@workspace/db";
 import { dispatchWebhookEvent } from "./webhooks";
 import { computeHappinessScore } from "./happiness-score";
+import { broadcastDataChange } from "./realtime";
 
 export interface CreateRouteData {
   organizationId: string;
@@ -46,6 +47,7 @@ export async function createRoute(data: CreateRouteData) {
   dispatchWebhookEvent(route.organizationId, "route.created", {
     routeId: route.id, name: route.name, status: route.status,
   }).catch(() => {});
+  broadcastDataChange(route.organizationId, "route", "created", { id: route.id, name: route.name });
   return route;
 }
 
@@ -78,6 +80,7 @@ export async function updateRoute(id: string, organizationId: string, data: Upda
     }
   }
 
+  broadcastDataChange(route.organizationId, "route", "updated", { id: route.id, name: route.name, status: route.status });
   return route;
 }
 
@@ -97,6 +100,10 @@ export async function deleteRoute(id: string, organizationId: string) {
     .delete(routesTable)
     .where(and(eq(routesTable.id, id), eq(routesTable.organizationId, organizationId)))
     .returning();
+  if (deleted) {
+    broadcastDataChange(organizationId, "route", "deleted", { id });
+    broadcastDataChange(organizationId, "stop", "updated", { routeId: id, bulk: true });
+  }
   return deleted ?? null;
 }
 

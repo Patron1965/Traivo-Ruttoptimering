@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ORG_ID } from "@/lib/constants";
-import { initWsClient, onWsMessage } from "@/lib/ws-client";
+import { onWsMessage } from "@/lib/ws-client";
 import { useTranslation } from "react-i18next";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -93,10 +93,6 @@ export function ContinuousOptimization() {
     }, 1000);
     return () => clearInterval(timer);
   }, [isRunning]);
-
-  useEffect(() => {
-    initWsClient(ORG_ID);
-  }, []);
 
   useEffect(() => {
     const unsub1 = onWsMessage(
