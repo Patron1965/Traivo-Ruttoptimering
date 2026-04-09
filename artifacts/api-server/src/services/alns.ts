@@ -1,4 +1,5 @@
 import { estimateDurationMinPredictive } from "./eta";
+import { getCachedOsrmDistance, precomputeDistanceMatrix, isOsrmConfigured } from "./osrm";
 
 export interface ALNSNode {
   id: string;
@@ -107,40 +108,70 @@ const EMISSION_PROFILES: Record<string, { gCo2PerKm: number; loadFactor: number 
   hybrid: { gCo2PerKm: 130, loadFactor: 1.10 },
 };
 
+function geohashKey(lat: number, lon: number): string {
+  return `${Math.round(lat * 1e5)},${Math.round(lon * 1e5)}`;
+}
+
 class DistanceMatrixCache {
-  private cache = new Map<string, number>();
+  private distCache = new Map<string, number>();
+  private durCache = new Map<string, number>();
 
   private key(lat1: number, lon1: number, lat2: number, lon2: number): string {
-    return `${lat1.toFixed(6)},${lon1.toFixed(6)}-${lat2.toFixed(6)},${lon2.toFixed(6)}`;
+    return `${geohashKey(lat1, lon1)}|${geohashKey(lat2, lon2)}`;
   }
 
   get(lat1: number, lon1: number, lat2: number, lon2: number): number {
     const k = this.key(lat1, lon1, lat2, lon2);
-    const cached = this.cache.get(k);
+    const cached = this.distCache.get(k);
     if (cached !== undefined) return cached;
 
+    const osrm = getCachedOsrmDistance(lat1, lon1, lat2, lon2);
+    if (osrm) {
+      this.distCache.set(k, osrm.distanceKm);
+      this.durCache.set(k, osrm.durationMin);
+      const rk = this.key(lat2, lon2, lat1, lon1);
+      this.distCache.set(rk, osrm.distanceKm);
+      this.durCache.set(rk, osrm.durationMin);
+      return osrm.distanceKm;
+    }
+
     const dist = haversineDistance(lat1, lon1, lat2, lon2);
-    this.cache.set(k, dist);
-    this.cache.set(this.key(lat2, lon2, lat1, lon1), dist);
+    this.distCache.set(k, dist);
+    this.distCache.set(this.key(lat2, lon2, lat1, lon1), dist);
     return dist;
   }
 
+  getDuration(lat1: number, lon1: number, lat2: number, lon2: number): number | undefined {
+    const k = this.key(lat1, lon1, lat2, lon2);
+    const cached = this.durCache.get(k);
+    if (cached !== undefined) return cached;
+
+    const osrm = getCachedOsrmDistance(lat1, lon1, lat2, lon2);
+    if (osrm) {
+      this.distCache.set(k, osrm.distanceKm);
+      this.durCache.set(k, osrm.durationMin);
+      return osrm.durationMin;
+    }
+    return undefined;
+  }
+
   invalidate(lat: number, lon: number): void {
-    const prefix = `${lat.toFixed(6)},${lon.toFixed(6)}-`;
-    const suffix = `-${lat.toFixed(6)},${lon.toFixed(6)}`;
-    for (const k of this.cache.keys()) {
-      if (k.startsWith(prefix) || k.endsWith(suffix)) {
-        this.cache.delete(k);
+    const gh = geohashKey(lat, lon);
+    for (const k of this.distCache.keys()) {
+      if (k.startsWith(gh + "|") || k.endsWith("|" + gh)) {
+        this.distCache.delete(k);
+        this.durCache.delete(k);
       }
     }
   }
 
   clear(): void {
-    this.cache.clear();
+    this.distCache.clear();
+    this.durCache.clear();
   }
 
   get size(): number {
-    return this.cache.size;
+    return this.distCache.size;
   }
 }
 
@@ -168,7 +199,15 @@ function cachedDistance(lat1: number, lon1: number, lat2: number, lon2: number):
   return globalDistanceCache.get(lat1, lon1, lat2, lon2);
 }
 
-function estimateDuration(distanceKm: number, departureTime?: Date): number {
+function cachedDuration(lat1: number, lon1: number, lat2: number, lon2: number): number | undefined {
+  return globalDistanceCache.getDuration(lat1, lon1, lat2, lon2);
+}
+
+function estimateDuration(distanceKm: number, departureTime?: Date, lat1?: number, lon1?: number, lat2?: number, lon2?: number): number {
+  if (lat1 != null && lon1 != null && lat2 != null && lon2 != null) {
+    const osrmDur = cachedDuration(lat1, lon1, lat2, lon2);
+    if (osrmDur !== undefined) return osrmDur;
+  }
   if (departureTime) {
     return estimateDurationMinPredictive(distanceKm, departureTime);
   }
@@ -272,7 +311,7 @@ function evaluateRoute(
     totalDist += dist;
     rangeUsed += dist;
 
-    const travelMin = estimateDuration(dist, currentTime);
+    const travelMin = estimateDuration(dist, currentTime, prevLat, prevLon, node.latitude, node.longitude);
     const arrival = new Date(currentTime.getTime() + travelMin * 60000);
 
     if (node.isChargingStation) {
@@ -1212,7 +1251,7 @@ export interface ClusteredOptimizationProgress {
   elapsedMs: number;
 }
 
-export function optimizeWithALNS(
+export async function optimizeWithALNS(
   stops: ALNSNode[],
   vehicles: ALNSVehicle[],
   depotLat: number,
@@ -1220,9 +1259,23 @@ export function optimizeWithALNS(
   startTime: Date,
   config: Partial<ALNSConfig> = {},
   onProgress?: (progress: ClusteredOptimizationProgress) => void
-): ALNSResult {
+): Promise<ALNSResult> {
   const CLUSTER_THRESHOLD = 100;
   const startMs = Date.now();
+
+  globalDistanceCache.clear();
+
+  const allCoords = [
+    { lat: depotLat, lon: depotLon },
+    ...stops.map(s => ({ lat: s.latitude, lon: s.longitude })),
+    ...CHARGING_STATIONS.map(s => ({ lat: s.latitude, lon: s.longitude })),
+  ];
+  const osrmOk = await precomputeDistanceMatrix(allCoords);
+  if (osrmOk) {
+    console.log(`OSRM: Using real road distances for ${stops.length} stops + ${CHARGING_STATIONS.length} charging stations`);
+  } else {
+    console.log(`OSRM: Falling back to Haversine distances for ${stops.length} stops`);
+  }
 
   if (stops.length > CLUSTER_THRESHOLD && vehicles.length >= 2) {
     onProgress?.({ totalClusters: 0, completedClusters: 0, phase: "clustering", elapsedMs: 0 });
@@ -1351,7 +1404,7 @@ export function optimizeWithALNS(
   };
 }
 
-export function reoptimizeAffectedRoutes(
+export async function reoptimizeAffectedRoutes(
   currentRoutes: ALNSRoute[],
   affectedVehicleIds: string[],
   vehicles: ALNSVehicle[],
@@ -1359,7 +1412,7 @@ export function reoptimizeAffectedRoutes(
   depotLon: number,
   startTime: Date,
   config: Partial<ALNSConfig> = {}
-): ALNSResult {
+): Promise<ALNSResult> {
   const affectedSet = new Set(affectedVehicleIds);
   const stableRoutes = currentRoutes.filter(r => !affectedSet.has(r.vehicleId));
   const affectedRoutes = currentRoutes.filter(r => affectedSet.has(r.vehicleId));
@@ -1375,7 +1428,7 @@ export function reoptimizeAffectedRoutes(
     timeLimitMs: Math.min(config.timeLimitMs ?? 15000, 15000),
   };
 
-  const result = optimizeWithALNS(allNodes, affectedVehicles, depotLat, depotLon, startTime, reoptConfig);
+  const result = await optimizeWithALNS(allNodes, affectedVehicles, depotLat, depotLon, startTime, reoptConfig);
 
   return {
     routes: [...stableRoutes, ...result.routes],

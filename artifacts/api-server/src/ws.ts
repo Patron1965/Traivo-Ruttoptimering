@@ -529,7 +529,7 @@ async function handleDisruptionReoptimize(event: DisruptionEvent) {
     rangeKm: v.rangeKm,
   }));
 
-  const result = reoptimizeAffectedRoutes(
+  const result = await reoptimizeAffectedRoutes(
     currentALNSRoutes, affectedVehicleIds, alnsVehicles,
     DEPOT_LAT, DEPOT_LON, new Date(),
     { timeLimitMs: 10000 }

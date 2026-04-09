@@ -388,7 +388,7 @@ router.post("/optimize", async (req, res) => {
       setImmediate(async () => {
         try {
           const startTime = new Date();
-          const result = optimizeWithALNS(
+          const result = await optimizeWithALNS(
             alnsNodes, alnsVehicles, depotLatitude, depotLongitude, startTime,
             { weights, timeLimitMs: timeBudgetMs, driverConstraints },
             (progress) => { job.progress = progress; }
@@ -414,7 +414,7 @@ router.post("/optimize", async (req, res) => {
     }
 
     const startTime = new Date();
-    const result = optimizeWithALNS(
+    const result = await optimizeWithALNS(
       alnsNodes, alnsVehicles, depotLatitude, depotLongitude, startTime,
       { weights, timeLimitMs: timeBudgetMs, driverConstraints }
     );
@@ -641,7 +641,7 @@ router.post("/optimize/reoptimize", async (req, res) => {
       }
     }
 
-    const result = reoptimizeAffectedRoutes(
+    const result = await reoptimizeAffectedRoutes(
       currentALNSRoutes,
       affectedVehicleIds,
       alnsVehicles,
