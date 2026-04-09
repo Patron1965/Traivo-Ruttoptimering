@@ -832,14 +832,14 @@ router.post("/optimize/continuous/start", async (req, res) => {
         .where(
           and(
             eq(routesTable.organizationId, organizationId),
-            eq(routesTable.status, "optimized")
+            inArray(routesTable.status, ["optimized", "draft", "in_progress"])
           )
         );
       targetRouteIds = optimizedRoutes.map((r) => r.id);
     }
 
     if (targetRouteIds.length === 0) {
-      res.status(400).json({ error: "No optimized routes found to improve" });
+      res.status(400).json({ error: "No routes with pending stops found to optimize" });
       return;
     }
 
