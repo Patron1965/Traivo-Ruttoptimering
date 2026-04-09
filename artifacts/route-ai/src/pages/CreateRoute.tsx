@@ -178,7 +178,7 @@ export default function CreateRoute() {
       const stopUpdates = Array.from(selectedStopIds).map((stopId, index) =>
         updateStop.mutateAsync({
           id: stopId,
-          data: { routeId: route.id, sequenceOrder: index + 1 },
+          data: { routeId: route.id, sequenceOrder: index + 1, organizationId: ORG_ID },
         })
       );
       await Promise.all(stopUpdates);

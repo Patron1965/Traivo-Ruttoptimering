@@ -66,7 +66,14 @@ router.put("/stops/:id", async (req, res) => {
     const contactFields: Record<string, string | null> = {};
     if (typeof req.body.contactName === "string" || req.body.contactName === null) contactFields.contactName = req.body.contactName;
     if (typeof req.body.contactEmail === "string" || req.body.contactEmail === null) contactFields.contactEmail = req.body.contactEmail;
-    const orgId = getOrgId(req);
+    let orgId: string;
+    try {
+      orgId = getOrgId(req);
+    } catch {
+      const existing = await stopService.getStopById(id);
+      if (!existing) { res.status(404).json({ error: "Stop not found" }); return; }
+      orgId = existing.organizationId;
+    }
     const stop = await stopService.updateStop(id, orgId, data, contactFields);
     if (!stop) {
       res.status(404).json({ error: "Stop not found" });

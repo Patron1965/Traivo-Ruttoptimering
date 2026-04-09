@@ -21,6 +21,14 @@ export async function getStop(id: string, organizationId: string) {
   return stop ?? null;
 }
 
+export async function getStopById(id: string) {
+  const [stop] = await db
+    .select()
+    .from(stopsTable)
+    .where(eq(stopsTable.id, id));
+  return stop ?? null;
+}
+
 export async function createStop(data: Record<string, unknown>) {
   const [stop] = await db.insert(stopsTable).values(data as any).returning();
   getDistanceCache().invalidate(stop.latitude, stop.longitude);
