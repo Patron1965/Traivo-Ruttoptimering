@@ -1,6 +1,11 @@
 import type { Response } from "express";
+import { OrgScopeError } from "../middleware/auth";
 
 export function handleError(res: Response, err: unknown): void {
+  if (err instanceof OrgScopeError) {
+    res.status(400).json({ error: err.message });
+    return;
+  }
   if (err instanceof Error && err.name === "ZodError" && "issues" in err) {
     const zodErr = err as Error & { issues: unknown[] };
     res.status(400).json({ error: "Validation error", details: zodErr.issues });

@@ -55,7 +55,8 @@ The frontend, `artifacts/route-ai`, is a React + Vite application featuring a da
 - **Rate Limiting:** Per-tenant rate limiting.
 - **Security:** Helmet security headers and CORS.
 - **Environment Variables:** Zod-based validation.
-- **Service-Oriented Logic:** Business logic organized into services.
+- **Service-Oriented Logic:** Business logic extracted into dedicated service modules (`route-service`, `vehicle-service`, `stop-service`, `driver-service`, `happiness-score`). Route handlers are thin controllers that delegate to services. Organization scoping enforced via `getOrgId()` helper (prefers authenticated user's org, falls back to query/body param). Create endpoints bind org from authenticated user when available to prevent cross-tenant writes.
+- **RBAC:** Auth middleware (`requireAuth`, `requireRole`) returns proper 401/403 responses. Supports roles: admin, dispatcher, driver, viewer.
 - **Subscription & Billing:** Three-tier plan system (Starter/Pro/Enterprise) with `subscription_plans` and `subscriptions` tables. Plan enforcement tracks vehicle, driver and stop limits per organization. Billing page at `/billing` shows current plan, usage meters, and plan comparison. Self-service signup with 14-day trial on Starter plan.
 
 ## External Dependencies

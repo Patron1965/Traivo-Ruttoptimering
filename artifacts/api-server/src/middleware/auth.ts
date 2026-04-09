@@ -1,8 +1,8 @@
 import type { Request, Response, NextFunction } from "express";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db, usersTable } from "@workspace/db";
 
-export type UserRole = "admin" | "dispatcher" | "driver";
+export type UserRole = "admin" | "dispatcher" | "driver" | "viewer";
 
 export interface AuthUser {
   id: string;
@@ -52,10 +52,20 @@ export function authMiddleware() {
   };
 }
 
+export function requireAuth() {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      res.status(401).json({ error: "Unauthorized: authentication required" });
+      return;
+    }
+    next();
+  };
+}
+
 export function requireRole(...roles: UserRole[]) {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user) {
-      next();
+      res.status(401).json({ error: "Unauthorized: authentication required" });
       return;
     }
 
@@ -68,13 +78,22 @@ export function requireRole(...roles: UserRole[]) {
   };
 }
 
-export function requireAuth() {
-  return (req: Request, res: Response, next: NextFunction) => {
-    if (!req.user) {
-      next();
-      return;
-    }
+export function getOrgId(req: Request): string {
+  if (req.user) {
+    return req.user.organizationId;
+  }
+  const queryOrg = req.query.organizationId as string | undefined;
+  const bodyOrg = req.body?.organizationId as string | undefined;
+  const orgId = queryOrg || bodyOrg;
+  if (!orgId) {
+    throw new OrgScopeError("organizationId is required");
+  }
+  return orgId;
+}
 
-    next();
-  };
+export class OrgScopeError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "OrgScopeError";
+  }
 }
