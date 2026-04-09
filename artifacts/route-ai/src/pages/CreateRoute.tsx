@@ -79,11 +79,13 @@ export default function CreateRoute() {
 
   const sortedStops = useMemo(() => {
     if (!allStops) return [];
-    return [...allStops].sort((a, b) => {
-      if (!a.routeId && b.routeId) return -1;
-      if (a.routeId && !b.routeId) return 1;
-      return a.address.localeCompare(b.address);
-    });
+    return [...allStops]
+      .filter((s) => s.status !== "completed" && s.status !== "skipped")
+      .sort((a, b) => {
+        if (!a.routeId && b.routeId) return -1;
+        if (a.routeId && !b.routeId) return 1;
+        return a.address.localeCompare(b.address);
+      });
   }, [allStops]);
 
   const activeDrivers = useMemo(
