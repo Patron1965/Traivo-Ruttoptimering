@@ -67,9 +67,19 @@ export async function updateStop(id: string, organizationId: string, data: Recor
 
   const [existing] = await db.select().from(stopsTable).where(and(...conditions));
 
+  const updateData = { ...data, ...contactFields } as any;
+  if (
+    updateData.routeId &&
+    existing &&
+    updateData.routeId !== existing.routeId &&
+    !updateData.status
+  ) {
+    updateData.status = "pending";
+  }
+
   const [stop] = await db
     .update(stopsTable)
-    .set({ ...data, ...contactFields } as any)
+    .set(updateData)
     .where(and(...conditions))
     .returning();
   if (!stop) return null;

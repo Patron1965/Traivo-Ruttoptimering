@@ -862,7 +862,7 @@ router.post("/optimize/continuous/start", async (req, res) => {
           and(eq(stopsTable.routeId, route.id), eq(stopsTable.organizationId, organizationId))
         );
       for (const s of routeStops) {
-        if (s.status === "pending") {
+        if (s.status === "pending" || s.status === "in_progress") {
           allStops.push({
             id: s.id,
             latitude: s.latitude,
