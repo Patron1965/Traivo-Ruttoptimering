@@ -234,6 +234,7 @@ export default function Import() {
     setError(null);
     setFileName("");
     setSelectedVehicleIds([]);
+    setVehicleSearch("");
     setImportedStopIds([]);
     setOptimizationResult(null);
     setIsOptimizing(false);
@@ -388,10 +389,21 @@ export default function Import() {
     });
   }, [mappedRows, importMutation, queryClient, t]);
 
+  const [vehicleSearch, setVehicleSearch] = useState("");
+
   const toggleVehicle = useCallback((id: string) => {
     setSelectedVehicleIds((prev) =>
       prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]
     );
+  }, []);
+
+  const selectAllVehicles = useCallback(() => {
+    if (!vehicles) return;
+    setSelectedVehicleIds(vehicles.filter(v => v.isActive).map(v => v.id));
+  }, [vehicles]);
+
+  const deselectAllVehicles = useCallback(() => {
+    setSelectedVehicleIds([]);
   }, []);
 
   const handleOptimize = useCallback(async () => {
@@ -716,49 +728,89 @@ export default function Import() {
                     <Truck className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
                     <p className="text-sm text-muted-foreground">{t("wizard.noVehicles")}</p>
                   </div>
-                ) : (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">{t("wizard.availableFleet")}</span>
-                      <span className="text-xs text-primary font-semibold">{selectedVehicleIds.length} {t("wizard.selected")}</span>
-                    </div>
-                    <div className="rounded-xl border border-border overflow-hidden max-h-[240px] overflow-y-auto">
-                      {vehicles.filter(v => v.isActive).map((v) => {
-                        const selected = selectedVehicleIds.includes(v.id);
-                        const driver = drivers?.find(d => d.vehicleId === v.id);
-                        return (
+                ) : (() => {
+                  const activeVehicles = vehicles.filter(v => v.isActive);
+                  const filtered = vehicleSearch
+                    ? activeVehicles.filter(v =>
+                        v.name.toLowerCase().includes(vehicleSearch.toLowerCase()) ||
+                        v.licensePlate.toLowerCase().includes(vehicleSearch.toLowerCase()) ||
+                        drivers?.find(d => d.vehicleId === v.id)?.name?.toLowerCase().includes(vehicleSearch.toLowerCase())
+                      )
+                    : activeVehicles;
+                  const allSelected = activeVehicles.length > 0 && activeVehicles.every(v => selectedVehicleIds.includes(v.id));
+                  return (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">
+                          {t("wizard.availableFleet")} ({activeVehicles.length})
+                        </span>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs text-primary font-semibold">
+                            {selectedVehicleIds.length}/{activeVehicles.length} {t("wizard.selected")}
+                          </span>
                           <button
-                            key={v.id}
-                            onClick={() => toggleVehicle(v.id)}
-                            className={cn(
-                              "w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors border-b border-border last:border-b-0",
-                              selected
-                                ? "bg-primary/5"
-                                : "hover:bg-muted/30"
-                            )}
+                            type="button"
+                            onClick={allSelected ? deselectAllVehicles : selectAllVehicles}
+                            className="text-xs text-primary hover:text-primary/80 font-medium underline underline-offset-2"
                           >
-                            <div className={cn(
-                              "w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors",
-                              selected ? "border-primary bg-primary" : "border-muted-foreground/30"
-                            )}>
-                              {selected && <Check className="h-3 w-3 text-primary-foreground" />}
-                            </div>
-                            <Truck className={cn("h-4 w-4 shrink-0", selected ? "text-primary" : "text-muted-foreground")} />
-                            <div className="flex-1 min-w-0">
-                              <span className="text-sm font-medium">{v.name}</span>
-                              <span className="text-xs text-muted-foreground ml-2">({v.capacityKg}kg)</span>
-                            </div>
-                            {driver && (
-                              <span className="text-xs text-muted-foreground flex items-center gap-1 shrink-0">
-                                <Users className="h-3 w-3" />{driver.name}
-                              </span>
-                            )}
+                            {allSelected ? t("wizard.deselectAll") : t("wizard.selectAll")}
                           </button>
-                        );
-                      })}
+                        </div>
+                      </div>
+                      {activeVehicles.length > 8 && (
+                        <input
+                          type="text"
+                          value={vehicleSearch}
+                          onChange={(e) => setVehicleSearch(e.target.value)}
+                          placeholder={t("wizard.searchVehicles")}
+                          className="w-full h-8 px-3 text-sm rounded-lg border border-border bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
+                      )}
+                      <div className="rounded-xl border border-border overflow-hidden max-h-[280px] overflow-y-auto">
+                        {filtered.length === 0 ? (
+                          <div className="px-3 py-4 text-center text-xs text-muted-foreground">
+                            {t("wizard.noVehiclesMatch")}
+                          </div>
+                        ) : (
+                          filtered.map((v) => {
+                            const selected = selectedVehicleIds.includes(v.id);
+                            const driver = drivers?.find(d => d.vehicleId === v.id);
+                            return (
+                              <button
+                                key={v.id}
+                                onClick={() => toggleVehicle(v.id)}
+                                className={cn(
+                                  "w-full flex items-center gap-3 px-3 py-2 text-left transition-colors border-b border-border last:border-b-0",
+                                  selected
+                                    ? "bg-primary/5"
+                                    : "hover:bg-muted/30"
+                                )}
+                              >
+                                <div className={cn(
+                                  "w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors",
+                                  selected ? "border-primary bg-primary" : "border-muted-foreground/30"
+                                )}>
+                                  {selected && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
+                                </div>
+                                <Truck className={cn("h-3.5 w-3.5 shrink-0", selected ? "text-primary" : "text-muted-foreground")} />
+                                <div className="flex-1 min-w-0 flex items-center gap-2">
+                                  <span className="text-sm font-medium truncate">{v.name}</span>
+                                  <span className="text-[11px] text-muted-foreground">{v.licensePlate}</span>
+                                  <span className="text-[11px] text-muted-foreground">· {v.capacityKg}kg</span>
+                                </div>
+                                {driver && (
+                                  <span className="text-[11px] text-muted-foreground flex items-center gap-1 shrink-0">
+                                    <Users className="h-3 w-3" />{driver.name}
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {error && (
                   <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm flex items-start gap-2">
@@ -797,47 +849,39 @@ export default function Import() {
 
                 {optimizationResult ? (
                   <>
-                    <div className="grid grid-cols-3 gap-4">
-                      <div className="p-4 rounded-xl bg-muted/50 text-center">
-                        <p className="text-2xl font-bold">{optimizationResult.totalDistanceKm?.toFixed(1) ?? "—"} km</p>
-                        <p className="text-xs text-muted-foreground mt-1">{t("wizard.totalDistance")}</p>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="p-3 rounded-xl bg-muted/50 text-center">
+                        <p className="text-xl font-bold">{optimizationResult.totalDistanceKm?.toFixed(1) ?? "—"} km</p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">{t("wizard.totalDistance")}</p>
                       </div>
-                      <div className="p-4 rounded-xl bg-muted/50 text-center">
-                        <p className="text-2xl font-bold">{optimizationResult.totalDurationMin?.toFixed(0) ?? "—"} min</p>
-                        <p className="text-xs text-muted-foreground mt-1">{t("wizard.totalTime")}</p>
+                      <div className="p-3 rounded-xl bg-muted/50 text-center">
+                        <p className="text-xl font-bold">{optimizationResult.totalDurationMin?.toFixed(0) ?? "—"} min</p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">{t("wizard.totalTime")}</p>
                       </div>
-                      <div className="p-4 rounded-xl bg-muted/50 text-center">
-                        <p className="text-2xl font-bold">{optimizationResult.costBreakdown?.totalCo2Kg?.toFixed(1) ?? "—"} kg</p>
-                        <p className="text-xs text-muted-foreground mt-1">CO₂</p>
+                      <div className="p-3 rounded-xl bg-muted/50 text-center">
+                        <p className="text-xl font-bold">{optimizationResult.costBreakdown?.totalCo2Kg?.toFixed(1) ?? "—"} kg</p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">CO₂</p>
                       </div>
                     </div>
 
-                    <div className="space-y-3">
+                    <div className="text-xs text-muted-foreground">
+                      {optimizationResult.routes?.length ?? 0} {t("wizard.routesGenerated")} · {optimizationResult.routes?.reduce((sum, r) => sum + (r.stops?.length ?? 0), 0) ?? 0} {t("wizard.stops")}
+                    </div>
+
+                    <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
                       {optimizationResult.routes?.map((route, idx) => {
                         const vehicle = vehicles?.find(v => v.id === route.vehicleId);
                         return (
-                          <div key={idx} className="rounded-lg border border-border p-4">
-                            <div className="flex items-center justify-between mb-2">
+                          <div key={idx} className="rounded-lg border border-border px-3 py-2.5">
+                            <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
-                                <Truck className="h-4 w-4 text-primary" />
+                                <Truck className="h-3.5 w-3.5 text-primary" />
                                 <span className="font-medium text-sm">{vehicle?.name ?? route.vehicleId.slice(0, 8)}</span>
-                                {vehicle && <span className="text-xs text-muted-foreground">({vehicle.licensePlate})</span>}
+                                {vehicle && <span className="text-[11px] text-muted-foreground">{vehicle.licensePlate}</span>}
                               </div>
-                              <span className="text-xs text-muted-foreground">
-                                {route.stops?.length ?? 0} {t("wizard.stops")} · {route.distanceKm?.toFixed(1)} km
+                              <span className="text-[11px] text-muted-foreground">
+                                {route.stops?.length ?? 0} {t("wizard.stops")} · {route.distanceKm?.toFixed(1)} km · {route.durationMin?.toFixed(0)} min
                               </span>
-                            </div>
-                            <div className="flex flex-wrap gap-1">
-                              {route.stops?.slice(0, 8).map((s, i) => (
-                                <span key={i} className="text-[10px] px-2 py-0.5 rounded bg-muted text-muted-foreground">
-                                  #{s.sequenceOrder}
-                                </span>
-                              ))}
-                              {(route.stops?.length ?? 0) > 8 && (
-                                <span className="text-[10px] px-2 py-0.5 rounded bg-muted text-muted-foreground">
-                                  +{(route.stops?.length ?? 0) - 8}
-                                </span>
-                              )}
                             </div>
                           </div>
                         );
