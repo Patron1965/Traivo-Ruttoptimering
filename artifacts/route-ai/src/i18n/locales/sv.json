@@ -109,6 +109,8 @@
     "skippedRows": "{{count}} rad(er) hoppades över p.g.a. felaktiga värden",
     "rowMissingAddress": "Rad {{row}}: Adress saknas",
     "rowInvalidCoords": "Rad {{row}}: Ogiltiga koordinater",
+    "noDateColumn": "Inget datumfält hittat i filen",
+    "noDateColumnDesc": "Välj leveransdatum som ska gälla för alla ordrar",
     "importing": "Importerar...",
     "importCount": "Importera {{count}} stopp",
     "importFailed": "Importen misslyckades. Försök igen.",

@@ -45,7 +45,7 @@ type SystemField = {
 
 const SYSTEM_FIELDS: SystemField[] = [
   { key: "referenceNumber", labelKey: "importPage.field.referenceNumber", required: false, description: "importPage.fieldDesc.referenceNumber", apiField: "reference_number", exampleValue: "ORD-2026-001" },
-  { key: "date", labelKey: "importPage.field.date", required: true, description: "importPage.fieldDesc.date", apiField: "date", exampleValue: "2026-04-10" },
+  { key: "date", labelKey: "importPage.field.date", required: false, description: "importPage.fieldDesc.date", apiField: "date", exampleValue: "2026-04-10" },
   { key: "contactName", labelKey: "importPage.field.contactName", required: false, description: "importPage.fieldDesc.contactName", apiField: "contact_name", exampleValue: "Anna Svensson" },
   { key: "contactPhone", labelKey: "importPage.field.contactPhone", required: false, description: "importPage.fieldDesc.contactPhone", apiField: "contact_phone", exampleValue: "+46701234567" },
   { key: "contactEmail", labelKey: "importPage.field.contactEmail", required: false, description: "importPage.fieldDesc.contactEmail", apiField: "contact_email", exampleValue: "anna@example.com" },
@@ -178,6 +178,7 @@ export default function Import() {
   const localDragCounter = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [defaultDate, setDefaultDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [selectedVehicleIds, setSelectedVehicleIds] = useState<string[]>([]);
   const [importedStopIds, setImportedStopIds] = useState<string[]>([]);
   const [optimizationResult, setOptimizationResult] = useState<OptimizationResult | null>(null);
@@ -233,6 +234,7 @@ export default function Import() {
     setValidationErrors([]);
     setError(null);
     setFileName("");
+    setDefaultDate(new Date().toISOString().split("T")[0]);
     setSelectedVehicleIds([]);
     setVehicleSearch("");
     setImportedStopIds([]);
@@ -357,12 +359,15 @@ export default function Import() {
         const idx = getColIdx(field.key);
         if (idx >= 0 && row[idx]?.trim()) mapped[field.key] = row[idx].trim();
       }
+      if (!mapped.date && defaultDate) {
+        mapped.date = defaultDate;
+      }
       rows.push(mapped);
     }
     setValidationErrors(errors);
     setMappedRows(rows);
     setStep(3);
-  }, [parsedData, mapping, t]);
+  }, [parsedData, mapping, t, defaultDate]);
 
   const handleImportAndContinue = useCallback(() => {
     const stops = mappedRows.map((row) => {
@@ -616,6 +621,22 @@ export default function Import() {
                     </tbody>
                   </table>
                 </div>
+
+                {!mapping["date"] && (
+                  <div className="flex items-center gap-3 p-3 rounded-lg border border-primary/30 bg-primary/5">
+                    <Info className="h-4 w-4 text-primary shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">{t("import.noDateColumn")}</p>
+                      <p className="text-xs text-muted-foreground">{t("import.noDateColumnDesc")}</p>
+                    </div>
+                    <input
+                      type="date"
+                      value={defaultDate}
+                      onChange={(e) => setDefaultDate(e.target.value)}
+                      className="h-8 px-2 text-sm rounded-md border border-border bg-background"
+                    />
+                  </div>
+                )}
 
                 <div className="flex justify-between pt-2">
                   <Button variant="outline" size="sm" onClick={fullReset} className="gap-1">
