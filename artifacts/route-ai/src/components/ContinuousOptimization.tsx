@@ -60,6 +60,8 @@ export function ContinuousOptimization() {
     totalImprovementPercent: number;
     bestCost: number;
     initialCost: number;
+    maxTotalMinutes?: number;
+    maxIdleMinutes?: number;
   } | null>(null);
   const startTimeRef = useRef<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
@@ -77,8 +79,8 @@ export function ContinuousOptimization() {
   });
 
   const isRunning = liveStatus?.running ?? status?.running ?? false;
-  const maxTotalMinutes = status?.maxTotalMinutes ?? 30;
-  const maxIdleMinutes = status?.maxIdleMinutes ?? 5;
+  const maxTotalMinutes = liveStatus?.maxTotalMinutes ?? status?.maxTotalMinutes ?? 5;
+  const maxIdleMinutes = liveStatus?.maxIdleMinutes ?? status?.maxIdleMinutes ?? 1;
   const maxTotalSeconds = maxTotalMinutes * 60;
 
   useEffect(() => {
@@ -181,6 +183,8 @@ export function ContinuousOptimization() {
         totalImprovementPercent: 0,
         bestCost: data.status?.bestCost ?? 0,
         initialCost: data.status?.initialCost ?? 0,
+        maxTotalMinutes: data.status?.maxTotalMinutes,
+        maxIdleMinutes: data.status?.maxIdleMinutes,
       });
       queryClient.invalidateQueries({
         queryKey: ["continuous-optimizer-status"],
