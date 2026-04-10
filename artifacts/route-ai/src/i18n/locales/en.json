@@ -112,6 +112,7 @@
     "suggested": "Suggested",
     "noDateColumn": "No date column found in file",
     "noDateColumnDesc": "Choose a delivery date to apply to all orders",
+    "noDateColumnInline": "No date column — pick delivery date →",
     "importing": "Importing...",
     "importCount": "Import {{count}} Stops",
     "importFailed": "Import failed. Please try again.",
