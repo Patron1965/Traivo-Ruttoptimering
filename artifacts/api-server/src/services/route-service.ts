@@ -1,5 +1,5 @@
 import { eq, and } from "drizzle-orm";
-import { db, routesTable, stopsTable, vehiclesTable, driversTable, driverPreferencesTable } from "@workspace/db";
+import { db, routesTable, stopsTable, vehiclesTable, driversTable, driverPreferencesTable, deliveryNotificationsTable, routeHistoryTable, geofenceEventsTable, driverBehaviorLogsTable } from "@workspace/db";
 import { dispatchWebhookEvent } from "./webhooks";
 import { computeHappinessScore } from "./happiness-score";
 import { broadcastDataChange } from "./realtime";
@@ -92,6 +92,11 @@ export async function deleteRoute(id: string, organizationId: string) {
     .from(routesTable)
     .where(and(eq(routesTable.id, id), eq(routesTable.organizationId, organizationId)));
   if (!existing) return null;
+
+  await db.delete(deliveryNotificationsTable).where(eq(deliveryNotificationsTable.routeId, id));
+  await db.delete(routeHistoryTable).where(eq(routeHistoryTable.routeId, id));
+  await db.delete(geofenceEventsTable).where(eq(geofenceEventsTable.routeId, id));
+  await db.delete(driverBehaviorLogsTable).where(eq(driverBehaviorLogsTable.routeId, id));
 
   await db
     .update(stopsTable)
