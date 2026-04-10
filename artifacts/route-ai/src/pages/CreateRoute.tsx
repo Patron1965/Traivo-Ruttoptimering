@@ -281,7 +281,7 @@ export default function CreateRoute() {
             "w-[480px] shrink-0 border-r border-border overflow-y-auto bg-background transition-all duration-300",
             mapExpanded && "w-0 overflow-hidden border-r-0"
           )}
-          {...(mapExpanded ? { inert: "", "aria-hidden": true } : {})}
+          {...(mapExpanded ? { inert: true as unknown as boolean, "aria-hidden": true } : {})}
         >
           <div className="p-5 space-y-5">
             <div className="flex items-center gap-3">

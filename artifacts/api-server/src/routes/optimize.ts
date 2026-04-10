@@ -994,13 +994,17 @@ router.post("/optimize/continuous/start", async (req, res) => {
       rangeKm: v.rangeKm,
     }));
 
+    const stopCount = allStops.length;
+    const scaledMaxTotalMinutes = stopCount <= 10 ? 2 : stopCount <= 30 ? 5 : stopCount <= 100 ? 15 : 30;
+    const scaledMaxIdleMinutes = stopCount <= 10 ? 0.5 : stopCount <= 30 ? 1 : Math.min(maxIdleMinutes, 3);
+
     const optimizer = new ContinuousOptimizer(
       organizationId,
       allStops,
       alnsVehicles,
       depotLatitude,
       depotLongitude,
-      { microIterationMs, maxIdleMinutes }
+      { microIterationMs, maxIdleMinutes: scaledMaxIdleMinutes, maxTotalMinutes: scaledMaxTotalMinutes }
     );
 
     optimizer.on("improvement", (event, status) => {
