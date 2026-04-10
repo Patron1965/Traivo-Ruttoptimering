@@ -367,7 +367,9 @@
     "error": "Kunde inte skapa rutt",
     "errorDesc": "Något gick fel. Försök igen.",
     "loadError": "Kunde inte ladda data. Kontrollera din anslutning.",
-    "retry": "Försök igen"
+    "retry": "Försök igen",
+    "expandMap": "Expandera karta",
+    "showForm": "Visa formulär"
   },
   "routeHistory": {
     "title": "Rutthistorik",

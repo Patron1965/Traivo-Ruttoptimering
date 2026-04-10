@@ -350,7 +350,9 @@
     "error": "Failed to create route",
     "errorDesc": "Something went wrong. Please try again.",
     "loadError": "Failed to load data. Check your connection.",
-    "retry": "Try again"
+    "retry": "Try again",
+    "expandMap": "Expand map",
+    "showForm": "Show form"
   },
   "routeHistory": {
     "title": "Route History",

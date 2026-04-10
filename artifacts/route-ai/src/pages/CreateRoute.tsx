@@ -29,6 +29,9 @@ import {
   ChevronDown,
   X,
   Phone,
+  Maximize2,
+  Minimize2,
+  PanelLeftOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -61,6 +64,15 @@ function FitBounds({ stops }: { stops: Array<{ latitude: number; longitude: numb
     const bounds = L.latLngBounds(stops.map((s) => [s.latitude, s.longitude]));
     map.fitBounds(bounds, { padding: [40, 40], maxZoom: 13 });
   }, [stops, map]);
+  return null;
+}
+
+function InvalidateOnResize({ expanded }: { expanded: boolean }) {
+  const map = useMap();
+  useEffect(() => {
+    const timer = setTimeout(() => map.invalidateSize(), 350);
+    return () => clearTimeout(timer);
+  }, [expanded, map]);
   return null;
 }
 
@@ -101,6 +113,7 @@ export default function CreateRoute() {
   const [saving, setSaving] = useState(false);
   const [vehicleSearch, setVehicleSearch] = useState("");
   const [driverDropdownOpen, setDriverDropdownOpen] = useState<string | null>(null);
+  const [mapExpanded, setMapExpanded] = useState(false);
 
   const routesById = useMemo(() => {
     const map = new Map<string, string>();
@@ -262,7 +275,14 @@ export default function CreateRoute() {
   return (
     <AppLayout>
       <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden">
-        <div className="w-[480px] shrink-0 border-r border-border overflow-y-auto bg-background">
+        <div
+          id="create-route-sidebar"
+          className={cn(
+            "w-[480px] shrink-0 border-r border-border overflow-y-auto bg-background transition-all duration-300",
+            mapExpanded && "w-0 overflow-hidden border-r-0"
+          )}
+          {...(mapExpanded ? { inert: "", "aria-hidden": true } : {})}
+        >
           <div className="p-5 space-y-5">
             <div className="flex items-center gap-3">
               <Button
@@ -745,6 +765,7 @@ export default function CreateRoute() {
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
               url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
             />
+            <InvalidateOnResize expanded={mapExpanded} />
             {mapStops.length > 0 && <FitBounds stops={mapStops} />}
             {mapStops.map((stop) => (
               <Marker
@@ -766,8 +787,31 @@ export default function CreateRoute() {
             ))}
           </MapContainer>
 
+          <div className="absolute top-3 left-3 flex items-center gap-2 z-[1000]">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setMapExpanded(!mapExpanded)}
+              aria-expanded={mapExpanded}
+              aria-controls="create-route-sidebar"
+              className="h-9 gap-2 bg-card/90 backdrop-blur border border-border shadow-lg hover:bg-card text-xs font-medium"
+            >
+              {mapExpanded ? (
+                <>
+                  <PanelLeftOpen className="h-4 w-4" />
+                  {t("createRoute.showForm")}
+                </>
+              ) : (
+                <>
+                  <Maximize2 className="h-4 w-4" />
+                  {t("createRoute.expandMap")}
+                </>
+              )}
+            </Button>
+          </div>
+
           {selectedStopIds.size > 0 && (
-            <div className="absolute top-3 right-3 bg-card/90 backdrop-blur border border-border rounded-lg px-3 py-2 text-xs font-medium shadow-lg">
+            <div className="absolute top-3 right-3 bg-card/90 backdrop-blur border border-border rounded-lg px-3 py-2 text-xs font-medium shadow-lg z-[1000]">
               {selectedStopIds.size} {t("common.stops")} {t("common.selected")}
             </div>
           )}
