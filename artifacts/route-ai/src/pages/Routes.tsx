@@ -296,7 +296,7 @@ export default function Routes() {
           >
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
-              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+              url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
             />
             {selectedRouteStops.length > 0 && <FitStops stops={selectedRouteStops} />}
             {selectedRouteStops.map((stop, i) => (
