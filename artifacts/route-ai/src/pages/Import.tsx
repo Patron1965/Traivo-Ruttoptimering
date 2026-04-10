@@ -63,24 +63,53 @@ const SYSTEM_FIELDS: SystemField[] = [
 const ALIAS_MAP: Record<string, string> = {
   referensnummer: "referenceNumber", reference: "referenceNumber", reference_number: "referenceNumber",
   ref: "referenceNumber", ordernummer: "referenceNumber", order_number: "referenceNumber", ordernr: "referenceNumber",
+  "order_id": "referenceNumber", orderid: "referenceNumber", "uppgifts_id": "referenceNumber",
+  "summa_av_uppgifts_id": "referenceNumber", id: "referenceNumber", nummer: "referenceNumber",
   datum: "date", date: "date", leveransdatum: "date", delivery_date: "date",
+  "leverans_datum": "date", dag: "date", "delivery_day": "date",
   namn: "contactName", name: "contactName", contact_name: "contactName", kontaktnamn: "contactName",
   mottagare: "contactName", recipient: "contactName", customer_name: "contactName", kundnamn: "contactName",
+  kund: "contactName", customer: "contactName", "contact": "contactName", förnamn: "contactName",
   telefonnummer: "contactPhone", telefon: "contactPhone", phone: "contactPhone", tel: "contactPhone",
   contact_phone: "contactPhone", mobilnummer: "contactPhone", mobil: "contactPhone", mobile: "contactPhone",
+  tele: "contactPhone", "tel_nr": "contactPhone", "phone_number": "contactPhone",
   epost: "contactEmail", "e-post": "contactEmail", email: "contactEmail", mail: "contactEmail", contact_email: "contactEmail",
+  "e_post": "contactEmail", "customer_email": "contactEmail",
   address: "address", adress: "address", gatuadress: "address", street: "address",
   street_address: "address", leveransadress: "address", delivery_address: "address",
+  gata: "address", "gata_och_nummer": "address", "full_address": "address", "fullständig_adress": "address",
+  ort: "address", stad: "address", city: "address", postnummer: "address", postort: "address",
   latitude: "latitude", lat: "latitude", latitud: "latitude", delivery_latitude: "latitude",
   longitude: "longitude", lng: "longitude", lon: "longitude", long: "longitude", longitud: "longitude", delivery_longitude: "longitude",
   leverans_från_kl: "timeWindowStart", "leverans från kl": "timeWindowStart", time_window_start: "timeWindowStart",
   start_time: "timeWindowStart", starttid: "timeWindowStart", från: "timeWindowStart",
+  tid: "timeWindowStart", time: "timeWindowStart", "leveranstid": "timeWindowStart", "klockan": "timeWindowStart",
   leverans_till_kl: "timeWindowEnd", "leverans till kl": "timeWindowEnd", time_window_end: "timeWindowEnd",
   end_time: "timeWindowEnd", sluttid: "timeWindowEnd", till: "timeWindowEnd",
   servicetid: "serviceDurationMin", service_duration_min: "serviceDurationMin", duration: "serviceDurationMin", minuter: "serviceDurationMin",
+  "service_time": "serviceDurationMin", "tid_min": "serviceDurationMin",
   vikt: "weightKg", weight: "weightKg", weight_kg: "weightKg", kg: "weightKg",
+  antal: "weightKg", quantity: "weightKg", "summa_av_pris": "weightKg", amount: "weightKg",
   volym: "volumeM3", volume: "volumeM3", volume_m3: "volumeM3", m3: "volumeM3",
   notering: "notes", notes: "notes", anteckning: "notes", kommentar: "notes", comment: "notes", beskrivning: "notes", description: "notes",
+  info: "notes", "extra_info": "notes", meddelande: "notes", message: "notes",
+};
+
+const FIELD_KEYWORDS: Record<string, string[]> = {
+  referenceNumber: ["ref", "id", "nummer", "order", "uppgift", "reference", "number"],
+  date: ["datum", "date", "dag", "day", "leverans"],
+  contactName: ["namn", "name", "kund", "mottagare", "kontakt", "recipient", "customer"],
+  contactPhone: ["telefon", "phone", "tel", "mobil", "mobile", "nummer"],
+  contactEmail: ["mail", "epost", "e-post", "email"],
+  address: ["adress", "address", "gata", "street", "leverans", "väg", "ort", "stad", "city", "post"],
+  latitude: ["lat", "latitud", "latitude"],
+  longitude: ["lon", "lng", "long", "longitud", "longitude"],
+  timeWindowStart: ["tid", "time", "start", "från", "kl", "leveranstid"],
+  timeWindowEnd: ["slut", "till", "end", "stop"],
+  serviceDurationMin: ["service", "tid", "min", "duration", "minut"],
+  weightKg: ["vikt", "weight", "kg", "antal", "quantity", "amount", "pris", "summa"],
+  volumeM3: ["volym", "volume", "m3", "kubik"],
+  notes: ["not", "anteck", "kommentar", "comment", "beskrivning", "info", "meddelande", "message"],
 };
 
 type WizardStep = 1 | 2 | 3 | 4 | 5 | 6;
@@ -604,16 +633,53 @@ export default function Import() {
                               <ArrowRight className={cn("h-3.5 w-3.5 mx-auto", mapped ? "text-primary" : "text-muted-foreground/30")} />
                             </td>
                             <td className="p-2.5">
-                              <Select value={mapped || "__none__"} onValueChange={(val) => updateMapping(field.key, val)}>
-                                <SelectTrigger className="h-8 text-xs">
-                                  <SelectValue placeholder={t("import.selectColumn")} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="__none__"><span className="text-muted-foreground">— {t("import.skip")} —</span></SelectItem>
-                                  {parsedData.headers.filter(h => h.trim()).map((h) => (<SelectItem key={h} value={h}>{h}</SelectItem>))}
-                                </SelectContent>
-                              </Select>
-                              {sampleValue && <p className="text-[10px] text-muted-foreground mt-1 truncate">{t("import.example")}: {sampleValue}</p>}
+                              {(() => {
+                                const keywords = FIELD_KEYWORDS[field.key] || [];
+                                const headers = parsedData.headers.filter(h => h.trim());
+                                const scored = headers.map(h => {
+                                  const norm = h.toLowerCase().replace(/[\s\-\.]+/g, "_");
+                                  const exactAlias = ALIAS_MAP[norm] === field.key;
+                                  const keywordHits = keywords.filter(kw => norm.includes(kw)).length;
+                                  return { header: h, score: exactAlias ? 100 : keywordHits };
+                                });
+                                const suggested = scored.filter(s => s.score > 0).sort((a, b) => b.score - a.score);
+                                const rest = scored.filter(s => s.score === 0);
+                                const sampleForHeader = (h: string) => {
+                                  const ci = parsedData.headers.indexOf(h);
+                                  return ci >= 0 && parsedData.rows[0] ? parsedData.rows[0][ci]?.trim() : "";
+                                };
+                                return (
+                                  <>
+                                    <Select value={mapped || "__none__"} onValueChange={(val) => updateMapping(field.key, val)}>
+                                      <SelectTrigger className="h-8 text-xs">
+                                        <SelectValue placeholder={t("import.selectColumn")} />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="__none__"><span className="text-muted-foreground">— {t("import.skip")} —</span></SelectItem>
+                                        {suggested.length > 0 && (
+                                          <>
+                                            <div className="px-2 py-1 text-[10px] font-semibold text-primary uppercase tracking-wider">{t("import.suggested")}</div>
+                                            {suggested.map(({ header }) => {
+                                              const sample = sampleForHeader(header);
+                                              return (
+                                                <SelectItem key={header} value={header}>
+                                                  <span className="font-medium">{header}</span>
+                                                  {sample && <span className="text-muted-foreground ml-1.5 text-[10px]">({sample})</span>}
+                                                </SelectItem>
+                                              );
+                                            })}
+                                            {rest.length > 0 && <div className="h-px bg-border my-1" />}
+                                          </>
+                                        )}
+                                        {rest.map(({ header }) => (
+                                          <SelectItem key={header} value={header}>{header}</SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                    {sampleValue && <p className="text-[10px] text-muted-foreground mt-1 truncate">{t("import.example")}: {sampleValue}</p>}
+                                  </>
+                                );
+                              })()}
                             </td>
                           </tr>
                         );

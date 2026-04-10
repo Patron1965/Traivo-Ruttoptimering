@@ -109,6 +109,7 @@
     "skippedRows": "{{count}} row(s) skipped due to invalid values",
     "rowMissingAddress": "Row {{row}}: Address missing",
     "rowInvalidCoords": "Row {{row}}: Invalid coordinates",
+    "suggested": "Suggested",
     "noDateColumn": "No date column found in file",
     "noDateColumnDesc": "Choose a delivery date to apply to all orders",
     "importing": "Importing...",
