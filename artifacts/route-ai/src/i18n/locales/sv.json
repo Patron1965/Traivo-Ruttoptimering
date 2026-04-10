@@ -115,6 +115,8 @@
     "noDateColumnDesc": "Välj leveransdatum som ska gälla för alla ordrar",
     "noDateColumnInline": "Ingen datumkolumn — välj leveransdatum →",
     "dateAppliedToAll": "Gäller för alla ordrar i denna import",
+    "step3Title": "Granska din data innan import",
+    "step3Desc": "Kontrollera att kolumnerna och värdena ser korrekta ut. Tabellen visar hur din data tolkats baserat på matchningen i föregående steg. Om något ser fel ut, gå tillbaka och justera kolumnmatchningen. Klicka \"Importera & fortsätt\" för att spara ordrarna och gå vidare till fordonval.",
     "addCustomField": "Lägg till eget fält",
     "customFieldName": "Fältnamn (t.ex. Portkod, Våning, Zon...)",
     "addField": "Lägg till",

@@ -115,6 +115,8 @@
     "noDateColumnDesc": "Choose a delivery date to apply to all orders",
     "noDateColumnInline": "No date column — pick delivery date →",
     "dateAppliedToAll": "Applies to all orders in this import",
+    "step3Title": "Review your data before importing",
+    "step3Desc": "Verify that the columns and values look correct. The table shows how your data was interpreted based on the matching from the previous step. If something looks wrong, go back and adjust the column matching. Click \"Import & continue\" to save the orders and proceed to vehicle selection.",
     "addCustomField": "Add custom field",
     "customFieldName": "Field name (e.g. Door code, Floor, Zone...)",
     "addField": "Add",

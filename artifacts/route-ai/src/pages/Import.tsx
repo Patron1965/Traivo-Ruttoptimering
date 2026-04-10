@@ -797,7 +797,17 @@ export default function Import() {
 
             {step === 3 && (
               <div className="rounded-xl border border-border bg-card p-6 space-y-4">
-                <div className="flex items-center gap-3 mb-2">
+                <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-2">
+                  <h3 className="text-sm font-semibold flex items-center gap-2">
+                    <Info className="h-4 w-4 text-primary" />
+                    {t("import.step3Title")}
+                  </h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    {t("import.step3Desc")}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3">
                   <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10">
                       <CheckCircle2 className="h-4 w-4 text-primary" />
