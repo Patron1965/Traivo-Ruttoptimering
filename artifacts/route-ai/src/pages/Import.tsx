@@ -49,7 +49,9 @@ const SYSTEM_FIELDS: SystemField[] = [
   { key: "contactName", labelKey: "importPage.field.contactName", required: false, description: "importPage.fieldDesc.contactName", apiField: "contact_name", exampleValue: "Anna Svensson" },
   { key: "contactPhone", labelKey: "importPage.field.contactPhone", required: false, description: "importPage.fieldDesc.contactPhone", apiField: "contact_phone", exampleValue: "+46701234567" },
   { key: "contactEmail", labelKey: "importPage.field.contactEmail", required: false, description: "importPage.fieldDesc.contactEmail", apiField: "contact_email", exampleValue: "anna@example.com" },
-  { key: "address", labelKey: "importPage.field.address", required: true, description: "importPage.fieldDesc.address", apiField: "address", exampleValue: "Storgatan 12, Stockholm" },
+  { key: "address", labelKey: "importPage.field.address", required: true, description: "importPage.fieldDesc.address", apiField: "address", exampleValue: "Storgatan 12" },
+  { key: "postalCode", labelKey: "importPage.field.postalCode", required: false, description: "importPage.fieldDesc.postalCode", apiField: "postal_code", exampleValue: "114 35" },
+  { key: "city", labelKey: "importPage.field.city", required: false, description: "importPage.fieldDesc.city", apiField: "city", exampleValue: "Stockholm" },
   { key: "latitude", labelKey: "importPage.field.latitude", required: false, description: "importPage.fieldDesc.latitude", apiField: "latitude", exampleValue: "59.3293" },
   { key: "longitude", labelKey: "importPage.field.longitude", required: false, description: "importPage.fieldDesc.longitude", apiField: "longitude", exampleValue: "18.0686" },
   { key: "timeWindowStart", labelKey: "importPage.field.timeWindowStart", required: false, description: "importPage.fieldDesc.timeWindowStart", apiField: "time_window_start", exampleValue: "08:00" },
@@ -78,7 +80,10 @@ const ALIAS_MAP: Record<string, string> = {
   address: "address", adress: "address", gatuadress: "address", street: "address",
   street_address: "address", leveransadress: "address", delivery_address: "address",
   gata: "address", "gata_och_nummer": "address", "full_address": "address", "fullständig_adress": "address",
-  ort: "address", stad: "address", city: "address", postnummer: "address", postort: "address",
+  postnummer: "postalCode", postnr: "postalCode", postal_code: "postalCode", zip: "postalCode",
+  zipcode: "postalCode", zip_code: "postalCode", "post_code": "postalCode", plz: "postalCode",
+  ort: "city", stad: "city", city: "city", postort: "city", town: "city",
+  kommun: "city", "delivery_city": "city", leveransort: "city",
   latitude: "latitude", lat: "latitude", latitud: "latitude", delivery_latitude: "latitude",
   longitude: "longitude", lng: "longitude", lon: "longitude", long: "longitude", longitud: "longitude", delivery_longitude: "longitude",
   leverans_från_kl: "timeWindowStart", "leverans från kl": "timeWindowStart", time_window_start: "timeWindowStart",
@@ -101,7 +106,9 @@ const FIELD_KEYWORDS: Record<string, string[]> = {
   contactName: ["namn", "name", "kund", "mottagare", "kontakt", "recipient", "customer"],
   contactPhone: ["telefon", "phone", "tel", "mobil", "mobile", "nummer"],
   contactEmail: ["mail", "epost", "e-post", "email"],
-  address: ["adress", "address", "gata", "street", "leverans", "väg", "ort", "stad", "city", "post"],
+  address: ["adress", "address", "gata", "street", "leverans", "väg"],
+  postalCode: ["postnr", "postnummer", "postal", "zip", "plz", "post"],
+  city: ["ort", "stad", "city", "town", "kommun", "postort"],
   latitude: ["lat", "latitud", "latitude"],
   longitude: ["lon", "lng", "long", "longitud", "longitude"],
   timeWindowStart: ["tid", "time", "start", "från", "kl", "leveranstid"],
@@ -432,8 +439,10 @@ export default function Import() {
 
   const handleImportAndContinue = useCallback(() => {
     const stops = mappedRows.map((row) => {
+      const addressParts = [row.address, row.postalCode, row.city].filter(Boolean);
+      const fullAddress = addressParts.join(", ");
       const stop: Record<string, unknown> = {
-        address: row.address || "",
+        address: fullAddress || "",
         latitude: row.latitude ? parseFloat(row.latitude.replace(",", ".")) : 0,
         longitude: row.longitude ? parseFloat(row.longitude.replace(",", ".")) : 0,
       };
