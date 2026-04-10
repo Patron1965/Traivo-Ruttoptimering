@@ -3,7 +3,6 @@ import {
   useListRoutes as useGeneratedListRoutes,
   useGetRouteStops as useGeneratedGetRouteStops,
   useCreateRoute as useGeneratedCreateRoute,
-  useDeleteRoute as useGeneratedDeleteRoute,
   useUpdateRoute as useGeneratedUpdateRoute,
   type OptimizeResponse,
 } from "@workspace/api-client-react";
@@ -175,12 +174,20 @@ export function useCreateRoute() {
 
 export function useDeleteRoute() {
   const queryClient = useQueryClient();
-  return useGeneratedDeleteRoute({
-    mutation: {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ["/api/routes"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/stops"] });
+  return useMutation({
+    mutationFn: async ({ id }: { id: string }) => {
+      const res = await fetch(`/api/routes/${id}?organizationId=${ORG_ID}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to delete route");
       }
-    }
-  })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/routes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stops"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+    },
+  });
 }
