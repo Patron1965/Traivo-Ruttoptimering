@@ -23,6 +23,7 @@ import Analytics from "@/pages/Analytics";
 import RouteComparison from "@/pages/RouteComparison";
 import Webhooks from "@/pages/Webhooks";
 import ShopifyIntegration from "@/pages/ShopifyIntegration";
+import Import from "@/pages/Import";
 import Billing from "@/pages/Billing";
 import NotFound from "@/pages/not-found";
 import { ChatPanel } from "@/components/chat/ChatPanel";
@@ -66,6 +67,7 @@ function AppRouter() {
       <Route path="/analytics" component={Analytics} />
       <Route path="/webhooks" component={Webhooks} />
       <Route path="/shopify" component={ShopifyIntegration} />
+      <Route path="/import" component={Import} />
       <Route path="/billing" component={Billing} />
       <Route path="/driver-view" component={DriverView} />
       <Route path="/track/:code">

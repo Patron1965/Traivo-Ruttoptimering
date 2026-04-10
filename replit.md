@@ -37,7 +37,7 @@ The frontend, `artifacts/route-ai`, is a React + Vite application featuring a da
 - **Fleet Tracking:** Simulated live vehicle positions and geofence events for entry/exit tracking.
 - **Sustainability Dashboard:** Visualizes CO₂ emissions, noise impact, PM2.5 particle estimation, and an Environmental Score. Integrates electricity spot prices for optimal EV charging.
 - **AI Integration:** An AI chat assistant provides SSE streaming responses and proactive AI insights. Voice input (transcribed by OpenAI Whisper) is integrated into the chat.
-- **Data Management:** Supports bulk import/export of route data.
+- **Data Management:** Dedicated Import & API page at `/import` with three tabs: (1) Field Definitions showing all 14 importable fields with numbering, API field names, and example values; (2) File Import with Excel/CSV upload and auto-matching column mapping; (3) API Integration documentation for business system (ERP/WMS/TMS) connectivity with code examples for import, webhooks, and export. CSV template download available.
 - **User Management:** Role-based access control.
 - **Public Tracking:** A public-facing page for customer delivery monitoring with live ETA.
 - **Route Templates:** Save and apply route configurations.
