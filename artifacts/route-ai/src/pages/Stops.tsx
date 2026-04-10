@@ -18,6 +18,7 @@ import { type Stop, useImportStops } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -103,8 +104,9 @@ export default function Stops() {
 
   return (
     <AppLayout>
-      <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden">
-        <div className="flex-1 overflow-y-auto">
+      <ResizablePanelGroup direction="horizontal" className="h-[calc(100vh-3.5rem)]">
+        <ResizablePanel defaultSize={60} minSize={30} maxSize={80}>
+        <div className="h-full overflow-y-auto">
           <div className="p-5">
             <div className="flex items-center justify-between mb-4">
               <div>
@@ -277,8 +279,12 @@ export default function Stops() {
             />
           </div>
         </div>
+        </ResizablePanel>
 
-        <div className="w-[40%] shrink-0 border-l border-border relative">
+        <ResizableHandle withHandle />
+
+        <ResizablePanel defaultSize={40} minSize={20}>
+        <div className="h-full w-full relative">
           <MapContainer
             center={[59.33, 18.07]}
             zoom={11}
@@ -315,7 +321,8 @@ export default function Stops() {
             ))}
           </MapContainer>
         </div>
-      </div>
+        </ResizablePanel>
+      </ResizablePanelGroup>
     </AppLayout>
   );
 }
