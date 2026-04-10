@@ -208,6 +208,9 @@ export default function Import() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [defaultDate, setDefaultDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [customFields, setCustomFields] = useState<SystemField[]>([]);
+  const [showAddField, setShowAddField] = useState(false);
+  const [newFieldName, setNewFieldName] = useState("");
   const [selectedVehicleIds, setSelectedVehicleIds] = useState<string[]>([]);
   const [importedStopIds, setImportedStopIds] = useState<string[]>([]);
   const [optimizationResult, setOptimizationResult] = useState<OptimizationResult | null>(null);
@@ -264,6 +267,9 @@ export default function Import() {
     setError(null);
     setFileName("");
     setDefaultDate(new Date().toISOString().split("T")[0]);
+    setCustomFields([]);
+    setShowAddField(false);
+    setNewFieldName("");
     setSelectedVehicleIds([]);
     setVehicleSearch("");
     setImportedStopIds([]);
@@ -364,6 +370,29 @@ export default function Import() {
     setMapping((prev) => ({ ...prev, [systemField]: fileColumn === "__none__" ? null : fileColumn }));
   }, []);
 
+  const allFields = useMemo(() => [...SYSTEM_FIELDS, ...customFields], [customFields]);
+
+  const addCustomField = useCallback((name: string) => {
+    if (!name.trim()) return;
+    const key = `custom_${name.trim().toLowerCase().replace(/[\s\-\.]+/g, "_")}`;
+    if (allFields.some(f => f.key === key)) return;
+    setCustomFields(prev => [...prev, {
+      key,
+      labelKey: name.trim(),
+      required: false,
+      description: "",
+      apiField: key,
+      exampleValue: "",
+    }]);
+    setNewFieldName("");
+    setShowAddField(false);
+  }, [allFields]);
+
+  const removeCustomField = useCallback((key: string) => {
+    setCustomFields(prev => prev.filter(f => f.key !== key));
+    setMapping(prev => { const next = { ...prev }; delete next[key]; return next; });
+  }, []);
+
   const matchedCount = useMemo(() => Object.values(mapping).filter(Boolean).length, [mapping]);
   const requiredMapped = useMemo(
     () => SYSTEM_FIELDS.filter((f) => f.required).every((f) => {
@@ -387,7 +416,7 @@ export default function Import() {
       const address = addrIdx >= 0 ? row[addrIdx]?.trim() : "";
       if (!address) { errors.push(t("import.rowMissingAddress", { row: i + 2 })); continue; }
       const mapped: Record<string, string> = {};
-      for (const field of SYSTEM_FIELDS) {
+      for (const field of allFields) {
         const idx = getColIdx(field.key);
         if (idx >= 0 && row[idx]?.trim()) mapped[field.key] = row[idx].trim();
       }
@@ -399,7 +428,7 @@ export default function Import() {
     setValidationErrors(errors);
     setMappedRows(rows);
     setStep(3);
-  }, [parsedData, mapping, t, defaultDate]);
+  }, [parsedData, mapping, t, defaultDate, allFields]);
 
   const handleImportAndContinue = useCallback(() => {
     const stops = mappedRows.map((row) => {
@@ -414,6 +443,11 @@ export default function Import() {
       if (row.serviceDurationMin) stop.serviceDurationMin = parseInt(row.serviceDurationMin);
       if (row.weightKg) stop.weightKg = parseFloat(row.weightKg.replace(",", "."));
       if (row.volumeM3) stop.volumeM3 = parseFloat(row.volumeM3.replace(",", "."));
+      const customData: Record<string, string> = {};
+      for (const cf of customFields) {
+        if (row[cf.key]) customData[cf.key] = row[cf.key];
+      }
+      if (Object.keys(customData).length > 0) stop.customFields = customData;
       return stop;
     });
     importMutation.mutate(stops, {
@@ -618,7 +652,8 @@ export default function Import() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
-                      {SYSTEM_FIELDS.map((field, idx) => {
+                      {allFields.map((field, idx) => {
+                        const isCustom = field.key.startsWith("custom_");
                         const mapped = mapping[field.key];
                         const colIdx = mapped ? parsedData.headers.indexOf(mapped) : -1;
                         const sampleValue = colIdx >= 0 && parsedData.rows[0] ? parsedData.rows[0][colIdx] : null;
@@ -628,9 +663,14 @@ export default function Import() {
                             <td className="p-2.5 font-bold text-xs">{idx + 1}</td>
                             <td className="p-2.5">
                               <div className="flex items-center gap-2">
-                                <span className={cn("w-2 h-2 rounded-full shrink-0", field.required ? (isSatisfied ? "bg-primary" : "bg-destructive") : "bg-muted-foreground")} />
-                                <span className="font-medium text-xs">{t(field.labelKey)}</span>
+                                <span className={cn("w-2 h-2 rounded-full shrink-0", field.required ? (isSatisfied ? "bg-primary" : "bg-destructive") : isCustom ? "bg-blue-400" : "bg-muted-foreground")} />
+                                <span className="font-medium text-xs">{isCustom ? field.labelKey : t(field.labelKey)}</span>
                                 {field.required && <span className="text-[9px] font-semibold uppercase tracking-wider text-destructive/70">{t("import.requiredTag")}</span>}
+                                {isCustom && (
+                                  <button type="button" onClick={() => removeCustomField(field.key)} className="text-muted-foreground hover:text-destructive transition-colors" title={t("common.delete")}>
+                                    <XCircle className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
                                 {isSatisfied && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
                               </div>
                             </td>
@@ -707,6 +747,34 @@ export default function Import() {
                   </table>
                 </div>
 
+                {showAddField ? (
+                  <div className="flex items-center gap-2 p-3 rounded-lg border border-blue-400/30 bg-blue-400/5">
+                    <input
+                      type="text"
+                      value={newFieldName}
+                      onChange={(e) => setNewFieldName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") addCustomField(newFieldName); if (e.key === "Escape") { setShowAddField(false); setNewFieldName(""); } }}
+                      placeholder={t("import.customFieldName")}
+                      className="flex-1 h-8 px-3 text-sm rounded-md border border-border bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                      autoFocus
+                    />
+                    <Button size="sm" variant="default" onClick={() => addCustomField(newFieldName)} disabled={!newFieldName.trim()} className="h-8 px-3 text-xs">
+                      {t("import.addField")}
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => { setShowAddField(false); setNewFieldName(""); }} className="h-8 px-3 text-xs">
+                      {t("common.cancel")}
+                    </Button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowAddField(true)}
+                    className="w-full py-2 text-xs text-primary hover:text-primary/80 font-medium border border-dashed border-primary/30 rounded-lg hover:bg-primary/5 transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    + {t("import.addCustomField")}
+                  </button>
+                )}
+
                 <div className="flex justify-between pt-2">
                   <Button variant="outline" size="sm" onClick={fullReset} className="gap-1">
                     <ChevronLeft className="h-4 w-4" /> {t("common.back")}
@@ -754,8 +822,8 @@ export default function Import() {
                     <thead className="bg-muted/50 sticky top-0">
                       <tr>
                         <th className="p-2 text-left font-semibold text-muted-foreground">#</th>
-                        {SYSTEM_FIELDS.filter(f => mappedRows.some(r => r[f.key])).map(f => (
-                          <th key={f.key} className="p-2 text-left font-semibold text-muted-foreground whitespace-nowrap">{t(f.labelKey)}</th>
+                        {allFields.filter(f => mappedRows.some(r => r[f.key])).map(f => (
+                          <th key={f.key} className="p-2 text-left font-semibold text-muted-foreground whitespace-nowrap">{f.key.startsWith("custom_") ? f.labelKey : t(f.labelKey)}</th>
                         ))}
                       </tr>
                     </thead>
@@ -763,7 +831,7 @@ export default function Import() {
                       {mappedRows.slice(0, 25).map((row, i) => (
                         <tr key={i} className="hover:bg-muted/30">
                           <td className="p-2 font-medium">{i + 1}</td>
-                          {SYSTEM_FIELDS.filter(f => mappedRows.some(r => r[f.key])).map(f => (
+                          {allFields.filter(f => mappedRows.some(r => r[f.key])).map(f => (
                             <td key={f.key} className="p-2 max-w-[200px] truncate">{row[f.key] || ""}</td>
                           ))}
                         </tr>
