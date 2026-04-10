@@ -95,7 +95,7 @@
     "routePlanner": "Ruttplanerare",
     "dispatch": "Dispatch",
     "allRoutes": "Alla rutter",
-    "createRoute": "Skapa rutt",
+    "createRoute": "Skapa ny rutt",
     "fleet": "Fordonsflotta",
     "drivers": "Förare",
     "stops": "Stopp",
@@ -625,7 +625,7 @@
     "noData": "Ingen jämförelsedata tillgänglig"
   },
   "continuousOpt": {
-    "title": "Live-optimering",
+    "title": "Optimera",
     "runningDesc": "ALNS-motorn förbättrar rutterna i bakgrunden",
     "idleDesc": "Starta för att kontinuerligt förbättra befintliga rutter",
     "start": "Starta",

@@ -95,7 +95,7 @@
     "routePlanner": "Route Planner",
     "dispatch": "Dispatch",
     "allRoutes": "All Routes",
-    "createRoute": "Create Route",
+    "createRoute": "Create New Route",
     "fleet": "Fleet",
     "drivers": "Drivers",
     "stops": "Stops",
@@ -608,7 +608,7 @@
     "noData": "No comparison data available"
   },
   "continuousOpt": {
-    "title": "Live Optimization",
+    "title": "Optimize",
     "runningDesc": "ALNS engine is improving routes in the background",
     "idleDesc": "Start to continuously improve existing routes",
     "start": "Start",

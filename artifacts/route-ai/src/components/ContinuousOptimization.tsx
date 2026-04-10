@@ -283,7 +283,7 @@ export function ContinuousOptimization() {
           disabled={startMutation.isPending || stopMutation.isPending}
           variant={isRunning ? "destructive" : "default"}
           size="sm"
-          className="gap-2"
+          className={cn("gap-2", !isRunning && "bg-orange-500 hover:bg-orange-600 text-white")}
         >
           {isRunning ? (
             <>
