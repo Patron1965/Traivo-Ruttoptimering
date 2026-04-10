@@ -995,8 +995,8 @@ router.post("/optimize/continuous/start", async (req, res) => {
     }));
 
     const stopCount = allStops.length;
-    const scaledMaxTotalMinutes = stopCount <= 10 ? 2 : stopCount <= 30 ? 5 : stopCount <= 100 ? 15 : 30;
-    const scaledMaxIdleMinutes = stopCount <= 10 ? 0.5 : stopCount <= 30 ? 1 : Math.min(maxIdleMinutes, 3);
+    const scaledMaxTotalMinutes = stopCount <= 5 ? 0.5 : stopCount <= 15 ? 1 : stopCount <= 30 ? 3 : stopCount <= 100 ? 10 : 30;
+    const scaledMaxIdleMinutes = stopCount <= 5 ? 0.1 : stopCount <= 15 ? 0.25 : stopCount <= 30 ? 0.5 : Math.min(maxIdleMinutes, 2);
 
     const optimizer = new ContinuousOptimizer(
       organizationId,

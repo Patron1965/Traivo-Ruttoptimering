@@ -220,6 +220,9 @@ export class ContinuousOptimizer extends EventEmitter {
   }
 
   private async loop(startTime: Date): Promise<void> {
+    const nodeCount = this.nodes.length;
+    const earlyStopIterations = nodeCount <= 5 ? 10 : nodeCount <= 15 ? 30 : nodeCount <= 30 ? 80 : 0;
+
     while (this.running && !this.aborted) {
       const elapsed = Date.now() - this.startedAt;
       if (elapsed > this.options.maxTotalMinutes * 60_000) {
@@ -232,9 +235,15 @@ export class ContinuousOptimizer extends EventEmitter {
         ? Date.now() - this.lastImprovementAt
         : elapsed;
       if (
-        this.iteration > 5 &&
+        this.iteration > 3 &&
         idleTime > this.options.maxIdleMinutes * 60_000
       ) {
+        this.running = false;
+        this.emit("idle-timeout", this.getStatus());
+        break;
+      }
+
+      if (earlyStopIterations > 0 && this.iteration >= earlyStopIterations && !this.lastImprovementAt) {
         this.running = false;
         this.emit("idle-timeout", this.getStatus());
         break;
