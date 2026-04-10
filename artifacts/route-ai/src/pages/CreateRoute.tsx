@@ -119,7 +119,7 @@ export default function CreateRoute() {
   const [driverSearch, setDriverSearch] = useState("");
   const [mapExpanded, setMapExpanded] = useState(false);
   const [stopSearch, setStopSearch] = useState("");
-  const [stopFilter, setStopFilter] = useState<"all" | "unassigned" | "assigned">("all");
+  const [stopFilter, setStopFilter] = useState<"all" | "unassigned" | "assigned">("unassigned");
 
   const vehicleDropdownRef = useRef<HTMLDivElement>(null);
   const driverDropdownRef = useRef<HTMLDivElement>(null);
@@ -355,8 +355,8 @@ export default function CreateRoute() {
 
             <section className="bg-card border border-border rounded-xl p-4 space-y-3">
               <div className="flex items-center gap-2">
-                <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <RouteIcon className="h-4 w-4 text-primary" />
+                <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center text-primary text-xs font-bold">
+                  1
                 </div>
                 <h2 className="font-bold text-sm">{t("createRoute.routeInfo")}</h2>
               </div>
@@ -389,8 +389,8 @@ export default function CreateRoute() {
 
             <section className="bg-card border border-border rounded-xl p-4 space-y-3">
               <div className="flex items-center gap-2">
-                <div className="h-7 w-7 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                  <Truck className="h-4 w-4 text-blue-400" />
+                <div className="h-7 w-7 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400 text-xs font-bold">
+                  2
                 </div>
                 <h2 className="font-bold text-sm">{t("createRoute.vehicleAndDriver")}</h2>
               </div>
@@ -592,8 +592,8 @@ export default function CreateRoute() {
             <section className="bg-card border border-border rounded-xl p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="h-7 w-7 rounded-lg bg-amber-500/10 flex items-center justify-center">
-                    <MapPin className="h-4 w-4 text-amber-400" />
+                  <div className="h-7 w-7 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-400 text-xs font-bold">
+                    3
                   </div>
                   <h2 className="font-bold text-sm">{t("createRoute.selectStops")}</h2>
                   {selectedStopIds.size > 0 && (
@@ -679,8 +679,20 @@ export default function CreateRoute() {
                   </div>
                 </div>
                 {sortedStops.length === 0 ? (
-                  <div className="text-xs text-muted-foreground py-4 text-center">
-                    {t("createRoute.noSearchResults")}
+                  <div className="text-xs text-muted-foreground py-4 text-center space-y-1">
+                    <MapPinOff className="h-5 w-5 mx-auto opacity-40" />
+                    <p>{stopSearch.trim()
+                      ? t("createRoute.noSearchResults")
+                      : stopFilter === "unassigned"
+                        ? t("createRoute.noUnassignedStops")
+                        : stopFilter === "assigned"
+                          ? t("createRoute.noAssignedStops")
+                          : t("createRoute.noSearchResults")}</p>
+                    {stopFilter !== "all" && !stopSearch.trim() && (
+                      <button onClick={() => setStopFilter("all")} className="text-primary text-[10px] underline underline-offset-2">
+                        {t("createRoute.showAllStops")}
+                      </button>
+                    )}
                   </div>
                 ) : (
                 <div className="space-y-1 max-h-[320px] overflow-y-auto pr-1">
@@ -765,35 +777,51 @@ export default function CreateRoute() {
               )}
             </section>
 
+            {(routeName.trim() || selectedVehicleId || selectedStopIds.size > 0) ? (
             <div className="bg-card border border-border rounded-xl p-4 space-y-3">
-              <h3 className="font-bold text-sm">{t("createRoute.summary")}</h3>
+              <div className="flex items-center gap-2">
+                <div className="h-7 w-7 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400 text-xs font-bold">
+                  4
+                </div>
+                <h3 className="font-bold text-sm">{t("createRoute.summary")}</h3>
+              </div>
 
               <div className="space-y-2">
-                <SummaryRow
-                  icon={<RouteIcon className="h-3.5 w-3.5" />}
-                  label={t("createRoute.routeName")}
-                  value={routeName || "—"}
-                />
-                <SummaryRow
-                  icon={<Truck className="h-3.5 w-3.5" />}
-                  label={t("createRoute.vehicle")}
-                  value={selectedVehicle?.name || "—"}
-                />
-                <SummaryRow
-                  icon={<User className="h-3.5 w-3.5" />}
-                  label={t("createRoute.driver")}
-                  value={selectedDriver?.name || "—"}
-                />
-                <SummaryRow
-                  icon={<MapPin className="h-3.5 w-3.5" />}
-                  label={t("createRoute.stops")}
-                  value={`${selectedStopIds.size} ${t("common.stops")}`}
-                />
-                <SummaryRow
-                  icon={<Package className="h-3.5 w-3.5" />}
-                  label={t("createRoute.load")}
-                  value={`${totalWeight.toFixed(0)} kg / ${totalVolume.toFixed(1)} m³`}
-                />
+                {routeName.trim() && (
+                  <SummaryRow
+                    icon={<RouteIcon className="h-3.5 w-3.5" />}
+                    label={t("createRoute.routeName")}
+                    value={routeName}
+                  />
+                )}
+                {selectedVehicle && (
+                  <SummaryRow
+                    icon={<Truck className="h-3.5 w-3.5" />}
+                    label={t("createRoute.vehicle")}
+                    value={`${selectedVehicle.name} (${selectedVehicle.licensePlate})`}
+                  />
+                )}
+                {selectedDriver && (
+                  <SummaryRow
+                    icon={<User className="h-3.5 w-3.5" />}
+                    label={t("createRoute.driver")}
+                    value={selectedDriver.name}
+                  />
+                )}
+                {selectedStopIds.size > 0 && (
+                  <SummaryRow
+                    icon={<MapPin className="h-3.5 w-3.5" />}
+                    label={t("createRoute.stops")}
+                    value={`${selectedStopIds.size} ${t("common.stops")}`}
+                  />
+                )}
+                {selectedStopIds.size > 0 && (totalWeight > 0 || totalVolume > 0) && (
+                  <SummaryRow
+                    icon={<Package className="h-3.5 w-3.5" />}
+                    label={t("createRoute.load")}
+                    value={`${totalWeight.toFixed(0)} kg / ${totalVolume.toFixed(1)} m³`}
+                  />
+                )}
               </div>
 
               {reassignCount > 0 && (
@@ -848,6 +876,11 @@ export default function CreateRoute() {
                 )}
               </Button>
             </div>
+            ) : (
+            <div className="p-4 rounded-xl border border-dashed border-border text-center space-y-1">
+              <p className="text-xs text-muted-foreground">{t("createRoute.getStartedHint")}</p>
+            </div>
+            )}
           </div>
         </div>
 
