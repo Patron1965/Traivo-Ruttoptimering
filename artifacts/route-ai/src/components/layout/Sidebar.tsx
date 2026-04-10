@@ -16,20 +16,20 @@ type NavItem = {
 
 const NAV_ITEMS: NavItem[] = [
   { href: "/", labelKey: "sidebar.dashboard", icon: LayoutDashboard },
-  { href: "/map", labelKey: "sidebar.liveMap", icon: MapIcon },
+  { href: "/import", labelKey: "sidebar.import", icon: FileUp, roles: ["admin", "dispatcher"] },
+  { href: "/stops", labelKey: "sidebar.stops", icon: MapPin, roles: ["admin", "dispatcher"] },
+  { href: "/routes/create", labelKey: "sidebar.createRoute", icon: PlusCircle, roles: ["admin", "dispatcher"] },
   { href: "/planner", labelKey: "sidebar.routePlanner", icon: Cpu, roles: ["admin", "dispatcher"] },
   { href: "/dispatch", labelKey: "sidebar.dispatch", icon: CalendarClock, roles: ["admin", "dispatcher"] },
   { href: "/routes", labelKey: "sidebar.allRoutes", icon: RouteIcon },
-  { href: "/routes/create", labelKey: "sidebar.createRoute", icon: PlusCircle, roles: ["admin", "dispatcher"] },
+  { href: "/map", labelKey: "sidebar.liveMap", icon: MapIcon },
   { href: "/vehicles", labelKey: "sidebar.fleet", icon: Truck, roles: ["admin", "dispatcher"] },
   { href: "/drivers", labelKey: "sidebar.drivers", icon: Users, roles: ["admin"] },
-  { href: "/stops", labelKey: "sidebar.stops", icon: MapPin, roles: ["admin", "dispatcher"] },
-  { href: "/import", labelKey: "sidebar.import", icon: FileUp, roles: ["admin", "dispatcher"] },
-  { href: "/sustainability", labelKey: "sidebar.co2Dashboard", icon: Leaf },
-  { href: "/analytics", labelKey: "sidebar.analytics", icon: BarChart3, roles: ["admin", "dispatcher"] },
-  { href: "/settings", labelKey: "sidebar.settings", icon: Settings, roles: ["admin"] },
-  { href: "/history", labelKey: "sidebar.routeHistory", icon: Clock },
   { href: "/driver-view", labelKey: "sidebar.driverView", icon: Smartphone, roles: ["driver"] },
+  { href: "/analytics", labelKey: "sidebar.analytics", icon: BarChart3, roles: ["admin", "dispatcher"] },
+  { href: "/sustainability", labelKey: "sidebar.co2Dashboard", icon: Leaf },
+  { href: "/history", labelKey: "sidebar.routeHistory", icon: Clock },
+  { href: "/settings", labelKey: "sidebar.settings", icon: Settings, roles: ["admin"] },
 ];
 
 const ROLE_COLORS: Record<UserRole, string> = {
