@@ -593,7 +593,7 @@ export default function Import() {
                                 </SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="__none__"><span className="text-muted-foreground">— {t("import.skip")} —</span></SelectItem>
-                                  {parsedData.headers.map((h) => (<SelectItem key={h} value={h}>{h}</SelectItem>))}
+                                  {parsedData.headers.filter(h => h.trim()).map((h) => (<SelectItem key={h} value={h}>{h}</SelectItem>))}
                                 </SelectContent>
                               </Select>
                               {sampleValue && <p className="text-[10px] text-muted-foreground mt-1 truncate">{t("import.example")}: {sampleValue}</p>}
