@@ -48,7 +48,8 @@
   },
   "import": {
     "title": "Importera stopp",
-    "dragOrClick": "Klicka f\u00f6r att v\u00e4lja en fil",
+    "dragOrClick": "Dra och släpp din fil här, eller klicka för att välja",
+    "dropFileHere": "Släpp filen här för att importera",
     "supportedFormats": "St\u00f6dda format: Excel (.xlsx, .xls) och CSV (.csv)",
     "selectFile": "V\u00e4lj fil",
     "needHeaderAndData": "Filen m\u00e5ste ha en rubrikrad och minst en datarad.",

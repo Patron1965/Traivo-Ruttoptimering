@@ -48,7 +48,8 @@
   },
   "import": {
     "title": "Import Stops",
-    "dragOrClick": "Click to select a file",
+    "dragOrClick": "Drag and drop your file here, or click to select",
+    "dropFileHere": "Drop your file here to import",
     "supportedFormats": "Supported formats: Excel (.xlsx, .xls) and CSV (.csv)",
     "selectFile": "Select File",
     "needHeaderAndData": "File must have a header row and at least one data row.",

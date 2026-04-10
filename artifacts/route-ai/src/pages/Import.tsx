@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -188,15 +188,74 @@ function parseCsvLine(line: string, delimiter: string): string[] {
 export default function Import() {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<Tab>("fields");
+  const [droppedFile, setDroppedFile] = useState<File | null>(null);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const dragCounter = useRef(0);
 
   const tabs: { key: Tab; labelKey: string; icon: typeof FileSpreadsheet }[] = [
     { key: "fields", labelKey: "importPage.tabs.fields", icon: GripVertical },
     { key: "upload", labelKey: "importPage.tabs.upload", icon: Upload },
   ];
 
+  const isValidFile = useCallback((file: File) => {
+    const ext = file.name.toLowerCase();
+    return ext.endsWith(".csv") || ext.endsWith(".xlsx") || ext.endsWith(".xls") || ext.endsWith(".xlsb");
+  }, []);
+
+  const handlePageDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current++;
+    if (e.dataTransfer.types.includes("Files")) {
+      setIsDraggingOver(true);
+    }
+  }, []);
+
+  const handlePageDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current--;
+    if (dragCounter.current === 0) {
+      setIsDraggingOver(false);
+    }
+  }, []);
+
+  const handlePageDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handlePageDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current = 0;
+    setIsDraggingOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && isValidFile(file)) {
+      setDroppedFile(file);
+      setActiveTab("upload");
+    }
+  }, [isValidFile]);
+
   return (
     <AppLayout>
-      <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden">
+      <div
+        className="flex h-[calc(100vh-3.5rem)] overflow-hidden relative"
+        onDragEnter={handlePageDragEnter}
+        onDragLeave={handlePageDragLeave}
+        onDragOver={handlePageDragOver}
+        onDrop={handlePageDrop}
+      >
+        {isDraggingOver && (
+          <div className="absolute inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center pointer-events-none">
+            <div className="border-2 border-dashed border-primary rounded-2xl p-16 text-center bg-primary/5">
+              <Upload className="h-16 w-16 mx-auto text-primary mb-4 animate-bounce" />
+              <p className="text-xl font-semibold text-primary">{t("import.dropFileHere")}</p>
+              <p className="text-sm text-muted-foreground mt-2">{t("import.supportedFormats")}</p>
+            </div>
+          </div>
+        )}
+
         <div className="flex-1 overflow-auto p-6 md:p-8">
           <div className="max-w-5xl mx-auto">
             <div className="mb-6">
@@ -223,7 +282,12 @@ export default function Import() {
             </div>
 
             {activeTab === "fields" && <FieldDefinitions />}
-            {activeTab === "upload" && <FileUploadSection />}
+            {activeTab === "upload" && (
+              <FileUploadSection
+                droppedFile={droppedFile}
+                onDroppedFileConsumed={() => setDroppedFile(null)}
+              />
+            )}
           </div>
         </div>
       </div>
@@ -314,7 +378,13 @@ function downloadTemplate() {
   URL.revokeObjectURL(url);
 }
 
-function FileUploadSection() {
+function FileUploadSection({
+  droppedFile,
+  onDroppedFileConsumed,
+}: {
+  droppedFile: File | null;
+  onDroppedFileConsumed: () => void;
+}) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [step, setStep] = useState<Step>("upload");
@@ -324,6 +394,9 @@ function FileUploadSection() {
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string>("");
+  const [localDrag, setLocalDrag] = useState(false);
+  const localDragCounter = useRef(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const importMutation = useMutation({
     mutationFn: async (stops: Record<string, unknown>[]) => {
@@ -362,11 +435,9 @@ function FileUploadSection() {
     return result;
   }, []);
 
-  const handleFileChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
+  const processFile = useCallback(
+    (file: File) => {
       setError(null);
-      const file = e.target.files?.[0];
-      if (!file) return;
       setFileName(file.name);
 
       const isExcel = file.name.endsWith(".xlsx") || file.name.endsWith(".xls") || file.name.endsWith(".xlsb");
@@ -410,6 +481,22 @@ function FileUploadSection() {
     },
     [t, autoMatchColumns],
   );
+
+  const handleFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      processFile(file);
+    },
+    [processFile],
+  );
+
+  useEffect(() => {
+    if (droppedFile) {
+      processFile(droppedFile);
+      onDroppedFileConsumed();
+    }
+  }, [droppedFile, processFile, onDroppedFileConsumed]);
 
   const updateMapping = useCallback((systemField: string, fileColumn: string | null) => {
     setMapping((prev) => ({ ...prev, [systemField]: fileColumn === "__none__" ? null : fileColumn }));
@@ -486,17 +573,56 @@ function FileUploadSection() {
     <div className="space-y-4">
       {step === "upload" && (
         <div className="rounded-xl border border-border bg-card p-6">
-          <div className="border-2 border-dashed border-border rounded-xl p-10 text-center hover:border-primary/50 transition-colors">
-            <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+          <div
+            className={cn(
+              "border-2 border-dashed rounded-xl p-10 text-center transition-all duration-200 cursor-pointer",
+              localDrag
+                ? "border-primary bg-primary/5 scale-[1.01]"
+                : "border-border hover:border-primary/50"
+            )}
+            onDragEnter={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              localDragCounter.current++;
+              setLocalDrag(true);
+            }}
+            onDragLeave={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              localDragCounter.current--;
+              if (localDragCounter.current === 0) setLocalDrag(false);
+            }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              localDragCounter.current = 0;
+              setLocalDrag(false);
+              const file = e.dataTransfer.files?.[0];
+              if (file) processFile(file);
+            }}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Upload className={cn("h-12 w-12 mx-auto mb-4 transition-colors", localDrag ? "text-primary" : "text-muted-foreground")} />
             <p className="font-medium mb-1">{t("import.dragOrClick")}</p>
             <p className="text-xs text-muted-foreground mb-4">{t("import.supportedFormats")}</p>
-            <Label className="cursor-pointer">
-              <Input type="file" accept=".csv,.xlsx,.xls,.xlsb" onChange={handleFileChange} className="hidden" />
-              <span className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors cursor-pointer">
-                <FileSpreadsheet className="h-4 w-4" />
-                {t("import.selectFile")}
-              </span>
-            </Label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,.xlsx,.xls,.xlsb"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+            <span
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors cursor-pointer"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <FileSpreadsheet className="h-4 w-4" />
+              {t("import.selectFile")}
+            </span>
             {fileName && <p className="mt-3 text-sm text-muted-foreground">{fileName}</p>}
           </div>
           {error && (
