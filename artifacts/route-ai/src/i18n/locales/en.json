@@ -113,6 +113,7 @@
     "noDateColumn": "No date column found in file",
     "noDateColumnDesc": "Choose a delivery date to apply to all orders",
     "noDateColumnInline": "No date column — pick delivery date →",
+    "dateAppliedToAll": "Applies to all orders in this import",
     "importing": "Importing...",
     "importCount": "Import {{count}} Stops",
     "importFailed": "Import failed. Please try again.",

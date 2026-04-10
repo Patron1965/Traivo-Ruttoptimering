@@ -113,6 +113,7 @@
     "noDateColumn": "Inget datumfält hittat i filen",
     "noDateColumnDesc": "Välj leveransdatum som ska gälla för alla ordrar",
     "noDateColumnInline": "Ingen datumkolumn — välj leveransdatum →",
+    "dateAppliedToAll": "Gäller för alla ordrar i denna import",
     "importing": "Importerar...",
     "importCount": "Importera {{count}} stopp",
     "importFailed": "Importen misslyckades. Försök igen.",

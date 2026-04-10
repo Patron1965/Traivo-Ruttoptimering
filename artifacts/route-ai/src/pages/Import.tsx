@@ -648,50 +648,48 @@ export default function Import() {
                                   const ci = parsedData.headers.indexOf(h);
                                   return ci >= 0 && parsedData.rows[0] ? parsedData.rows[0][ci]?.trim() : "";
                                 };
-                                const hasSuggestedDateCol = field.key === "date" && suggested.length === 0;
+                                const isDateWithNoColumn = field.key === "date" && suggested.length === 0;
+                                if (isDateWithNoColumn) {
+                                  return (
+                                    <div>
+                                      <input
+                                        type="date"
+                                        value={defaultDate}
+                                        onChange={(e) => setDefaultDate(e.target.value)}
+                                        className="h-8 w-full px-3 text-xs rounded-md border border-border bg-background text-foreground"
+                                      />
+                                      <p className="text-[10px] text-muted-foreground mt-1">{t("import.dateAppliedToAll")}</p>
+                                    </div>
+                                  );
+                                }
                                 return (
                                   <>
-                                    <div className="flex items-center gap-2">
-                                      <div className="flex-1">
-                                        <Select value={mapped || "__none__"} onValueChange={(val) => updateMapping(field.key, val)}>
-                                          <SelectTrigger className="h-8 text-xs">
-                                            <SelectValue placeholder={t("import.selectColumn")} />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            <SelectItem value="__none__"><span className="text-muted-foreground">— {t("import.skip")} —</span></SelectItem>
-                                            {suggested.length > 0 && (
-                                              <>
-                                                <div className="px-2 py-1 text-[10px] font-semibold text-primary uppercase tracking-wider">{t("import.suggested")}</div>
-                                                {suggested.map(({ header }) => {
-                                                  const sample = sampleForHeader(header);
-                                                  return (
-                                                    <SelectItem key={header} value={header}>
-                                                      <span className="font-medium">{header}</span>
-                                                      {sample && <span className="text-muted-foreground ml-1.5 text-[10px]">({sample})</span>}
-                                                    </SelectItem>
-                                                  );
-                                                })}
-                                                {rest.length > 0 && <div className="h-px bg-border my-1" />}
-                                              </>
-                                            )}
-                                            {rest.map(({ header }) => (
-                                              <SelectItem key={header} value={header}>{header}</SelectItem>
-                                            ))}
-                                          </SelectContent>
-                                        </Select>
-                                      </div>
-                                      {hasSuggestedDateCol && !mapped && (
-                                        <input
-                                          type="date"
-                                          value={defaultDate}
-                                          onChange={(e) => setDefaultDate(e.target.value)}
-                                          className="h-8 px-2 text-xs rounded-md border border-primary/50 bg-primary/5 text-foreground shrink-0"
-                                        />
-                                      )}
-                                    </div>
-                                    {hasSuggestedDateCol && !mapped && (
-                                      <p className="text-[10px] text-primary mt-1">{t("import.noDateColumnInline")}</p>
-                                    )}
+                                    <Select value={mapped || "__none__"} onValueChange={(val) => updateMapping(field.key, val)}>
+                                      <SelectTrigger className="h-8 text-xs">
+                                        <SelectValue placeholder={t("import.selectColumn")} />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="__none__"><span className="text-muted-foreground">— {t("import.skip")} —</span></SelectItem>
+                                        {suggested.length > 0 && (
+                                          <>
+                                            <div className="px-2 py-1 text-[10px] font-semibold text-primary uppercase tracking-wider">{t("import.suggested")}</div>
+                                            {suggested.map(({ header }) => {
+                                              const sample = sampleForHeader(header);
+                                              return (
+                                                <SelectItem key={header} value={header}>
+                                                  <span className="font-medium">{header}</span>
+                                                  {sample && <span className="text-muted-foreground ml-1.5 text-[10px]">({sample})</span>}
+                                                </SelectItem>
+                                              );
+                                            })}
+                                            {rest.length > 0 && <div className="h-px bg-border my-1" />}
+                                          </>
+                                        )}
+                                        {rest.map(({ header }) => (
+                                          <SelectItem key={header} value={header}>{header}</SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
                                     {sampleValue && <p className="text-[10px] text-muted-foreground mt-1 truncate">{t("import.example")}: {sampleValue}</p>}
                                   </>
                                 );
