@@ -717,48 +717,46 @@ export default function Import() {
                     <p className="text-sm text-muted-foreground">{t("wizard.noVehicles")}</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {vehicles.filter(v => v.isActive).map((v) => {
-                      const selected = selectedVehicleIds.includes(v.id);
-                      const driver = drivers?.find(d => d.vehicleId === v.id);
-                      return (
-                        <button
-                          key={v.id}
-                          onClick={() => toggleVehicle(v.id)}
-                          className={cn(
-                            "p-4 rounded-xl border-2 text-left transition-all",
-                            selected
-                              ? "border-primary bg-primary/5"
-                              : "border-border hover:border-primary/30"
-                          )}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className={cn(
-                                "w-8 h-8 rounded-lg flex items-center justify-center",
-                                selected ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                              )}>
-                                <Truck className="h-4 w-4" />
-                              </div>
-                              <div>
-                                <p className="font-medium text-sm">{v.name}</p>
-                                <p className="text-xs text-muted-foreground">{v.licensePlate}</p>
-                              </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">{t("wizard.availableFleet")}</span>
+                      <span className="text-xs text-primary font-semibold">{selectedVehicleIds.length} {t("wizard.selected")}</span>
+                    </div>
+                    <div className="rounded-xl border border-border overflow-hidden max-h-[240px] overflow-y-auto">
+                      {vehicles.filter(v => v.isActive).map((v) => {
+                        const selected = selectedVehicleIds.includes(v.id);
+                        const driver = drivers?.find(d => d.vehicleId === v.id);
+                        return (
+                          <button
+                            key={v.id}
+                            onClick={() => toggleVehicle(v.id)}
+                            className={cn(
+                              "w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors border-b border-border last:border-b-0",
+                              selected
+                                ? "bg-primary/5"
+                                : "hover:bg-muted/30"
+                            )}
+                          >
+                            <div className={cn(
+                              "w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors",
+                              selected ? "border-primary bg-primary" : "border-muted-foreground/30"
+                            )}>
+                              {selected && <Check className="h-3 w-3 text-primary-foreground" />}
                             </div>
-                            {selected && <Check className="h-5 w-5 text-primary" />}
-                          </div>
-                          {driver && (
-                            <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
-                              <Users className="h-3 w-3" />
-                              {driver.name}
+                            <Truck className={cn("h-4 w-4 shrink-0", selected ? "text-primary" : "text-muted-foreground")} />
+                            <div className="flex-1 min-w-0">
+                              <span className="text-sm font-medium">{v.name}</span>
+                              <span className="text-xs text-muted-foreground ml-2">({v.capacityKg}kg)</span>
                             </div>
-                          )}
-                          <div className="mt-1 text-xs text-muted-foreground">
-                            {t("wizard.capacity")}: {v.capacityKg} kg
-                          </div>
-                        </button>
-                      );
-                    })}
+                            {driver && (
+                              <span className="text-xs text-muted-foreground flex items-center gap-1 shrink-0">
+                                <Users className="h-3 w-3" />{driver.name}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
 

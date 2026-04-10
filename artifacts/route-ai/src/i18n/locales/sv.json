@@ -65,6 +65,8 @@
     "selectVehiclesDesc": "Välj vilka fordon som ska användas för dessa leveranser. Förare tilldelas automatiskt.",
     "noVehicles": "Inga aktiva fordon hittades. Lägg till fordon under Fordonsflotta.",
     "capacity": "Kapacitet",
+    "availableFleet": "Tillgänglig flotta",
+    "selected": "valda",
     "optimizeRoutes": "Optimera rutter",
     "optimizing": "Optimerar...",
     "optimizeFailed": "Optimeringen misslyckades. Försök igen.",

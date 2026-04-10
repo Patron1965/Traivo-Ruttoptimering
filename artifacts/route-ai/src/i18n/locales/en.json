@@ -65,6 +65,8 @@
     "selectVehiclesDesc": "Choose which vehicles to use for these deliveries. Drivers are assigned automatically.",
     "noVehicles": "No active vehicles found. Add vehicles in the Fleet section.",
     "capacity": "Capacity",
+    "availableFleet": "Available Fleet",
+    "selected": "selected",
     "optimizeRoutes": "Optimize Routes",
     "optimizing": "Optimizing...",
     "optimizeFailed": "Optimization failed. Please try again.",
