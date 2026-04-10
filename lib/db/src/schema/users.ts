@@ -2,6 +2,7 @@ import { pgTable, uuid, text, timestamp, pgEnum, index } from "drizzle-orm/pg-co
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { organizationsTable } from "./organizations";
+import { userGroupsTable } from "./user-groups";
 
 export const userRoleEnum = pgEnum("user_role", ["admin", "dispatcher", "driver"]);
 
@@ -12,6 +13,7 @@ export const usersTable = pgTable("users", {
   email: text("email").notNull(),
   role: userRoleEnum("role").notNull().default("dispatcher"),
   driverProfileId: uuid("driver_profile_id"),
+  groupId: uuid("group_id").references(() => userGroupsTable.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => [
   index("users_org_id_idx").on(table.organizationId),

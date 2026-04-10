@@ -38,6 +38,10 @@ The frontend, `artifacts/route-ai`, is a React + Vite application featuring a da
 - **Sustainability Dashboard:** Visualizes CO₂ emissions, noise impact, PM2.5 particle estimation, and an Environmental Score. Integrates electricity spot prices for optimal EV charging.
 - **AI Integration:** An AI chat assistant provides SSE streaming responses and proactive AI insights. Voice input (transcribed by OpenAI Whisper) is integrated into the chat.
 - **Data Management:** Dedicated Import & API page at `/import` with three tabs: (1) Field Definitions showing all 14 importable fields with numbering, API field names, and example values; (2) File Import with Excel/CSV upload and auto-matching column mapping; (3) API Integration documentation for business system (ERP/WMS/TMS) connectivity with code examples for import, webhooks, and export. CSV template download available.
+- **Enhanced Driver Management:** Extended driver profiles with work hours (start/end time), driving tempo (slow/normal/fast), capacity (kg/volume), and start/end location (address + coordinates). Full form in driver create/edit dialog.
+- **Organization Settings:** Optimization settings (auto-balance, snap-to-road, default route type, service duration, overtime/late stop limits) and notification settings (event toggles, sender type, message template) accessible via Settings page tabs.
+- **User & Group Management:** Dedicated pages at `/users` and `/user-groups` for CRUD operations on app users (with role assignment and group membership) and user groups. API routes at `/api/app-users` and `/api/user-groups`.
+- **Reports Page:** Dispatched orders report at `/reports` with search, status filter, date range filter, pagination, and CSV export. API at `/api/reports/dispatched`.
 - **User Management:** Role-based access control.
 - **Public Tracking:** A public-facing page for customer delivery monitoring with live ETA.
 - **Route Templates:** Save and apply route configurations.

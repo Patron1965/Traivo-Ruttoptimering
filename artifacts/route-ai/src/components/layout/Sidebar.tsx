@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Map as MapIcon, Truck, MapPin, Route as RouteIcon, Command, Cpu, Leaf, Clock, Users, PlusCircle, CalendarClock, Shield, ChevronDown, Smartphone, BarChart3, Sun, Moon, FileUp, Settings } from "lucide-react";
+import { LayoutDashboard, Map as MapIcon, Truck, MapPin, Route as RouteIcon, Command, Cpu, Leaf, Clock, Users, PlusCircle, CalendarClock, Shield, ChevronDown, Smartphone, BarChart3, Sun, Moon, FileUp, Settings, UserCog, FolderOpen, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { LanguageSwitcher } from "./LanguageSwitcher";
@@ -25,8 +25,11 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/map", labelKey: "sidebar.liveMap", icon: MapIcon },
   { href: "/vehicles", labelKey: "sidebar.fleet", icon: Truck, roles: ["admin", "dispatcher"] },
   { href: "/drivers", labelKey: "sidebar.drivers", icon: Users, roles: ["admin"] },
+  { href: "/users", labelKey: "sidebar.users", icon: UserCog, roles: ["admin"] },
+  { href: "/user-groups", labelKey: "sidebar.userGroups", icon: FolderOpen, roles: ["admin"] },
   { href: "/driver-view", labelKey: "sidebar.driverView", icon: Smartphone, roles: ["driver"] },
   { href: "/analytics", labelKey: "sidebar.analytics", icon: BarChart3, roles: ["admin", "dispatcher"] },
+  { href: "/reports", labelKey: "sidebar.reports", icon: FileText, roles: ["admin", "dispatcher"] },
   { href: "/sustainability", labelKey: "sidebar.co2Dashboard", icon: Leaf },
   { href: "/history", labelKey: "sidebar.routeHistory", icon: Clock },
   { href: "/settings", labelKey: "sidebar.settings", icon: Settings, roles: ["admin"] },

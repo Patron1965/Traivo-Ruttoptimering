@@ -30,6 +30,10 @@ import subscriptionsRouter from "./subscriptions";
 import weatherRouter from "./weather";
 import trafficRouter from "./traffic";
 import driverLearningRouter from "./driver-learning";
+import orgSettingsRouter from "./org-settings";
+import userGroupsRouter from "./user-groups";
+import appUsersRouter from "./app-users";
+import reportsRouter from "./reports";
 
 const router: IRouter = Router();
 
@@ -64,5 +68,9 @@ router.use(subscriptionsRouter);
 router.use(weatherRouter);
 router.use(trafficRouter);
 router.use(driverLearningRouter);
+router.use(orgSettingsRouter);
+router.use(userGroupsRouter);
+router.use(appUsersRouter);
+router.use(reportsRouter);
 
 export default router;

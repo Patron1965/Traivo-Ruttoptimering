@@ -3,7 +3,7 @@ import { useDrivers, useCreateDriver, useUpdateDriver, useDeleteDriver } from "@
 import { useVehicles } from "@/hooks/use-vehicles";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2, Edit2, User, Phone, Mail, Truck, ToggleLeft, BarChart3, X } from "lucide-react";
+import { Plus, Trash2, Edit2, User, Phone, Mail, Truck, ToggleLeft, BarChart3, X, Clock, Gauge, Package, MapPin } from "lucide-react";
 import { Link } from "wouter";
 import { useState, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -25,6 +25,17 @@ const driverSchema = z.object({
   email: z.string().email().optional().or(z.literal("")).nullable(),
   vehicleId: z.string().optional().nullable(),
   isActive: z.boolean().optional(),
+  workStartTime: z.string().optional().nullable(),
+  workEndTime: z.string().optional().nullable(),
+  tempo: z.string().optional().nullable(),
+  capacityKg: z.coerce.number().optional().nullable(),
+  capacityVolume: z.coerce.number().optional().nullable(),
+  startAddress: z.string().optional().nullable(),
+  startLatitude: z.coerce.number().optional().nullable(),
+  startLongitude: z.coerce.number().optional().nullable(),
+  endAddress: z.string().optional().nullable(),
+  endLatitude: z.coerce.number().optional().nullable(),
+  endLongitude: z.coerce.number().optional().nullable(),
 });
 
 type DriverFormValues = z.infer<typeof driverSchema>;
@@ -308,6 +319,7 @@ function DriverForm({ initialData, vehicles, onSuccess }: {
       email: data.email || null,
       phone: data.phone || null,
       isActive: data.isActive ?? true,
+      tempo: data.tempo === "__none__" ? null : (data.tempo || null),
     };
     if (initialData) {
       updateMutation.mutate({ id: initialData.id, data: payload, params: { organizationId: ORG_ID } }, { onSuccess });
@@ -317,7 +329,7 @@ function DriverForm({ initialData, vehicles, onSuccess }: {
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-4">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-4 max-h-[70vh] overflow-y-auto pr-2">
       <div className="space-y-2">
         <Label>{t("drivers.fullName")}</Label>
         <Input {...register("name")} placeholder={t("drivers.namePlaceholder")} />
@@ -356,6 +368,87 @@ function DriverForm({ initialData, vehicles, onSuccess }: {
             </Select>
           )}
         />
+      </div>
+
+      <div className="border-t border-border pt-4">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
+          <Clock className="h-3.5 w-3.5" /> {t("drivers.workHours")}
+        </p>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>{t("drivers.workStart")}</Label>
+            <Input type="time" {...register("workStartTime")} />
+          </div>
+          <div className="space-y-2">
+            <Label>{t("drivers.workEnd")}</Label>
+            <Input type="time" {...register("workEndTime")} />
+          </div>
+        </div>
+      </div>
+
+      <div className="border-t border-border pt-4">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
+          <Gauge className="h-3.5 w-3.5" /> {t("drivers.drivingProfile")}
+        </p>
+        <div className="space-y-2">
+          <Label>{t("drivers.tempo")}</Label>
+          <Controller
+            name="tempo"
+            control={control}
+            render={({ field }) => (
+              <Select onValueChange={field.onChange} defaultValue={field.value || "normal"}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="slow">{t("drivers.tempoSlow")}</SelectItem>
+                  <SelectItem value="normal">{t("drivers.tempoNormal")}</SelectItem>
+                  <SelectItem value="fast">{t("drivers.tempoFast")}</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          />
+        </div>
+      </div>
+
+      <div className="border-t border-border pt-4">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
+          <Package className="h-3.5 w-3.5" /> {t("drivers.capacity")}
+        </p>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>{t("drivers.capacityKg")}</Label>
+            <Input type="number" step="0.1" {...register("capacityKg")} placeholder="0" />
+          </div>
+          <div className="space-y-2">
+            <Label>{t("drivers.capacityVolume")}</Label>
+            <Input type="number" step="0.1" {...register("capacityVolume")} placeholder="0" />
+          </div>
+        </div>
+      </div>
+
+      <div className="border-t border-border pt-4">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
+          <MapPin className="h-3.5 w-3.5" /> {t("drivers.startLocation")}
+        </p>
+        <div className="space-y-2">
+          <Input {...register("startAddress")} placeholder={t("drivers.addressPlaceholder")} />
+          <div className="grid grid-cols-2 gap-4">
+            <Input type="number" step="any" {...register("startLatitude")} placeholder={t("drivers.latitude")} />
+            <Input type="number" step="any" {...register("startLongitude")} placeholder={t("drivers.longitude")} />
+          </div>
+        </div>
+      </div>
+
+      <div className="border-t border-border pt-4">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
+          <MapPin className="h-3.5 w-3.5" /> {t("drivers.endLocation")}
+        </p>
+        <div className="space-y-2">
+          <Input {...register("endAddress")} placeholder={t("drivers.addressPlaceholder")} />
+          <div className="grid grid-cols-2 gap-4">
+            <Input type="number" step="any" {...register("endLatitude")} placeholder={t("drivers.latitude")} />
+            <Input type="number" step="any" {...register("endLongitude")} placeholder={t("drivers.longitude")} />
+          </div>
+        </div>
       </div>
 
       {initialData && (

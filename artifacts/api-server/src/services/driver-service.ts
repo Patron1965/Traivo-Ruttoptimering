@@ -21,6 +21,17 @@ export async function createDriver(data: {
   vehicleId?: string;
   organizationId: string;
   isActive?: boolean;
+  workStartTime?: string | null;
+  workEndTime?: string | null;
+  tempo?: "slow" | "normal" | "fast" | null;
+  capacityKg?: number | null;
+  capacityVolume?: number | null;
+  startAddress?: string | null;
+  startLatitude?: number | null;
+  startLongitude?: number | null;
+  endAddress?: string | null;
+  endLatitude?: number | null;
+  endLongitude?: number | null;
 }) {
   if (data.vehicleId) {
     const [vehicle] = await db
@@ -39,7 +50,14 @@ export async function createDriver(data: {
 
   const [driver] = await db
     .insert(driversTable)
-    .values({ name: data.name, phone: data.phone, email: data.email, vehicleId: data.vehicleId, organizationId: data.organizationId, isActive: data.isActive ?? true })
+    .values({
+      name: data.name, phone: data.phone, email: data.email, vehicleId: data.vehicleId,
+      organizationId: data.organizationId, isActive: data.isActive ?? true,
+      workStartTime: data.workStartTime, workEndTime: data.workEndTime,
+      tempo: data.tempo, capacityKg: data.capacityKg, capacityVolume: data.capacityVolume,
+      startAddress: data.startAddress, startLatitude: data.startLatitude, startLongitude: data.startLongitude,
+      endAddress: data.endAddress, endLatitude: data.endLatitude, endLongitude: data.endLongitude,
+    })
     .returning();
   broadcastDataChange(data.organizationId, "driver", "created", { id: driver.id, name: driver.name });
   return { data: driver };

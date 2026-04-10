@@ -32,13 +32,19 @@ router.get("/drivers/:id", async (req, res) => {
 
 router.post("/drivers", async (req, res) => {
   try {
-    const { name, phone, email, vehicleId, organizationId, isActive } = req.body;
+    const { name, phone, email, vehicleId, organizationId, isActive,
+      workStartTime, workEndTime, tempo, capacityKg, capacityVolume,
+      startAddress, startLatitude, startLongitude, endAddress, endLatitude, endLongitude } = req.body;
     const orgId = req.user?.organizationId ?? organizationId;
     if (!name || !orgId) {
       res.status(400).json({ error: "name and organizationId are required" });
       return;
     }
-    const result = await driverService.createDriver({ name, phone, email, vehicleId, organizationId: orgId, isActive });
+    const result = await driverService.createDriver({
+      name, phone, email, vehicleId, organizationId: orgId, isActive,
+      workStartTime, workEndTime, tempo, capacityKg, capacityVolume,
+      startAddress, startLatitude, startLongitude, endAddress, endLatitude, endLongitude
+    });
     if ("error" in result) {
       res.status(result.status).json({ error: result.error });
       return;
@@ -53,13 +59,26 @@ router.put("/drivers/:id", async (req, res) => {
   try {
     const { id } = parseUuidParam(req.params);
     const orgId = getOrgId(req);
-    const { name, phone, email, vehicleId, isActive } = req.body;
+    const { name, phone, email, vehicleId, isActive,
+      workStartTime, workEndTime, tempo, capacityKg, capacityVolume,
+      startAddress, startLatitude, startLongitude, endAddress, endLatitude, endLongitude } = req.body;
     const updates: Record<string, unknown> = {};
     if (name !== undefined) updates.name = name;
     if (phone !== undefined) updates.phone = phone;
     if (email !== undefined) updates.email = email;
     if (vehicleId !== undefined) updates.vehicleId = vehicleId;
     if (isActive !== undefined) updates.isActive = isActive;
+    if (workStartTime !== undefined) updates.workStartTime = workStartTime;
+    if (workEndTime !== undefined) updates.workEndTime = workEndTime;
+    if (tempo !== undefined) updates.tempo = tempo;
+    if (capacityKg !== undefined) updates.capacityKg = capacityKg;
+    if (capacityVolume !== undefined) updates.capacityVolume = capacityVolume;
+    if (startAddress !== undefined) updates.startAddress = startAddress;
+    if (startLatitude !== undefined) updates.startLatitude = startLatitude;
+    if (startLongitude !== undefined) updates.startLongitude = startLongitude;
+    if (endAddress !== undefined) updates.endAddress = endAddress;
+    if (endLatitude !== undefined) updates.endLatitude = endLatitude;
+    if (endLongitude !== undefined) updates.endLongitude = endLongitude;
 
     const result = await driverService.updateDriver(id, orgId, updates);
     if ("error" in result) {

@@ -7,6 +7,7 @@ export * from "./routeHistory";
 export * from "./drivers";
 export * from "./geofenceEvents";
 export * from "./notifications";
+export * from "./user-groups";
 export * from "./users";
 export * from "./routeTemplates";
 export * from "./deliveryNotifications";

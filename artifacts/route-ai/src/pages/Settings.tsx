@@ -1,14 +1,46 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { cn } from "@/lib/utils";
-import { Plug, Webhook, ShoppingBag, CreditCard, Check, Copy, Info, Settings as SettingsIcon } from "lucide-react";
+import { Plug, Webhook, ShoppingBag, CreditCard, Check, Copy, Info, Settings as SettingsIcon, Cpu, Bell } from "lucide-react";
 import { ORG_ID } from "@/lib/constants";
 import { WebhooksContent } from "@/pages/Webhooks";
 import { ShopifyContent } from "@/pages/ShopifyIntegration";
 import { BillingContent } from "@/pages/Billing";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useToast } from "@/hooks/use-toast";
 
-type SettingsTab = "api" | "webhooks" | "shopify" | "billing";
+const API_BASE = import.meta.env.VITE_API_URL || "";
+
+type SettingsTab = "api" | "webhooks" | "shopify" | "billing" | "optimization" | "notifications";
+
+type OrgSettings = {
+  autoBalance: boolean;
+  snapToRoad: boolean;
+  defaultRouteType: string;
+  maxDriverOvertimeMin: number;
+  allowLateStopsMin: number;
+  defaultServiceDurationMin: number;
+  customerSupportType: string;
+  notifyOrderCreated: boolean;
+  notifyDriverEnRoute: boolean;
+  notifyDelivered: boolean;
+  notifyFailed: boolean;
+  notificationSenderType: string;
+  notificationTemplate: string | null;
+};
+
+function useOrgSettings() {
+  return useQuery<OrgSettings>({
+    queryKey: ["/api/org-settings", ORG_ID],
+    queryFn: () => fetch(`${API_BASE}/api/organizations/${ORG_ID}/settings?organizationId=${ORG_ID}`).then(r => r.json()),
+  });
+}
 
 export default function Settings() {
   const { t } = useTranslation();
@@ -22,6 +54,8 @@ export default function Settings() {
   }, []);
 
   const tabs: { key: SettingsTab; labelKey: string; icon: typeof Plug }[] = [
+    { key: "optimization", labelKey: "settings.tabs.optimization", icon: Cpu },
+    { key: "notifications", labelKey: "settings.tabs.notifications", icon: Bell },
     { key: "api", labelKey: "settings.tabs.api", icon: Plug },
     { key: "webhooks", labelKey: "settings.tabs.webhooks", icon: Webhook },
     { key: "shopify", labelKey: "settings.tabs.shopify", icon: ShoppingBag },
@@ -55,6 +89,8 @@ export default function Settings() {
 
         <div className="flex-1 overflow-auto p-6 md:p-8">
           <div className="max-w-4xl mx-auto">
+            {activeTab === "optimization" && <OptimizationSettings />}
+            {activeTab === "notifications" && <NotificationSettings />}
             {activeTab === "api" && (
               <ApiDocumentation copiedSnippet={copiedSnippet} onCopy={copyToClipboard} />
             )}
@@ -65,6 +101,173 @@ export default function Settings() {
         </div>
       </div>
     </AppLayout>
+  );
+}
+
+function OptimizationSettings() {
+  const { t } = useTranslation();
+  const { data: settings, isLoading } = useOrgSettings();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [form, setForm] = useState<Partial<OrgSettings>>({});
+
+  useEffect(() => { if (settings) setForm(settings); }, [settings]);
+
+  const saveMutation = useMutation({
+    mutationFn: (data: Partial<OrgSettings>) =>
+      fetch(`${API_BASE}/api/organizations/${ORG_ID}/settings?organizationId=${ORG_ID}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),
+      }).then(r => r.json()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/org-settings"] });
+      toast({ title: t("settings.saved") });
+    },
+  });
+
+  if (isLoading) return <div className="text-muted-foreground text-sm">{t("common.loading")}</div>;
+
+  const update = (key: keyof OrgSettings, value: any) => setForm(prev => ({ ...prev, [key]: value }));
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold">{t("settings.optimization.title")}</h1>
+        <p className="text-muted-foreground mt-1">{t("settings.optimization.subtitle")}</p>
+      </div>
+
+      <div className="bg-card rounded-xl border border-border p-6 space-y-5">
+        <div className="grid grid-cols-2 gap-6">
+          <div className="flex items-center justify-between p-3 rounded-lg border border-border">
+            <div>
+              <Label className="font-medium">{t("settings.optimization.autoBalance")}</Label>
+              <p className="text-xs text-muted-foreground">{t("settings.optimization.autoBalanceDesc")}</p>
+            </div>
+            <Checkbox checked={form.autoBalance ?? false} onCheckedChange={v => update("autoBalance", v)} />
+          </div>
+
+          <div className="flex items-center justify-between p-3 rounded-lg border border-border">
+            <div>
+              <Label className="font-medium">{t("settings.optimization.snapToRoad")}</Label>
+              <p className="text-xs text-muted-foreground">{t("settings.optimization.snapToRoadDesc")}</p>
+            </div>
+            <Checkbox checked={form.snapToRoad ?? false} onCheckedChange={v => update("snapToRoad", v)} />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <Label>{t("settings.optimization.defaultRouteType")}</Label>
+            <Select value={form.defaultRouteType || "delivery"} onValueChange={v => update("defaultRouteType", v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="delivery">{t("settings.optimization.typeDelivery")}</SelectItem>
+                <SelectItem value="pickup">{t("settings.optimization.typePickup")}</SelectItem>
+                <SelectItem value="service">{t("settings.optimization.typeService")}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>{t("settings.optimization.defaultServiceDuration")}</Label>
+            <Input type="number" min={0} value={form.defaultServiceDurationMin ?? 15} onChange={e => update("defaultServiceDurationMin", parseInt(e.target.value) || 0)} />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <Label>{t("settings.optimization.maxOvertime")}</Label>
+            <Input type="number" min={0} value={form.maxDriverOvertimeMin ?? 0} onChange={e => update("maxDriverOvertimeMin", parseInt(e.target.value) || 0)} />
+          </div>
+
+          <div className="space-y-2">
+            <Label>{t("settings.optimization.allowLateStops")}</Label>
+            <Input type="number" min={0} value={form.allowLateStopsMin ?? 0} onChange={e => update("allowLateStopsMin", parseInt(e.target.value) || 0)} />
+          </div>
+        </div>
+      </div>
+
+      <div className="flex justify-end">
+        <Button onClick={() => saveMutation.mutate(form)} disabled={saveMutation.isPending}>
+          {saveMutation.isPending ? t("common.saving") : t("settings.save")}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function NotificationSettings() {
+  const { t } = useTranslation();
+  const { data: settings, isLoading } = useOrgSettings();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [form, setForm] = useState<Partial<OrgSettings>>({});
+
+  useEffect(() => { if (settings) setForm(settings); }, [settings]);
+
+  const saveMutation = useMutation({
+    mutationFn: (data: Partial<OrgSettings>) =>
+      fetch(`${API_BASE}/api/organizations/${ORG_ID}/settings?organizationId=${ORG_ID}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),
+      }).then(r => r.json()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/org-settings"] });
+      toast({ title: t("settings.saved") });
+    },
+  });
+
+  if (isLoading) return <div className="text-muted-foreground text-sm">{t("common.loading")}</div>;
+
+  const update = (key: keyof OrgSettings, value: any) => setForm(prev => ({ ...prev, [key]: value }));
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold">{t("settings.notifications.title")}</h1>
+        <p className="text-muted-foreground mt-1">{t("settings.notifications.subtitle")}</p>
+      </div>
+
+      <div className="bg-card rounded-xl border border-border p-6 space-y-5">
+        <div className="space-y-3">
+          <Label className="font-medium text-sm">{t("settings.notifications.events")}</Label>
+          {(["notifyOrderCreated", "notifyDriverEnRoute", "notifyDelivered", "notifyFailed"] as const).map(key => (
+            <div key={key} className="flex items-center justify-between p-3 rounded-lg border border-border">
+              <Label>{t(`settings.notifications.${key}`)}</Label>
+              <Checkbox checked={(form as any)[key] ?? false} onCheckedChange={v => update(key, v)} />
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <Label>{t("settings.notifications.senderType")}</Label>
+            <Select value={form.notificationSenderType || "customer_service"} onValueChange={v => update("notificationSenderType", v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="customer_service">{t("settings.notifications.senderCustomerService")}</SelectItem>
+                <SelectItem value="driver">{t("settings.notifications.senderDriver")}</SelectItem>
+                <SelectItem value="company">{t("settings.notifications.senderCompany")}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label>{t("settings.notifications.template")}</Label>
+          <textarea
+            className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[120px] resize-y"
+            value={form.notificationTemplate || ""}
+            onChange={e => update("notificationTemplate", e.target.value)}
+            placeholder={t("settings.notifications.templatePlaceholder")}
+          />
+        </div>
+      </div>
+
+      <div className="flex justify-end">
+        <Button onClick={() => saveMutation.mutate(form)} disabled={saveMutation.isPending}>
+          {saveMutation.isPending ? t("common.saving") : t("settings.save")}
+        </Button>
+      </div>
+    </div>
   );
 }
 

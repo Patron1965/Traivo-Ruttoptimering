@@ -26,6 +26,9 @@ import ShopifyIntegration from "@/pages/ShopifyIntegration";
 import Import from "@/pages/Import";
 import Billing from "@/pages/Billing";
 import Settings from "@/pages/Settings";
+import AppUsers from "@/pages/Users";
+import UserGroups from "@/pages/UserGroups";
+import Reports from "@/pages/Reports";
 import NotFound from "@/pages/not-found";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { CommandPalette } from "@/components/CommandPalette";
@@ -71,6 +74,9 @@ function AppRouter() {
       <Route path="/import" component={Import} />
       <Route path="/billing" component={Billing} />
       <Route path="/settings" component={Settings} />
+      <Route path="/users" component={AppUsers} />
+      <Route path="/user-groups" component={UserGroups} />
+      <Route path="/reports" component={Reports} />
       <Route path="/driver-view" component={DriverView} />
       <Route path="/track/:code">
         {(params) => <TrackingPage code={params.code} />}
