@@ -1,7 +1,6 @@
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import {
   useListRoutes as useGeneratedListRoutes,
-  useGetRouteStops as useGeneratedGetRouteStops,
   useCreateRoute as useGeneratedCreateRoute,
   useUpdateRoute as useGeneratedUpdateRoute,
   type OptimizeResponse,
@@ -38,8 +37,14 @@ export function useUpdateRoute() {
 }
 
 export function useRouteStops(routeId: string) {
-  return useGeneratedGetRouteStops(routeId, {
-    query: { enabled: !!routeId, queryKey: ["/api/routes", routeId, "stops"] },
+  return useQuery({
+    queryKey: ["/api/routes", routeId, "stops"],
+    queryFn: async () => {
+      const res = await fetch(`/api/routes/${routeId}/stops?organizationId=${ORG_ID}`);
+      if (!res.ok) throw new Error("Failed to load route stops");
+      return res.json();
+    },
+    enabled: !!routeId,
   });
 }
 
