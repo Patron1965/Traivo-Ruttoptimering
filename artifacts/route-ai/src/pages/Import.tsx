@@ -45,7 +45,7 @@ type SystemField = {
 
 const SYSTEM_FIELDS: SystemField[] = [
   { key: "referenceNumber", labelKey: "importPage.field.referenceNumber", required: false, description: "importPage.fieldDesc.referenceNumber", apiField: "reference_number", exampleValue: "ORD-2026-001" },
-  { key: "date", labelKey: "importPage.field.date", required: false, description: "importPage.fieldDesc.date", apiField: "date", exampleValue: "2026-04-10" },
+  { key: "date", labelKey: "importPage.field.date", required: true, description: "importPage.fieldDesc.date", apiField: "date", exampleValue: "2026-04-10" },
   { key: "contactName", labelKey: "importPage.field.contactName", required: false, description: "importPage.fieldDesc.contactName", apiField: "contact_name", exampleValue: "Anna Svensson" },
   { key: "contactPhone", labelKey: "importPage.field.contactPhone", required: false, description: "importPage.fieldDesc.contactPhone", apiField: "contact_phone", exampleValue: "+46701234567" },
   { key: "contactEmail", labelKey: "importPage.field.contactEmail", required: false, description: "importPage.fieldDesc.contactEmail", apiField: "contact_email", exampleValue: "anna@example.com" },
@@ -366,8 +366,11 @@ export default function Import() {
 
   const matchedCount = useMemo(() => Object.values(mapping).filter(Boolean).length, [mapping]);
   const requiredMapped = useMemo(
-    () => SYSTEM_FIELDS.filter((f) => f.required).every((f) => mapping[f.key]),
-    [mapping],
+    () => SYSTEM_FIELDS.filter((f) => f.required).every((f) => {
+      if (f.key === "date" && defaultDate) return true;
+      return mapping[f.key];
+    }),
+    [mapping, defaultDate],
   );
 
   const handleApplyMapping = useCallback(() => {
@@ -619,18 +622,20 @@ export default function Import() {
                         const mapped = mapping[field.key];
                         const colIdx = mapped ? parsedData.headers.indexOf(mapped) : -1;
                         const sampleValue = colIdx >= 0 && parsedData.rows[0] ? parsedData.rows[0][colIdx] : null;
+                        const isSatisfied = mapped || (field.key === "date" && !!defaultDate);
                         return (
-                          <tr key={field.key} className={cn("transition-colors", mapped ? "bg-primary/5" : (field.required ? "bg-destructive/5" : ""))}>
+                          <tr key={field.key} className={cn("transition-colors", isSatisfied ? "bg-primary/5" : (field.required ? "bg-destructive/5" : ""))}>
                             <td className="p-2.5 font-bold text-xs">{idx + 1}</td>
                             <td className="p-2.5">
                               <div className="flex items-center gap-2">
-                                <span className={cn("w-2 h-2 rounded-full shrink-0", field.required ? "bg-destructive" : "bg-muted-foreground")} />
+                                <span className={cn("w-2 h-2 rounded-full shrink-0", field.required ? (isSatisfied ? "bg-primary" : "bg-destructive") : "bg-muted-foreground")} />
                                 <span className="font-medium text-xs">{t(field.labelKey)}</span>
-                                {mapped && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
+                                {field.required && <span className="text-[9px] font-semibold uppercase tracking-wider text-destructive/70">{t("import.requiredTag")}</span>}
+                                {isSatisfied && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
                               </div>
                             </td>
                             <td className="p-2.5 text-center">
-                              <ArrowRight className={cn("h-3.5 w-3.5 mx-auto", mapped ? "text-primary" : "text-muted-foreground/30")} />
+                              <ArrowRight className={cn("h-3.5 w-3.5 mx-auto", isSatisfied ? "text-primary" : "text-muted-foreground/30")} />
                             </td>
                             <td className="p-2.5">
                               {(() => {

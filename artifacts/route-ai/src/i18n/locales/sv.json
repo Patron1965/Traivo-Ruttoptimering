@@ -109,6 +109,7 @@
     "skippedRows": "{{count}} rad(er) hoppades över p.g.a. felaktiga värden",
     "rowMissingAddress": "Rad {{row}}: Adress saknas",
     "rowInvalidCoords": "Rad {{row}}: Ogiltiga koordinater",
+    "requiredTag": "KRAV",
     "suggested": "Föreslagna",
     "noDateColumn": "Inget datumfält hittat i filen",
     "noDateColumnDesc": "Välj leveransdatum som ska gälla för alla ordrar",
