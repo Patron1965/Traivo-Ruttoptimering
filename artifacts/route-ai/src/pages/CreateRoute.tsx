@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useLocation, Link } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useVehicles } from "@/hooks/use-vehicles";
@@ -27,11 +27,14 @@ import {
   RefreshCw,
   Search,
   ChevronDown,
+  ChevronUp,
   X,
   Phone,
   Maximize2,
   Minimize2,
   PanelLeftOpen,
+  Filter,
+  MapPinOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -39,7 +42,6 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { renderToString } from "react-dom/server";
-import { useEffect } from "react";
 
 function createStopIcon(selected: boolean) {
   return L.divIcon({
@@ -111,9 +113,29 @@ export default function CreateRoute() {
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
   const [selectedStopIds, setSelectedStopIds] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
+  const [vehicleDropdownOpen, setVehicleDropdownOpen] = useState(false);
+  const [driverDropdownOpen, setDriverDropdownOpen] = useState(false);
   const [vehicleSearch, setVehicleSearch] = useState("");
-  const [driverDropdownOpen, setDriverDropdownOpen] = useState<string | null>(null);
+  const [driverSearch, setDriverSearch] = useState("");
   const [mapExpanded, setMapExpanded] = useState(false);
+  const [stopSearch, setStopSearch] = useState("");
+  const [stopFilter, setStopFilter] = useState<"all" | "unassigned" | "assigned">("all");
+
+  const vehicleDropdownRef = useRef<HTMLDivElement>(null);
+  const driverDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (vehicleDropdownRef.current && !vehicleDropdownRef.current.contains(e.target as Node)) {
+        setVehicleDropdownOpen(false);
+      }
+      if (driverDropdownRef.current && !driverDropdownRef.current.contains(e.target as Node)) {
+        setDriverDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const routesById = useMemo(() => {
     const map = new Map<string, string>();
@@ -121,7 +143,7 @@ export default function CreateRoute() {
     return map;
   }, [routes]);
 
-  const sortedStops = useMemo(() => {
+  const availableStops = useMemo(() => {
     if (!allStops) return [];
     return [...allStops]
       .filter((s) => s.status !== "completed" && s.status !== "skipped")
@@ -131,6 +153,24 @@ export default function CreateRoute() {
         return a.address.localeCompare(b.address);
       });
   }, [allStops]);
+
+  const filteredStops = useMemo(() => {
+    let result = availableStops;
+    if (stopFilter === "unassigned") result = result.filter((s) => !s.routeId);
+    else if (stopFilter === "assigned") result = result.filter((s) => !!s.routeId);
+    if (stopSearch.trim()) {
+      const q = stopSearch.toLowerCase().trim();
+      result = result.filter(
+        (s) =>
+          s.address.toLowerCase().includes(q) ||
+          (s.notes && s.notes.toLowerCase().includes(q)) ||
+          (s.customerName && s.customerName.toLowerCase().includes(q))
+      );
+    }
+    return result;
+  }, [availableStops, stopSearch, stopFilter]);
+
+  const sortedStops = filteredStops;
 
   const activeDrivers = useMemo(
     () => drivers?.filter((d) => d.isActive) || [],
@@ -150,6 +190,16 @@ export default function CreateRoute() {
     });
     return map;
   }, [activeDrivers]);
+
+  const filteredDrivers = useMemo(() => {
+    if (!driverSearch.trim()) return activeDrivers;
+    const q = driverSearch.toLowerCase().trim();
+    return activeDrivers.filter(
+      (d) =>
+        d.name.toLowerCase().includes(q) ||
+        (d.phone && d.phone.toLowerCase().includes(q))
+    );
+  }, [activeDrivers, driverSearch]);
 
   const filteredVehicles = useMemo(() => {
     if (!vehicles) return [];
@@ -194,10 +244,10 @@ export default function CreateRoute() {
   };
 
   const selectAllStops = () => {
-    if (selectedStopIds.size === sortedStops.length && sortedStops.length > 0) {
+    if (selectedStopIds.size === availableStops.length && availableStops.length > 0) {
       setSelectedStopIds(new Set());
     } else {
-      setSelectedStopIds(new Set(sortedStops.map((s) => s.id)));
+      setSelectedStopIds(new Set(availableStops.map((s) => s.id)));
     }
   };
 
@@ -343,13 +393,10 @@ export default function CreateRoute() {
                   <Truck className="h-4 w-4 text-blue-400" />
                 </div>
                 <h2 className="font-bold text-sm">{t("createRoute.vehicleAndDriver")}</h2>
-                <span className="text-[10px] text-muted-foreground ml-auto">
-                  {t("createRoute.driverOptional")}
-                </span>
               </div>
 
               {(loadingVehicles || loadingDrivers) ? (
-                <SectionSkeleton rows={3} />
+                <SectionSkeleton rows={2} />
               ) : (errorVehicles || errorDrivers) ? (
                 <div className="text-sm text-destructive py-4 text-center space-y-2">
                   <AlertTriangle className="h-6 w-6 mx-auto opacity-60" />
@@ -371,168 +418,174 @@ export default function CreateRoute() {
                   </Link>
                 </div>
               ) : (
-                <>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                    <input
-                      type="text"
-                      value={vehicleSearch}
-                      onChange={(e) => setVehicleSearch(e.target.value)}
-                      placeholder={t("createRoute.searchVehicleDriver")}
-                      className="w-full h-8 rounded-lg border border-border bg-background pl-8 pr-7 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 transition-shadow"
-                    />
-                    {vehicleSearch && (
-                      <button onClick={() => setVehicleSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="space-y-1 max-h-[280px] overflow-y-auto">
-                    {filteredVehicles.length === 0 ? (
-                      <div className="text-xs text-muted-foreground py-4 text-center">
-                        {t("createRoute.noSearchResults")}
-                      </div>
-                    ) : (
-                      filteredVehicles.map((v) => {
-                        const linkedDriver = driverByVehicleId.get(v.id);
-                        const isSelected = selectedVehicleId === v.id;
-                        const currentDriverForRow = isSelected ? selectedDriver : linkedDriver;
-                        const willReassign =
-                          isSelected &&
-                          selectedDriverId &&
-                          selectedDriver &&
-                          selectedDriver.vehicleId &&
-                          selectedDriver.vehicleId !== v.id;
-
-                        return (
-                          <div key={v.id} className="relative">
-                            <button
-                              onClick={() => {
-                                if (isSelected) {
-                                  setSelectedVehicleId(null);
-                                  setSelectedDriverId(null);
-                                } else {
+                <div className="grid gap-3 grid-cols-2">
+                  <div ref={vehicleDropdownRef} className="relative">
+                    <label className="text-xs font-medium text-muted-foreground mb-1 block">{t("createRoute.vehicle")}</label>
+                    <button
+                      type="button"
+                      onClick={() => { setVehicleDropdownOpen(!vehicleDropdownOpen); setDriverDropdownOpen(false); }}
+                      className={cn(
+                        "w-full h-9 rounded-lg border bg-background px-3 text-left text-sm flex items-center justify-between gap-1 transition-all",
+                        selectedVehicleId ? "border-primary/50" : "border-border",
+                        vehicleDropdownOpen && "ring-2 ring-primary/40"
+                      )}
+                    >
+                      <span className={cn("truncate text-xs", !selectedVehicleId && "text-muted-foreground")}>
+                        {selectedVehicle ? (
+                          <span className="flex items-center gap-1.5">
+                            <span className="font-semibold">{selectedVehicle.name}</span>
+                            <span className="text-[10px] text-muted-foreground">{selectedVehicle.licensePlate}</span>
+                            {selectedVehicle.vehicleType === "electric" && (
+                              <span className="text-emerald-400 text-[10px] flex items-center gap-0.5"><Zap className="h-2.5 w-2.5" />EV</span>
+                            )}
+                          </span>
+                        ) : t("createRoute.selectVehicle")}
+                      </span>
+                      {vehicleDropdownOpen ? <ChevronUp className="h-3 w-3 shrink-0 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />}
+                    </button>
+                    {vehicleDropdownOpen && (
+                      <div className="absolute z-30 left-0 right-0 top-full mt-1 bg-popover border border-border rounded-lg shadow-xl overflow-hidden">
+                        <div className="p-1.5 border-b border-border">
+                          <div className="relative">
+                            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                            <input
+                              type="text"
+                              value={vehicleSearch}
+                              onChange={(e) => setVehicleSearch(e.target.value)}
+                              placeholder={t("createRoute.searchVehicleDriver")}
+                              className="w-full h-7 rounded border border-border bg-background pl-7 pr-2 text-[11px] focus:outline-none focus:ring-1 focus:ring-primary/40"
+                              autoFocus
+                            />
+                          </div>
+                        </div>
+                        <div className="max-h-[200px] overflow-y-auto p-1">
+                          {filteredVehicles.length === 0 ? (
+                            <div className="text-xs text-muted-foreground py-3 text-center">{t("createRoute.noSearchResults")}</div>
+                          ) : filteredVehicles.map((v) => {
+                            const linkedDriver = driverByVehicleId.get(v.id);
+                            return (
+                              <button
+                                key={v.id}
+                                onClick={() => {
                                   setSelectedVehicleId(v.id);
                                   const driver = driverByVehicleId.get(v.id);
                                   setSelectedDriverId(driver?.id || null);
-                                }
-                                setDriverDropdownOpen(null);
-                              }}
-                              className={cn(
-                                "w-full text-left px-3 py-2 rounded-lg border transition-all duration-150",
-                                isSelected
-                                  ? "border-primary bg-primary/5 shadow-sm"
-                                  : "border-transparent hover:border-muted-foreground/20 hover:bg-muted/30"
-                              )}
-                            >
-                              <div className="flex items-center gap-2">
-                                {isSelected && (
-                                  <div className="h-4 w-4 rounded-full bg-primary flex items-center justify-center shrink-0">
-                                    <Check className="h-2.5 w-2.5 text-primary-foreground" />
+                                  setVehicleDropdownOpen(false);
+                                  setVehicleSearch("");
+                                }}
+                                className={cn(
+                                  "w-full text-left px-2.5 py-1.5 rounded text-xs hover:bg-muted transition-colors flex items-center gap-2",
+                                  selectedVehicleId === v.id && "bg-primary/10"
+                                )}
+                              >
+                                {selectedVehicleId === v.id && <Check className="h-3 w-3 text-primary shrink-0" />}
+                                <div className={cn("flex-1 min-w-0", selectedVehicleId !== v.id && "ml-5")}>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-semibold truncate">{v.name}</span>
+                                    <span className="text-[10px] text-muted-foreground">{v.licensePlate}</span>
+                                    {v.vehicleType === "electric" && (
+                                      <span className="text-emerald-400 text-[10px] flex items-center gap-0.5 ml-auto"><Zap className="h-2.5 w-2.5" />EV</span>
+                                    )}
                                   </div>
-                                )}
-                                <span className={cn("font-semibold text-xs truncate", !isSelected && "ml-6")}>
-                                  {v.name}
-                                </span>
-                                <span className="text-[10px] text-muted-foreground">{v.licensePlate}</span>
-                                <span className="flex items-center gap-0.5 text-[10px] ml-auto">
-                                  {v.vehicleType === "electric" ? (
-                                    <span className="flex items-center gap-0.5 text-emerald-400">
-                                      <Zap className="h-2.5 w-2.5" /> EV
-                                    </span>
-                                  ) : (
-                                    <span className="flex items-center gap-0.5 text-muted-foreground">
-                                      <Fuel className="h-2.5 w-2.5" />
-                                    </span>
-                                  )}
-                                </span>
-                                {isSelected && activeDrivers.length > 0 && (
-                                  <span
-                                    role="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setDriverDropdownOpen(driverDropdownOpen === v.id ? null : v.id);
-                                    }}
-                                    className="inline-flex items-center justify-center h-6 w-6 rounded hover:bg-muted transition-colors"
-                                  >
-                                    <ChevronDown className="h-3 w-3 text-muted-foreground" />
-                                  </span>
-                                )}
-                              </div>
-
-                              {currentDriverForRow && (
-                                <div className="flex items-center gap-1.5 mt-1 ml-6 text-[10px] text-muted-foreground">
-                                  <User className="h-2.5 w-2.5 text-violet-400" />
-                                  <span>{currentDriverForRow.name}</span>
-                                  {currentDriverForRow.phone && (
-                                    <span className="flex items-center gap-0.5">
-                                      <Phone className="h-2 w-2" />
-                                      {currentDriverForRow.phone}
-                                    </span>
+                                  {linkedDriver && (
+                                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-0.5">
+                                      <User className="h-2 w-2 text-violet-400" />
+                                      <span>{linkedDriver.name}</span>
+                                    </div>
                                   )}
                                 </div>
-                              )}
-
-                              {willReassign && (
-                                <p className="text-[9px] text-amber-400 mt-1 ml-6 flex items-center gap-1">
-                                  <AlertTriangle className="h-2.5 w-2.5" />
-                                  {t("createRoute.driverReassignNote")}
-                                </p>
-                              )}
-                            </button>
-
-                            {driverDropdownOpen === v.id && isSelected && (
-                              <div className="absolute z-20 right-0 top-full mt-1 w-56 bg-popover border border-border rounded-lg shadow-xl p-1 max-h-40 overflow-y-auto">
-                                <button
-                                  onClick={() => {
-                                    setSelectedDriverId(null);
-                                    setDriverDropdownOpen(null);
-                                  }}
-                                  className={cn(
-                                    "w-full text-left px-3 py-1.5 rounded text-xs hover:bg-muted transition-colors",
-                                    !selectedDriverId && "bg-muted"
-                                  )}
-                                >
-                                  <span className="text-muted-foreground italic">{t("drivers.noDriver")}</span>
-                                </button>
-                                {activeDrivers.map((d) => (
-                                  <button
-                                    key={d.id}
-                                    onClick={() => {
-                                      setSelectedDriverId(d.id);
-                                      setDriverDropdownOpen(null);
-                                    }}
-                                    className={cn(
-                                      "w-full text-left px-3 py-1.5 rounded text-xs hover:bg-muted transition-colors",
-                                      selectedDriverId === d.id && "bg-muted"
-                                    )}
-                                  >
-                                    <div className="font-medium">{d.name}</div>
-                                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                                      {d.phone && (
-                                        <span className="flex items-center gap-0.5">
-                                          <Phone className="h-2 w-2" />
-                                          {d.phone}
-                                        </span>
-                                      )}
-                                      {d.vehicleId && vehiclesById.get(d.vehicleId) && (
-                                        <span className="flex items-center gap-0.5 px-1 py-0.5 rounded bg-muted/50">
-                                          <Truck className="h-2 w-2" />
-                                          {vehiclesById.get(d.vehicleId)}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
                     )}
                   </div>
-                </>
+
+                  <div ref={driverDropdownRef} className="relative">
+                    <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                      {t("createRoute.driver")} <span className="text-[10px] opacity-60">({t("createRoute.driverOptional")})</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => { setDriverDropdownOpen(!driverDropdownOpen); setVehicleDropdownOpen(false); }}
+                      className={cn(
+                        "w-full h-9 rounded-lg border bg-background px-3 text-left text-sm flex items-center justify-between gap-1 transition-all",
+                        selectedDriverId ? "border-violet-500/50" : "border-border",
+                        driverDropdownOpen && "ring-2 ring-violet-400/40"
+                      )}
+                    >
+                      <span className={cn("truncate text-xs", !selectedDriverId && "text-muted-foreground")}>
+                        {selectedDriver ? (
+                          <span className="flex items-center gap-1.5">
+                            <span className="font-semibold">{selectedDriver.name}</span>
+                            {selectedDriver.phone && <span className="text-[10px] text-muted-foreground">{selectedDriver.phone}</span>}
+                          </span>
+                        ) : t("createRoute.selectDriver")}
+                      </span>
+                      {driverDropdownOpen ? <ChevronUp className="h-3 w-3 shrink-0 text-muted-foreground" /> : <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />}
+                    </button>
+                    {driverDropdownOpen && (
+                      <div className="absolute z-30 left-0 right-0 top-full mt-1 bg-popover border border-border rounded-lg shadow-xl overflow-hidden">
+                        {activeDrivers.length > 4 && (
+                          <div className="p-1.5 border-b border-border">
+                            <div className="relative">
+                              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                              <input
+                                type="text"
+                                value={driverSearch}
+                                onChange={(e) => setDriverSearch(e.target.value)}
+                                placeholder={t("createRoute.searchDriver")}
+                                className="w-full h-7 rounded border border-border bg-background pl-7 pr-2 text-[11px] focus:outline-none focus:ring-1 focus:ring-violet-400/40"
+                                autoFocus
+                              />
+                            </div>
+                          </div>
+                        )}
+                        <div className="max-h-[200px] overflow-y-auto p-1">
+                          <button
+                            onClick={() => { setSelectedDriverId(null); setDriverDropdownOpen(false); setDriverSearch(""); }}
+                            className={cn(
+                              "w-full text-left px-2.5 py-1.5 rounded text-xs hover:bg-muted transition-colors",
+                              !selectedDriverId && "bg-muted"
+                            )}
+                          >
+                            <span className="text-muted-foreground italic">{t("drivers.noDriver")}</span>
+                          </button>
+                          {filteredDrivers.map((d) => {
+                            const willReassign = selectedVehicleId && d.vehicleId && d.vehicleId !== selectedVehicleId;
+                            return (
+                              <button
+                                key={d.id}
+                                onClick={() => { setSelectedDriverId(d.id); setDriverDropdownOpen(false); setDriverSearch(""); }}
+                                className={cn(
+                                  "w-full text-left px-2.5 py-1.5 rounded text-xs hover:bg-muted transition-colors",
+                                  selectedDriverId === d.id && "bg-violet-500/10"
+                                )}
+                              >
+                                <div className="flex items-center gap-1.5">
+                                  {selectedDriverId === d.id && <Check className="h-3 w-3 text-violet-400 shrink-0" />}
+                                  <span className={cn("font-medium", selectedDriverId !== d.id && "ml-[18px]")}>{d.name}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5 ml-[18px]">
+                                  {d.phone && <span className="flex items-center gap-0.5"><Phone className="h-2 w-2" />{d.phone}</span>}
+                                  {d.vehicleId && vehiclesById.get(d.vehicleId) && (
+                                    <span className="flex items-center gap-0.5 px-1 py-0.5 rounded bg-muted/50"><Truck className="h-2 w-2" />{vehiclesById.get(d.vehicleId)}</span>
+                                  )}
+                                </div>
+                                {willReassign && (
+                                  <p className="text-[9px] text-amber-400 mt-0.5 ml-[18px] flex items-center gap-0.5">
+                                    <AlertTriangle className="h-2.5 w-2.5" />{t("createRoute.driverReassignNote")}
+                                  </p>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
               )}
             </section>
 
@@ -543,15 +596,20 @@ export default function CreateRoute() {
                     <MapPin className="h-4 w-4 text-amber-400" />
                   </div>
                   <h2 className="font-bold text-sm">{t("createRoute.selectStops")}</h2>
+                  {selectedStopIds.size > 0 && (
+                    <span className="text-[10px] font-semibold bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded-full">
+                      {selectedStopIds.size}
+                    </span>
+                  )}
                 </div>
-                {sortedStops.length > 0 && (
+                {availableStops.length > 0 && (
                   <Button
                     variant="ghost"
                     size="sm"
                     className="text-[10px] h-7"
                     onClick={selectAllStops}
                   >
-                    {selectedStopIds.size === sortedStops.length && sortedStops.length > 0
+                    {selectedStopIds.size === availableStops.length && availableStops.length > 0
                       ? t("createRoute.deselectAll")
                       : t("createRoute.selectAll")}
                   </Button>
@@ -576,7 +634,7 @@ export default function CreateRoute() {
                     {t("createRoute.retry")}
                   </Button>
                 </div>
-              ) : sortedStops.length === 0 ? (
+              ) : availableStops.length === 0 ? (
                 <div className="text-xs text-muted-foreground py-4 text-center space-y-2">
                   <MapPin className="h-6 w-6 mx-auto opacity-30" />
                   <p>{allStops && allStops.length > 0 ? t("createRoute.allStopsCompleted") : t("createRoute.noStopsAnywhere")}</p>
@@ -588,6 +646,43 @@ export default function CreateRoute() {
                   </Link>
                 </div>
               ) : (
+                <>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                    <input
+                      type="text"
+                      value={stopSearch}
+                      onChange={(e) => setStopSearch(e.target.value)}
+                      placeholder={t("createRoute.searchStops")}
+                      className="w-full h-7 rounded-lg border border-border bg-background pl-7 pr-7 text-[11px] focus:outline-none focus:ring-2 focus:ring-primary/40 transition-shadow"
+                    />
+                    {stopSearch && (
+                      <button onClick={() => setStopSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex rounded-lg border border-border overflow-hidden shrink-0">
+                    {(["all", "unassigned", "assigned"] as const).map((f) => (
+                      <button
+                        key={f}
+                        onClick={() => setStopFilter(f)}
+                        className={cn(
+                          "px-2 py-1 text-[10px] font-medium transition-colors",
+                          stopFilter === f ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted/50"
+                        )}
+                      >
+                        {f === "all" ? t("common.all") : f === "unassigned" ? t("common.unassigned") : t("common.assigned")}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {sortedStops.length === 0 ? (
+                  <div className="text-xs text-muted-foreground py-4 text-center">
+                    {t("createRoute.noSearchResults")}
+                  </div>
+                ) : (
                 <div className="space-y-1 max-h-[320px] overflow-y-auto pr-1">
                   {sortedStops.map((stop) => {
                     const isAssigned = !!stop.routeId;
@@ -665,6 +760,8 @@ export default function CreateRoute() {
                     );
                   })}
                 </div>
+              )}
+              </>
               )}
             </section>
 
