@@ -146,7 +146,9 @@
     "saveDriver": "Spara förare",
     "statusDescription": "Aktiva förare kan tilldelas rutter",
     "assignDriver": "Tilldela förare",
-    "noDriver": "Ingen förare"
+    "noDriver": "Ingen förare",
+    "assignedDriver": "Tilldelad förare",
+    "viewStats": "Statistik"
   },
   "notifications": {
     "title": "Aviseringar",
@@ -259,7 +261,8 @@
     "capacity": "Kapacitet",
     "rangeBattery": "R\u00e4ckvidd/Batteri",
     "nameRequired": "Namn \u00e4r obligatoriskt",
-    "licensePlateRequired": "Registreringsnummer \u00e4r obligatoriskt"
+    "licensePlateRequired": "Registreringsnummer \u00e4r obligatoriskt",
+    "batteryStatus": "Batteristatus"
   },
   "stops": {
     "title": "Leveransstopp",
@@ -317,7 +320,8 @@
     "statusInProgress": "P\u00e5g\u00e5ende",
     "statusCompleted": "Slutf\u00f6rd",
     "statusCancelled": "Avbruten",
-    "createRoute": "Skapa rutt"
+    "createRoute": "Skapa rutt",
+    "selectRouteToPreview": "Klicka på en rutt för att visa stopp"
   },
   "createRoute": {
     "title": "Skapa rutt",

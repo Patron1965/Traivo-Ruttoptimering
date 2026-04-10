@@ -5,7 +5,7 @@ import { useVehicles } from "@/hooks/use-vehicles";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2, Edit2, MapPin, Upload, Copy, ExternalLink, FileSpreadsheet } from "lucide-react";
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { FileImportDialog } from "@/components/import/FileImportDialog";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,11 @@ import { ORG_ID } from "@/lib/constants";
 import { type Stop, useImportStops } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { cn } from "@/lib/utils";
+import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import { renderToString } from "react-dom/server";
 
 const optionalNumber = z.preprocess(
   (val) => (val === "" || val === null || val === undefined ? null : Number(val)),
@@ -42,6 +47,33 @@ const createStopSchema = (t: (key: string) => string) => z.object({
 
 type StopFormValues = z.infer<ReturnType<typeof createStopSchema>>;
 
+function makeIcon(selected: boolean, assigned: boolean) {
+  return L.divIcon({
+    className: "",
+    html: renderToString(
+      <div className={cn(
+        "flex items-center justify-center h-7 w-7 rounded-full border-2 shadow-lg",
+        selected ? "bg-primary border-primary/60 text-white scale-125" :
+          assigned ? "bg-emerald-500 border-emerald-400 text-white" :
+            "bg-amber-500 border-amber-400 text-white"
+      )}>
+        <MapPin className="h-3.5 w-3.5" />
+      </div>
+    ),
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+  });
+}
+
+function FlyToStop({ stop }: { stop: { latitude: number; longitude: number } | null }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!stop) return;
+    map.flyTo([stop.latitude, stop.longitude], 15, { duration: 0.4 });
+  }, [stop, map]);
+  return null;
+}
+
 export default function Stops() {
   const { data: stops, isLoading } = useStops();
   const { data: routes } = useRoutes();
@@ -51,6 +83,7 @@ export default function Stops() {
   const { t } = useTranslation();
 
   const [isImportOpen, setIsImportOpen] = useState(false);
+  const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
   const deleteMutation = useDeleteStop();
 
   const vehicleByRouteId = useMemo(() => {
@@ -64,172 +97,224 @@ export default function Stops() {
     return map;
   }, [routes, vehicles, t]);
 
+  const selectedStop = stops?.find((s) => s.id === selectedStopId) || null;
+
   if (isLoading) return <AppLayout><LoadingState message={t("stops.loadingStops")} /></AppLayout>;
 
   return (
     <AppLayout>
-      <div className="p-6 md:p-8 max-w-7xl mx-auto animate-in fade-in">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">{t("stops.title")}</h1>
-            <p className="text-muted-foreground mt-1">{t("stops.subtitle")}</p>
-          </div>
-          
-          <div className="flex gap-2">
-            <Button variant="outline" className="gap-2" onClick={() => setIsImportOpen(true)}>
-              <FileSpreadsheet className="h-4 w-4" /> {t("import.importButton")}
-            </Button>
-            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-              <DialogTrigger asChild>
-                <Button className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-primary/25">
-                  <Plus className="h-4 w-4" /> {t("stops.addStop")}
+      <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden">
+        <div className="flex-1 overflow-y-auto">
+          <div className="p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h1 className="text-2xl font-bold text-foreground">{t("stops.title")}</h1>
+                <p className="text-muted-foreground text-sm mt-0.5">{t("stops.subtitle")}</p>
+              </div>
+              
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setIsImportOpen(true)}>
+                  <FileSpreadsheet className="h-3.5 w-3.5" /> {t("import.importButton")}
                 </Button>
-              </DialogTrigger>
+                <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" className="gap-1.5 text-xs">
+                      <Plus className="h-3.5 w-3.5" /> {t("stops.addStop")}
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                      <DialogTitle>{t("stops.addNewStop")}</DialogTitle>
+                    </DialogHeader>
+                    <StopForm onSuccess={() => setIsCreateOpen(false)} />
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </div>
+
+            <div className="bg-card rounded-xl border border-border overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-muted/50 border-b border-border">
+                      <th className="p-3 font-semibold text-muted-foreground text-xs">{t("stops.customerAddress")}</th>
+                      <th className="p-3 font-semibold text-muted-foreground text-xs">{t("stops.timeWindow")}</th>
+                      <th className="p-3 font-semibold text-muted-foreground text-xs">{t("stops.requirements")}</th>
+                      <th className="p-3 font-semibold text-muted-foreground text-xs">{t("stops.assignedVehicle")}</th>
+                      <th className="p-3 font-semibold text-muted-foreground text-xs">{t("stops.tracking")}</th>
+                      <th className="p-3 font-semibold text-muted-foreground text-xs text-right">{t("common.actions")}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {stops?.map((stop) => (
+                      <tr
+                        key={stop.id}
+                        className={cn(
+                          "transition-colors cursor-pointer",
+                          selectedStopId === stop.id ? "bg-primary/5" : "hover:bg-muted/30"
+                        )}
+                        onClick={() => setSelectedStopId(selectedStopId === stop.id ? null : stop.id)}
+                      >
+                        <td className="p-3">
+                          <div className="flex gap-2">
+                            <MapPin className="h-4 w-4 text-primary/70 mt-0.5 shrink-0" />
+                            <div>
+                              <p className="font-bold text-sm text-foreground">{stop.notes || t("common.deliveryStop")}</p>
+                              <p className="text-xs text-muted-foreground mt-0.5 max-w-[200px] truncate" title={stop.address}>{stop.address}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-3 text-xs text-muted-foreground">
+                          {stop.timeWindowStart ? (
+                            <span>{new Date(stop.timeWindowStart).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}</span>
+                          ) : <span>-</span>}
+                          {stop.timeWindowEnd && (
+                            <span> – {new Date(stop.timeWindowEnd).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}</span>
+                          )}
+                        </td>
+                        <td className="p-3 text-xs text-muted-foreground">
+                          <span>{stop.serviceDurationMin} {t("common.mins")}</span>
+                          {(stop.weightKg || stop.volumeM3) && (
+                            <span className="ml-1">· {stop.weightKg || 0}kg / {stop.volumeM3 || 0}m³</span>
+                          )}
+                        </td>
+                        <td className="p-3">
+                          {stop.routeId ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary">
+                              {vehicleByRouteId.get(stop.routeId) || t("common.assigned")}
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-500 uppercase tracking-wider">
+                              {t("common.unassigned")}
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-3">
+                          {stop.trackingCode ? (
+                            <div className="flex items-center gap-1">
+                              <span className="font-mono text-[10px] bg-muted px-1.5 py-0.5 rounded font-bold">{stop.trackingCode}</span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 hover:text-primary"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const url = `${window.location.origin}${import.meta.env.BASE_URL}track/${stop.trackingCode}`;
+                                  navigator.clipboard.writeText(url);
+                                }}
+                                title={t("stops.copyTrackingLink")}
+                              >
+                                <Copy className="h-3 w-3" />
+                              </Button>
+                              <a
+                                href={`${import.meta.env.BASE_URL}track/${stop.trackingCode}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center justify-center h-6 w-6 rounded hover:bg-primary/10 hover:text-primary transition-colors"
+                                title={t("stops.openTrackingPage")}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <ExternalLink className="h-3 w-3" />
+                              </a>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground text-xs italic">-</span>
+                          )}
+                        </td>
+                        <td className="p-3 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-7 w-7 hover:text-primary hover:bg-primary/10"
+                              onClick={(e) => { e.stopPropagation(); setEditingStop(stop); }}
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-7 w-7 hover:text-destructive hover:bg-destructive/10"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if(confirm(t("stops.deleteConfirm"))) deleteMutation.mutate({ id: stop.id });
+                              }}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {(!stops || stops.length === 0) && (
+                      <tr>
+                        <td colSpan={6} className="p-8 text-center text-muted-foreground">{t("stops.noStops")}</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <Dialog open={!!editingStop} onOpenChange={(open) => !open && setEditingStop(null)}>
               <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
-                  <DialogTitle>{t("stops.addNewStop")}</DialogTitle>
+                  <DialogTitle>{t("stops.editStop")}</DialogTitle>
                 </DialogHeader>
-                <StopForm onSuccess={() => setIsCreateOpen(false)} />
+                {editingStop && (
+                  <StopForm 
+                    initialData={editingStop} 
+                    onSuccess={() => setEditingStop(null)} 
+                  />
+                )}
               </DialogContent>
             </Dialog>
+
+            <FileImportDialog
+              open={isImportOpen}
+              onOpenChange={setIsImportOpen}
+              onSuccess={() => setIsImportOpen(false)}
+            />
           </div>
         </div>
 
-        <div className="bg-card rounded-2xl border border-card-border overflow-hidden shadow-xl shadow-black/5">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-muted/50 border-b border-border">
-                  <th className="p-4 font-semibold text-muted-foreground text-sm">{t("stops.customerAddress")}</th>
-                  <th className="p-4 font-semibold text-muted-foreground text-sm">{t("stops.timeWindow")}</th>
-                  <th className="p-4 font-semibold text-muted-foreground text-sm">{t("stops.requirements")}</th>
-                  <th className="p-4 font-semibold text-muted-foreground text-sm">{t("stops.assignedVehicle")}</th>
-                  <th className="p-4 font-semibold text-muted-foreground text-sm">{t("stops.tracking")}</th>
-                  <th className="p-4 font-semibold text-muted-foreground text-sm text-right">{t("common.actions")}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {stops?.map((stop) => (
-                  <tr key={stop.id} className="hover:bg-muted/30 transition-colors">
-                    <td className="p-4">
-                      <div className="flex gap-3">
-                        <div className="mt-1">
-                          <MapPin className="h-5 w-5 text-primary/70" />
-                        </div>
-                        <div>
-                          <p className="font-bold text-foreground">{stop.notes || t("common.deliveryStop")}</p>
-                          <p className="text-sm text-muted-foreground mt-0.5 max-w-xs truncate" title={stop.address}>{stop.address}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="p-4 text-xs text-muted-foreground space-y-1">
-                      {stop.timeWindowStart ? (
-                        <p>{new Date(stop.timeWindowStart).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}</p>
-                      ) : <p>-</p>}
-                      {stop.timeWindowEnd ? (
-                        <p>{t("common.to")} {new Date(stop.timeWindowEnd).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}</p>
-                      ) : null}
-                    </td>
-                    <td className="p-4 text-sm space-y-1 text-muted-foreground">
-                      <p>{stop.serviceDurationMin} {t("common.mins")}</p>
-                      {(stop.weightKg || stop.volumeM3) && (
-                        <p>{stop.weightKg || 0}kg / {stop.volumeM3 || 0}m³</p>
-                      )}
-                    </td>
-                    <td className="p-4">
-                      {stop.routeId ? (
-                        <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary">
-                          {vehicleByRouteId.get(stop.routeId) || t("common.assigned")}
-                        </span>
-                      ) : (
-                        <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-500 uppercase tracking-wider">
-                          {t("common.unassigned")}
-                        </span>
-                      )}
-                    </td>
-                    <td className="p-4">
-                      {stop.trackingCode ? (
-                        <div className="flex items-center gap-1">
-                          <span className="font-mono text-xs bg-muted px-2 py-1 rounded font-bold">{stop.trackingCode}</span>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 hover:text-primary"
-                            onClick={() => {
-                              const url = `${window.location.origin}${import.meta.env.BASE_URL}track/${stop.trackingCode}`;
-                              navigator.clipboard.writeText(url);
-                            }}
-                            title={t("stops.copyTrackingLink")}
-                          >
-                            <Copy className="h-3 w-3" />
-                          </Button>
-                          <a
-                            href={`${import.meta.env.BASE_URL}track/${stop.trackingCode}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center justify-center h-7 w-7 rounded-md hover:bg-primary/10 hover:text-primary transition-colors"
-                            title={t("stops.openTrackingPage")}
-                          >
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground text-xs italic">-</span>
-                      )}
-                    </td>
-                    <td className="p-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="hover:text-primary hover:bg-primary/10"
-                          onClick={() => setEditingStop(stop)}
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => {
-                            if(confirm(t("stops.deleteConfirm"))) deleteMutation.mutate({ id: stop.id });
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {(!stops || stops.length === 0) && (
-                  <tr>
-                    <td colSpan={6} className="p-8 text-center text-muted-foreground">{t("stops.noStops")}</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+        <div className="w-[40%] shrink-0 border-l border-border relative">
+          <MapContainer
+            center={[59.33, 18.07]}
+            zoom={11}
+            className="h-full w-full"
+            zoomControl={false}
+          >
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
+              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            />
+            <FlyToStop stop={selectedStop} />
+            {stops?.filter((s) => s.latitude && s.longitude).map((stop) => (
+              <Marker
+                key={stop.id}
+                position={[stop.latitude, stop.longitude]}
+                icon={makeIcon(selectedStopId === stop.id, !!stop.routeId)}
+                eventHandlers={{
+                  click: () => setSelectedStopId(selectedStopId === stop.id ? null : stop.id),
+                }}
+              >
+                <Popup className="dark-popup">
+                  <div className="text-xs">
+                    <p className="font-bold">{stop.notes || stop.address}</p>
+                    <p className="text-muted-foreground">{stop.address}</p>
+                    {stop.weightKg && <p>{stop.weightKg} kg</p>}
+                    {stop.routeId ? (
+                      <p className="text-primary">{vehicleByRouteId.get(stop.routeId) || t("common.assigned")}</p>
+                    ) : (
+                      <p className="text-amber-500">{t("common.unassigned")}</p>
+                    )}
+                  </div>
+                </Popup>
+              </Marker>
+            ))}
+          </MapContainer>
         </div>
-
-        <Dialog open={!!editingStop} onOpenChange={(open) => !open && setEditingStop(null)}>
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle>{t("stops.editStop")}</DialogTitle>
-            </DialogHeader>
-            {editingStop && (
-              <StopForm 
-                initialData={editingStop} 
-                onSuccess={() => setEditingStop(null)} 
-              />
-            )}
-          </DialogContent>
-        </Dialog>
-
-        <FileImportDialog
-          open={isImportOpen}
-          onOpenChange={setIsImportOpen}
-          onSuccess={() => setIsImportOpen(false)}
-        />
       </div>
     </AppLayout>
   );
@@ -324,4 +409,3 @@ function StopForm({ initialData, onSuccess }: { initialData?: Stop, onSuccess: (
     </form>
   );
 }
-

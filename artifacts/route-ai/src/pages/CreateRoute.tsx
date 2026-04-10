@@ -32,6 +32,37 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import { renderToString } from "react-dom/server";
+import { useEffect } from "react";
+
+function createStopIcon(selected: boolean) {
+  return L.divIcon({
+    className: "",
+    html: renderToString(
+      <div className={cn(
+        "flex items-center justify-center h-7 w-7 rounded-full border-2 shadow-lg",
+        selected ? "bg-amber-500 border-amber-300 text-white" : "bg-primary border-primary/60 text-white"
+      )}>
+        <MapPin className="h-3.5 w-3.5" />
+      </div>
+    ),
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+  });
+}
+
+function FitBounds({ stops }: { stops: Array<{ latitude: number; longitude: number }> }) {
+  const map = useMap();
+  useEffect(() => {
+    if (stops.length === 0) return;
+    const bounds = L.latLngBounds(stops.map((s) => [s.latitude, s.longitude]));
+    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 13 });
+  }, [stops, map]);
+  return null;
+}
 
 function SectionSkeleton({ rows = 2 }: { rows?: number }) {
   return (
@@ -226,40 +257,42 @@ export default function CreateRoute() {
     }
   };
 
+  const mapStops = sortedStops.filter((s) => s.latitude && s.longitude);
+
   return (
     <AppLayout>
-      <div className="p-6 md:p-8 max-w-5xl mx-auto space-y-6">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate("/routes")}
-            className="shrink-0"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-2xl md:text-3xl font-display font-bold">
-              {t("createRoute.title")}
-            </h1>
-            <p className="text-muted-foreground text-sm mt-1">
-              {t("createRoute.subtitle")}
-            </p>
-          </div>
-        </div>
-
-        <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-          <div className="space-y-6">
-            <section className="bg-card border border-border rounded-2xl p-6 space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <RouteIcon className="h-5 w-5 text-primary" />
-                </div>
-                <h2 className="font-bold text-lg">{t("createRoute.routeInfo")}</h2>
+      <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden">
+        <div className="w-[480px] shrink-0 border-r border-border overflow-y-auto bg-background">
+          <div className="p-5 space-y-5">
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate("/routes")}
+                className="shrink-0 h-8 w-8"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              <div>
+                <h1 className="text-xl font-display font-bold">
+                  {t("createRoute.title")}
+                </h1>
+                <p className="text-muted-foreground text-xs mt-0.5">
+                  {t("createRoute.subtitle")}
+                </p>
               </div>
-              <div className="grid gap-4 sm:grid-cols-2">
+            </div>
+
+            <section className="bg-card border border-border rounded-xl p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <RouteIcon className="h-4 w-4 text-primary" />
+                </div>
+                <h2 className="font-bold text-sm">{t("createRoute.routeInfo")}</h2>
+              </div>
+              <div className="grid gap-3 grid-cols-2">
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground mb-1.5 block">
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">
                     {t("createRoute.routeName")}
                   </label>
                   <input
@@ -267,30 +300,30 @@ export default function CreateRoute() {
                     value={routeName}
                     onChange={(e) => setRouteName(e.target.value)}
                     placeholder={t("createRoute.routeNamePlaceholder")}
-                    className="w-full h-11 rounded-xl border border-border bg-background px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-shadow"
+                    className="w-full h-9 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-shadow"
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground mb-1.5 block">
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">
                     {t("createRoute.routeDate")}
                   </label>
                   <input
                     type="datetime-local"
                     value={routeDate}
                     onChange={(e) => setRouteDate(e.target.value)}
-                    className="w-full h-11 rounded-xl border border-border bg-background px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-shadow [color-scheme:dark]"
+                    className="w-full h-9 rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-shadow [color-scheme:dark]"
                   />
                 </div>
               </div>
             </section>
 
-            <section className="bg-card border border-border rounded-2xl p-6 space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-xl bg-blue-500/10 flex items-center justify-center">
-                  <Truck className="h-5 w-5 text-blue-400" />
+            <section className="bg-card border border-border rounded-xl p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="h-7 w-7 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                  <Truck className="h-4 w-4 text-blue-400" />
                 </div>
-                <h2 className="font-bold text-lg">{t("createRoute.vehicleAndDriver")}</h2>
-                <span className="text-xs text-muted-foreground ml-auto">
+                <h2 className="font-bold text-sm">{t("createRoute.vehicleAndDriver")}</h2>
+                <span className="text-[10px] text-muted-foreground ml-auto">
                   {t("createRoute.driverOptional")}
                 </span>
               </div>
@@ -298,18 +331,18 @@ export default function CreateRoute() {
               {(loadingVehicles || loadingDrivers) ? (
                 <SectionSkeleton rows={3} />
               ) : (errorVehicles || errorDrivers) ? (
-                <div className="text-sm text-destructive py-6 text-center space-y-2">
-                  <AlertTriangle className="h-8 w-8 mx-auto opacity-60" />
-                  <p>{t("createRoute.loadError")}</p>
+                <div className="text-sm text-destructive py-4 text-center space-y-2">
+                  <AlertTriangle className="h-6 w-6 mx-auto opacity-60" />
+                  <p className="text-xs">{t("createRoute.loadError")}</p>
                   <Button variant="outline" size="sm" className="text-xs gap-1" onClick={() => { refetchVehicles(); refetchDrivers(); }}>
                     <RefreshCw className="h-3 w-3" />
                     {t("createRoute.retry")}
                   </Button>
                 </div>
               ) : !vehicles || vehicles.length === 0 ? (
-                <div className="text-sm text-muted-foreground py-6 text-center space-y-2">
-                  <Truck className="h-8 w-8 mx-auto opacity-30" />
-                  <p>{t("createRoute.noVehicles")}</p>
+                <div className="text-sm text-muted-foreground py-4 text-center space-y-2">
+                  <Truck className="h-6 w-6 mx-auto opacity-30" />
+                  <p className="text-xs">{t("createRoute.noVehicles")}</p>
                   <Link href="/vehicles">
                     <Button variant="link" size="sm" className="text-xs gap-1">
                       {t("createRoute.goToVehicles")}
@@ -320,33 +353,24 @@ export default function CreateRoute() {
               ) : (
                 <>
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                     <input
                       type="text"
                       value={vehicleSearch}
                       onChange={(e) => setVehicleSearch(e.target.value)}
                       placeholder={t("createRoute.searchVehicleDriver")}
-                      className="w-full h-10 rounded-xl border border-border bg-background pl-9 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-shadow"
+                      className="w-full h-8 rounded-lg border border-border bg-background pl-8 pr-7 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 transition-shadow"
                     />
                     {vehicleSearch && (
-                      <button onClick={() => setVehicleSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                        <X className="h-4 w-4" />
+                      <button onClick={() => setVehicleSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                        <X className="h-3.5 w-3.5" />
                       </button>
                     )}
                   </div>
 
-                  <div className="hidden sm:grid grid-cols-[1fr_100px_80px_90px_1fr_40px] gap-2 px-3 text-[11px] text-muted-foreground uppercase tracking-wider font-medium">
-                    <span>{t("createRoute.vehicle")}</span>
-                    <span>{t("vehicles.licensePlate")}</span>
-                    <span>{t("common.type")}</span>
-                    <span>{t("vehicles.capacity")}</span>
-                    <span>{t("createRoute.driver")}</span>
-                    <span></span>
-                  </div>
-
-                  <div className="space-y-1 max-h-[400px] overflow-y-auto">
+                  <div className="space-y-1 max-h-[280px] overflow-y-auto">
                     {filteredVehicles.length === 0 ? (
-                      <div className="text-sm text-muted-foreground py-6 text-center">
+                      <div className="text-xs text-muted-foreground py-4 text-center">
                         {t("createRoute.noSearchResults")}
                       </div>
                     ) : (
@@ -376,108 +400,33 @@ export default function CreateRoute() {
                                 setDriverDropdownOpen(null);
                               }}
                               className={cn(
-                                "w-full text-left px-3 py-2.5 rounded-xl border-2 transition-all duration-150",
+                                "w-full text-left px-3 py-2 rounded-lg border transition-all duration-150",
                                 isSelected
-                                  ? "border-primary bg-primary/5 shadow-md shadow-primary/10"
+                                  ? "border-primary bg-primary/5 shadow-sm"
                                   : "border-transparent hover:border-muted-foreground/20 hover:bg-muted/30"
                               )}
                             >
-                              <div className="sm:grid sm:grid-cols-[1fr_100px_80px_90px_1fr_40px] sm:gap-2 sm:items-center">
-                                <div className="flex items-center gap-2 min-w-0">
-                                  {isSelected && (
-                                    <div className="h-5 w-5 rounded-full bg-primary flex items-center justify-center shrink-0">
-                                      <Check className="h-3 w-3 text-primary-foreground" />
-                                    </div>
-                                  )}
-                                  <span className={cn("font-semibold text-sm truncate", !isSelected && "ml-7")}>
-                                    {v.name}
-                                  </span>
-                                </div>
-
-                                <span className="hidden sm:block text-xs text-muted-foreground truncate">
-                                  {v.licensePlate}
+                              <div className="flex items-center gap-2">
+                                {isSelected && (
+                                  <div className="h-4 w-4 rounded-full bg-primary flex items-center justify-center shrink-0">
+                                    <Check className="h-2.5 w-2.5 text-primary-foreground" />
+                                  </div>
+                                )}
+                                <span className={cn("font-semibold text-xs truncate", !isSelected && "ml-6")}>
+                                  {v.name}
                                 </span>
-
-                                <span className="hidden sm:flex items-center gap-1 text-xs">
+                                <span className="text-[10px] text-muted-foreground">{v.licensePlate}</span>
+                                <span className="flex items-center gap-0.5 text-[10px] ml-auto">
                                   {v.vehicleType === "electric" ? (
-                                    <span className="flex items-center gap-1 text-emerald-400">
-                                      <Zap className="h-3 w-3" /> EV
+                                    <span className="flex items-center gap-0.5 text-emerald-400">
+                                      <Zap className="h-2.5 w-2.5" /> EV
                                     </span>
                                   ) : (
-                                    <span className="flex items-center gap-1 text-muted-foreground">
-                                      <Fuel className="h-3 w-3" /> {t("createRoute.fossil")}
+                                    <span className="flex items-center gap-0.5 text-muted-foreground">
+                                      <Fuel className="h-2.5 w-2.5" />
                                     </span>
                                   )}
                                 </span>
-
-                                <span className="hidden sm:block text-xs text-muted-foreground">
-                                  {v.capacityKg}kg / {v.capacityVolume}m³
-                                </span>
-
-                                <div className="hidden sm:flex items-center gap-2 min-w-0">
-                                  {currentDriverForRow ? (
-                                    <div className="flex items-center gap-2 min-w-0">
-                                      <User className="h-3 w-3 text-violet-400 shrink-0" />
-                                      <span className="text-xs truncate">{currentDriverForRow.name}</span>
-                                      {currentDriverForRow.phone && (
-                                        <span className="flex items-center gap-1 text-[11px] text-muted-foreground shrink-0">
-                                          <Phone className="h-2.5 w-2.5" />
-                                          {currentDriverForRow.phone}
-                                        </span>
-                                      )}
-                                    </div>
-                                  ) : (
-                                    <span className="text-xs text-muted-foreground italic">{t("drivers.noDriver")}</span>
-                                  )}
-                                </div>
-
-                                <div className="hidden sm:block">
-                                  {isSelected && activeDrivers.length > 0 && (
-                                    <span
-                                      role="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setDriverDropdownOpen(driverDropdownOpen === v.id ? null : v.id);
-                                      }}
-                                      className="inline-flex items-center justify-center h-7 w-7 rounded-lg hover:bg-muted transition-colors"
-                                    >
-                                      <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-
-                              <div className="sm:hidden mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                                <span>{v.licensePlate}</span>
-                                <span className="text-[10px]">•</span>
-                                {v.vehicleType === "electric" ? (
-                                  <span className="flex items-center gap-1 text-emerald-400">
-                                    <Zap className="h-3 w-3" /> EV
-                                  </span>
-                                ) : (
-                                  <span className="flex items-center gap-1">
-                                    <Fuel className="h-3 w-3" /> {t("createRoute.fossil")}
-                                  </span>
-                                )}
-                                <span className="text-[10px]">•</span>
-                                <span>{v.capacityKg}kg / {v.capacityVolume}m³</span>
-                              </div>
-
-                              <div className="sm:hidden mt-1 flex items-center gap-2 text-xs">
-                                {currentDriverForRow ? (
-                                  <>
-                                    <User className="h-3 w-3 text-violet-400 shrink-0" />
-                                    <span className="truncate">{currentDriverForRow.name}</span>
-                                    {currentDriverForRow.phone && (
-                                      <span className="flex items-center gap-1 text-muted-foreground">
-                                        <Phone className="h-2.5 w-2.5" />
-                                        {currentDriverForRow.phone}
-                                      </span>
-                                    )}
-                                  </>
-                                ) : (
-                                  <span className="text-muted-foreground italic">{t("drivers.noDriver")}</span>
-                                )}
                                 {isSelected && activeDrivers.length > 0 && (
                                   <span
                                     role="button"
@@ -485,31 +434,43 @@ export default function CreateRoute() {
                                       e.stopPropagation();
                                       setDriverDropdownOpen(driverDropdownOpen === v.id ? null : v.id);
                                     }}
-                                    className="ml-auto inline-flex items-center gap-1 text-[11px] text-primary"
+                                    className="inline-flex items-center justify-center h-6 w-6 rounded hover:bg-muted transition-colors"
                                   >
-                                    {t("createRoute.changeDriver")}
-                                    <ChevronDown className="h-3 w-3" />
+                                    <ChevronDown className="h-3 w-3 text-muted-foreground" />
                                   </span>
                                 )}
                               </div>
 
+                              {currentDriverForRow && (
+                                <div className="flex items-center gap-1.5 mt-1 ml-6 text-[10px] text-muted-foreground">
+                                  <User className="h-2.5 w-2.5 text-violet-400" />
+                                  <span>{currentDriverForRow.name}</span>
+                                  {currentDriverForRow.phone && (
+                                    <span className="flex items-center gap-0.5">
+                                      <Phone className="h-2 w-2" />
+                                      {currentDriverForRow.phone}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+
                               {willReassign && (
-                                <p className="text-[10px] text-amber-400 mt-1.5 flex items-center gap-1">
-                                  <AlertTriangle className="h-3 w-3" />
+                                <p className="text-[9px] text-amber-400 mt-1 ml-6 flex items-center gap-1">
+                                  <AlertTriangle className="h-2.5 w-2.5" />
                                   {t("createRoute.driverReassignNote")}
                                 </p>
                               )}
                             </button>
 
                             {driverDropdownOpen === v.id && isSelected && (
-                              <div className="absolute z-20 right-0 sm:right-2 top-full mt-1 w-64 bg-popover border border-border rounded-xl shadow-xl p-1 max-h-48 overflow-y-auto">
+                              <div className="absolute z-20 right-0 top-full mt-1 w-56 bg-popover border border-border rounded-lg shadow-xl p-1 max-h-40 overflow-y-auto">
                                 <button
                                   onClick={() => {
                                     setSelectedDriverId(null);
                                     setDriverDropdownOpen(null);
                                   }}
                                   className={cn(
-                                    "w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-muted transition-colors",
+                                    "w-full text-left px-3 py-1.5 rounded text-xs hover:bg-muted transition-colors",
                                     !selectedDriverId && "bg-muted"
                                   )}
                                 >
@@ -523,21 +484,21 @@ export default function CreateRoute() {
                                       setDriverDropdownOpen(null);
                                     }}
                                     className={cn(
-                                      "w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-muted transition-colors",
+                                      "w-full text-left px-3 py-1.5 rounded text-xs hover:bg-muted transition-colors",
                                       selectedDriverId === d.id && "bg-muted"
                                     )}
                                   >
                                     <div className="font-medium">{d.name}</div>
-                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
                                       {d.phone && (
-                                        <span className="flex items-center gap-1">
-                                          <Phone className="h-2.5 w-2.5" />
+                                        <span className="flex items-center gap-0.5">
+                                          <Phone className="h-2 w-2" />
                                           {d.phone}
                                         </span>
                                       )}
                                       {d.vehicleId && vehiclesById.get(d.vehicleId) && (
-                                        <span className="flex items-center gap-1 px-1 py-0.5 rounded bg-muted/50 text-[10px]">
-                                          <Truck className="h-2.5 w-2.5" />
+                                        <span className="flex items-center gap-0.5 px-1 py-0.5 rounded bg-muted/50">
+                                          <Truck className="h-2 w-2" />
                                           {vehiclesById.get(d.vehicleId)}
                                         </span>
                                       )}
@@ -555,19 +516,19 @@ export default function CreateRoute() {
               )}
             </section>
 
-            <section className="bg-card border border-border rounded-2xl p-6 space-y-4">
+            <section className="bg-card border border-border rounded-xl p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-xl bg-amber-500/10 flex items-center justify-center">
-                    <MapPin className="h-5 w-5 text-amber-400" />
+                <div className="flex items-center gap-2">
+                  <div className="h-7 w-7 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                    <MapPin className="h-4 w-4 text-amber-400" />
                   </div>
-                  <h2 className="font-bold text-lg">{t("createRoute.selectStops")}</h2>
+                  <h2 className="font-bold text-sm">{t("createRoute.selectStops")}</h2>
                 </div>
                 {sortedStops.length > 0 && (
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="text-xs"
+                    className="text-[10px] h-7"
                     onClick={selectAllStops}
                   >
                     {selectedStopIds.size === sortedStops.length && sortedStops.length > 0
@@ -582,13 +543,13 @@ export default function CreateRoute() {
                   {Array.from({ length: 3 }).map((_, i) => (
                     <div
                       key={i}
-                      className="h-16 rounded-xl border-2 border-border bg-muted/20 animate-pulse"
+                      className="h-12 rounded-lg border border-border bg-muted/20 animate-pulse"
                     />
                   ))}
                 </div>
               ) : errorStops ? (
-                <div className="text-sm text-destructive py-6 text-center space-y-2">
-                  <AlertTriangle className="h-8 w-8 mx-auto opacity-60" />
+                <div className="text-xs text-destructive py-4 text-center space-y-2">
+                  <AlertTriangle className="h-6 w-6 mx-auto opacity-60" />
                   <p>{t("createRoute.loadError")}</p>
                   <Button variant="outline" size="sm" className="text-xs gap-1" onClick={() => refetchStops()}>
                     <RefreshCw className="h-3 w-3" />
@@ -596,8 +557,8 @@ export default function CreateRoute() {
                   </Button>
                 </div>
               ) : sortedStops.length === 0 ? (
-                <div className="text-sm text-muted-foreground py-6 text-center space-y-2">
-                  <MapPin className="h-8 w-8 mx-auto opacity-30" />
+                <div className="text-xs text-muted-foreground py-4 text-center space-y-2">
+                  <MapPin className="h-6 w-6 mx-auto opacity-30" />
                   <p>{allStops && allStops.length > 0 ? t("createRoute.allStopsCompleted") : t("createRoute.noStopsAnywhere")}</p>
                   <Link href="/stops">
                     <Button variant="link" size="sm" className="text-xs gap-1">
@@ -607,7 +568,7 @@ export default function CreateRoute() {
                   </Link>
                 </div>
               ) : (
-                <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+                <div className="space-y-1 max-h-[320px] overflow-y-auto pr-1">
                   {sortedStops.map((stop) => {
                     const isAssigned = !!stop.routeId;
                     const routeName = isAssigned
@@ -620,7 +581,7 @@ export default function CreateRoute() {
                         key={stop.id}
                         onClick={() => toggleStop(stop.id)}
                         className={cn(
-                          "w-full text-left p-3 rounded-xl border-2 transition-all duration-150 flex items-center gap-3",
+                          "w-full text-left p-2.5 rounded-lg border transition-all duration-150 flex items-center gap-2",
                           isSelected
                             ? "border-amber-500 bg-amber-500/5"
                             : isAssigned
@@ -630,30 +591,30 @@ export default function CreateRoute() {
                       >
                         <div
                           className={cn(
-                            "h-5 w-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors",
+                            "h-4 w-4 rounded border flex items-center justify-center shrink-0 transition-colors",
                             isSelected
                               ? "border-amber-500 bg-amber-500"
                               : "border-muted-foreground/40"
                           )}
                         >
                           {isSelected && (
-                            <Check className="h-3 w-3 text-white" />
+                            <Check className="h-2.5 w-2.5 text-white" />
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="text-sm font-medium truncate">{stop.address}</p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-xs font-medium truncate">{stop.address}</p>
                             {isAssigned && (
-                              <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground flex items-center gap-1">
-                                <RouteIcon className="h-2.5 w-2.5" />
+                              <span className="shrink-0 text-[9px] px-1 py-0.5 rounded bg-muted text-muted-foreground flex items-center gap-0.5">
+                                <RouteIcon className="h-2 w-2" />
                                 {routeName}
                               </span>
                             )}
                           </div>
-                          <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                          <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
                             {stop.timeWindowStart && (
-                              <span className="flex items-center gap-1">
-                                <Clock className="h-3 w-3" />
+                              <span className="flex items-center gap-0.5">
+                                <Clock className="h-2.5 w-2.5" />
                                 {new Date(stop.timeWindowStart).toLocaleTimeString([], {
                                   hour: "2-digit",
                                   minute: "2-digit",
@@ -666,17 +627,16 @@ export default function CreateRoute() {
                               </span>
                             )}
                             {stop.weightKg && (
-                              <span className="flex items-center gap-1">
-                                <Weight className="h-3 w-3" />
+                              <span className="flex items-center gap-0.5">
+                                <Weight className="h-2.5 w-2.5" />
                                 {stop.weightKg}kg
                               </span>
                             )}
                             {stop.volumeM3 && <span>{stop.volumeM3}m³</span>}
-                            {stop.serviceDurationMin && <span>{stop.serviceDurationMin} min</span>}
                           </div>
                           {isAssigned && isSelected && (
-                            <p className="text-[10px] text-amber-400 mt-1 flex items-center gap-1">
-                              <AlertTriangle className="h-3 w-3" />
+                            <p className="text-[9px] text-amber-400 mt-0.5 flex items-center gap-0.5">
+                              <AlertTriangle className="h-2.5 w-2.5" />
                               {t("createRoute.stopReassignWarning")}
                             </p>
                           )}
@@ -687,93 +647,130 @@ export default function CreateRoute() {
                 </div>
               )}
             </section>
-          </div>
 
-          <div className="lg:sticky lg:top-20 h-fit space-y-4">
-            <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
-              <h3 className="font-bold text-lg">{t("createRoute.summary")}</h3>
+            <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+              <h3 className="font-bold text-sm">{t("createRoute.summary")}</h3>
 
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <SummaryRow
-                  icon={<RouteIcon className="h-4 w-4" />}
+                  icon={<RouteIcon className="h-3.5 w-3.5" />}
                   label={t("createRoute.routeName")}
                   value={routeName || "—"}
                 />
                 <SummaryRow
-                  icon={<Truck className="h-4 w-4" />}
+                  icon={<Truck className="h-3.5 w-3.5" />}
                   label={t("createRoute.vehicle")}
                   value={selectedVehicle?.name || "—"}
                 />
                 <SummaryRow
-                  icon={<User className="h-4 w-4" />}
+                  icon={<User className="h-3.5 w-3.5" />}
                   label={t("createRoute.driver")}
                   value={selectedDriver?.name || "—"}
                 />
                 <SummaryRow
-                  icon={<MapPin className="h-4 w-4" />}
+                  icon={<MapPin className="h-3.5 w-3.5" />}
                   label={t("createRoute.stops")}
                   value={`${selectedStopIds.size} ${t("common.stops")}`}
                 />
                 <SummaryRow
-                  icon={<Package className="h-4 w-4" />}
+                  icon={<Package className="h-3.5 w-3.5" />}
                   label={t("createRoute.load")}
                   value={`${totalWeight.toFixed(0)} kg / ${totalVolume.toFixed(1)} m³`}
                 />
               </div>
 
               {reassignCount > 0 && (
-                <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-medium flex items-start gap-2">
-                  <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-medium flex items-start gap-1.5">
+                  <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />
                   {t("createRoute.reassignWarning", { count: reassignCount })}
                 </div>
               )}
 
               {capacityWarning && (
-                <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-xs font-medium">
+                <div className="p-2 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-[10px] font-medium">
                   {t("createRoute.capacityWarning")}
                 </div>
               )}
-            </div>
 
-            {!canSave && !saving && (
-              <div className="text-xs text-muted-foreground space-y-1">
-                {routeName.trim() === "" && (
-                  <p className="flex items-center gap-1.5">
-                    <span className="text-amber-500">●</span> {t("createRoute.missingName")}
-                  </p>
-                )}
-                {!selectedVehicleId && (
-                  <p className="flex items-center gap-1.5">
-                    <span className="text-amber-500">●</span> {t("createRoute.missingVehicle")}
-                  </p>
-                )}
-                {selectedStopIds.size === 0 && (
-                  <p className="flex items-center gap-1.5">
-                    <span className="text-amber-500">●</span> {t("createRoute.missingStops")}
-                  </p>
-                )}
-              </div>
-            )}
-
-            <Button
-              onClick={handleSave}
-              disabled={!canSave}
-              size="lg"
-              className={`w-full gap-2 h-12 text-base font-bold rounded-xl ${!canSave ? "opacity-50 cursor-not-allowed" : ""}`}
-            >
-              {saving ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  {t("common.saving")}
-                </>
-              ) : (
-                <>
-                  {t("createRoute.createBtn")}
-                  <ChevronRight className="h-5 w-5" />
-                </>
+              {!canSave && !saving && (
+                <div className="text-[10px] text-muted-foreground space-y-0.5">
+                  {routeName.trim() === "" && (
+                    <p className="flex items-center gap-1">
+                      <span className="text-amber-500">●</span> {t("createRoute.missingName")}
+                    </p>
+                  )}
+                  {!selectedVehicleId && (
+                    <p className="flex items-center gap-1">
+                      <span className="text-amber-500">●</span> {t("createRoute.missingVehicle")}
+                    </p>
+                  )}
+                  {selectedStopIds.size === 0 && (
+                    <p className="flex items-center gap-1">
+                      <span className="text-amber-500">●</span> {t("createRoute.missingStops")}
+                    </p>
+                  )}
+                </div>
               )}
-            </Button>
+
+              <Button
+                onClick={handleSave}
+                disabled={!canSave}
+                size="default"
+                className={`w-full gap-2 h-10 text-sm font-bold rounded-lg ${!canSave ? "opacity-50 cursor-not-allowed" : ""}`}
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {t("common.saving")}
+                  </>
+                ) : (
+                  <>
+                    {t("createRoute.createBtn")}
+                    <ChevronRight className="h-4 w-4" />
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
+        </div>
+
+        <div className="flex-1 relative">
+          <MapContainer
+            center={[59.33, 18.07]}
+            zoom={11}
+            className="h-full w-full"
+            zoomControl={false}
+          >
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
+              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            />
+            {mapStops.length > 0 && <FitBounds stops={mapStops} />}
+            {mapStops.map((stop) => (
+              <Marker
+                key={stop.id}
+                position={[stop.latitude, stop.longitude]}
+                icon={createStopIcon(selectedStopIds.has(stop.id))}
+                eventHandlers={{
+                  click: () => toggleStop(stop.id),
+                }}
+              >
+                <Popup className="dark-popup">
+                  <div className="text-xs">
+                    <p className="font-bold">{stop.address}</p>
+                    {stop.notes && <p className="text-muted-foreground">{stop.notes}</p>}
+                    {stop.weightKg && <p>{stop.weightKg} kg</p>}
+                  </div>
+                </Popup>
+              </Marker>
+            ))}
+          </MapContainer>
+
+          {selectedStopIds.size > 0 && (
+            <div className="absolute top-3 right-3 bg-card/90 backdrop-blur border border-border rounded-lg px-3 py-2 text-xs font-medium shadow-lg">
+              {selectedStopIds.size} {t("common.stops")} {t("common.selected")}
+            </div>
+          )}
         </div>
       </div>
     </AppLayout>
@@ -790,11 +787,11 @@ function SummaryRow({
   value: string;
 }) {
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-2">
       <div className="text-muted-foreground shrink-0">{icon}</div>
       <div className="flex-1 min-w-0">
-        <p className="text-[11px] text-muted-foreground uppercase tracking-wider">{label}</p>
-        <p className="text-sm font-medium truncate">{value}</p>
+        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{label}</p>
+        <p className="text-xs font-medium truncate">{value}</p>
       </div>
     </div>
   );

@@ -146,7 +146,9 @@
     "saveDriver": "Save Driver",
     "statusDescription": "Active drivers can be assigned to routes",
     "assignDriver": "Assign driver",
-    "noDriver": "No driver"
+    "noDriver": "No driver",
+    "assignedDriver": "Assigned driver",
+    "viewStats": "Statistics"
   },
   "notifications": {
     "title": "Notifications",
@@ -242,7 +244,8 @@
     "capacity": "Capacity",
     "rangeBattery": "Range/Battery",
     "nameRequired": "Name is required",
-    "licensePlateRequired": "License plate is required"
+    "licensePlateRequired": "License plate is required",
+    "batteryStatus": "Battery Status"
   },
   "stops": {
     "title": "Delivery Stops",
@@ -300,7 +303,8 @@
     "statusInProgress": "In Progress",
     "statusCompleted": "Completed",
     "statusCancelled": "Cancelled",
-    "createRoute": "Create Route"
+    "createRoute": "Create Route",
+    "selectRouteToPreview": "Click a route to preview stops"
   },
   "createRoute": {
     "title": "Create Route",

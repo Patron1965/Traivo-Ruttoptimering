@@ -3,9 +3,9 @@ import { useDrivers, useCreateDriver, useUpdateDriver, useDeleteDriver } from "@
 import { useVehicles } from "@/hooks/use-vehicles";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2, Edit2, User, Phone, Mail, Truck, ToggleLeft, BarChart3 } from "lucide-react";
+import { Plus, Trash2, Edit2, User, Phone, Mail, Truck, ToggleLeft, BarChart3, X } from "lucide-react";
 import { Link } from "wouter";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +17,7 @@ import * as z from "zod";
 import { ORG_ID } from "@/lib/constants";
 import { type Driver } from "@workspace/api-client-react";
 import { useTranslation } from "react-i18next";
+import { cn } from "@/lib/utils";
 
 const driverSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -33,8 +34,11 @@ export default function Drivers() {
   const { data: vehicles } = useVehicles();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
+  const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
   const deleteMutation = useDeleteDriver();
   const { t } = useTranslation();
+
+  const selectedDriver = drivers?.find((d) => d.id === selectedDriverId);
 
   if (isLoading) return <AppLayout><LoadingState message={t("drivers.loadingDrivers")} /></AppLayout>;
 
@@ -46,137 +50,236 @@ export default function Drivers() {
 
   return (
     <AppLayout>
-      <div className="p-6 md:p-8 max-w-7xl mx-auto animate-in fade-in">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">{t("drivers.title")}</h1>
-            <p className="text-muted-foreground mt-1">{t("drivers.subtitle")}</p>
-          </div>
+      <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden">
+        <div className="flex-1 overflow-y-auto">
+          <div className="p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h1 className="text-2xl font-bold text-foreground">{t("drivers.title")}</h1>
+                <p className="text-muted-foreground text-sm mt-0.5">{t("drivers.subtitle")}</p>
+              </div>
 
-          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-primary/25">
-                <Plus className="h-4 w-4" /> {t("drivers.addDriver")}
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
-              <DialogHeader>
-                <DialogTitle>{t("drivers.addNewDriver")}</DialogTitle>
-              </DialogHeader>
-              <DriverForm vehicles={vehicles || []} onSuccess={() => setIsCreateOpen(false)} />
-            </DialogContent>
-          </Dialog>
-        </div>
+              <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="gap-1.5 text-xs">
+                    <Plus className="h-3.5 w-3.5" /> {t("drivers.addDriver")}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[500px]">
+                  <DialogHeader>
+                    <DialogTitle>{t("drivers.addNewDriver")}</DialogTitle>
+                  </DialogHeader>
+                  <DriverForm vehicles={vehicles || []} onSuccess={() => setIsCreateOpen(false)} />
+                </DialogContent>
+              </Dialog>
+            </div>
 
-        <div className="bg-card rounded-2xl border border-card-border overflow-hidden shadow-xl shadow-black/5">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-muted/50 border-b border-border">
-                  <th className="p-4 font-semibold text-muted-foreground text-sm">{t("drivers.driver")}</th>
-                  <th className="p-4 font-semibold text-muted-foreground text-sm">{t("drivers.contact")}</th>
-                  <th className="p-4 font-semibold text-muted-foreground text-sm">{t("drivers.assignedVehicle")}</th>
-                  <th className="p-4 font-semibold text-muted-foreground text-sm">{t("common.status")}</th>
-                  <th className="p-4 font-semibold text-muted-foreground text-sm text-right">{t("common.actions")}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {drivers?.map((d) => (
-                  <tr key={d.id} className="hover:bg-muted/30 transition-colors">
-                    <td className="p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                          <User className="h-5 w-5 text-primary" />
-                        </div>
-                        <Link href={`/drivers/${d.id}`} className="font-bold text-foreground hover:text-primary transition-colors">{d.name}</Link>
-                      </div>
-                    </td>
-                    <td className="p-4 text-sm">
-                      <div className="space-y-1">
-                        {d.phone && (
-                          <div className="flex items-center gap-1.5 text-muted-foreground">
-                            <Phone className="h-3 w-3" />
-                            {d.phone}
+            <div className="bg-card rounded-xl border border-border overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-muted/50 border-b border-border">
+                      <th className="p-3 font-semibold text-muted-foreground text-xs">{t("drivers.driver")}</th>
+                      <th className="p-3 font-semibold text-muted-foreground text-xs">{t("drivers.contact")}</th>
+                      <th className="p-3 font-semibold text-muted-foreground text-xs">{t("drivers.assignedVehicle")}</th>
+                      <th className="p-3 font-semibold text-muted-foreground text-xs">{t("common.status")}</th>
+                      <th className="p-3 font-semibold text-muted-foreground text-xs text-right">{t("common.actions")}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {drivers?.map((d) => (
+                      <tr
+                        key={d.id}
+                        className={cn(
+                          "transition-colors cursor-pointer",
+                          selectedDriverId === d.id ? "bg-primary/5" : "hover:bg-muted/30"
+                        )}
+                        onClick={() => setSelectedDriverId(selectedDriverId === d.id ? null : d.id)}
+                      >
+                        <td className="p-3">
+                          <div className="flex items-center gap-2">
+                            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                              <User className="h-4 w-4 text-primary" />
+                            </div>
+                            <Link
+                              href={`/drivers/${d.id}`}
+                              className="font-bold text-sm text-foreground hover:text-primary transition-colors"
+                              onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                            >
+                              {d.name}
+                            </Link>
                           </div>
-                        )}
-                        {d.email && (
-                          <div className="flex items-center gap-1.5 text-muted-foreground">
-                            <Mail className="h-3 w-3" />
-                            {d.email}
+                        </td>
+                        <td className="p-3 text-xs">
+                          <div className="space-y-0.5">
+                            {d.phone && (
+                              <div className="flex items-center gap-1 text-muted-foreground">
+                                <Phone className="h-3 w-3" />
+                                {d.phone}
+                              </div>
+                            )}
+                            {d.email && (
+                              <div className="flex items-center gap-1 text-muted-foreground">
+                                <Mail className="h-3 w-3" />
+                                {d.email}
+                              </div>
+                            )}
+                            {!d.phone && !d.email && (
+                              <span className="text-muted-foreground italic">{t("drivers.noContactInfo")}</span>
+                            )}
                           </div>
-                        )}
-                        {!d.phone && !d.email && (
-                          <span className="text-muted-foreground italic">{t("drivers.noContactInfo")}</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      {d.vehicleId ? (
-                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary">
-                          <Truck className="h-3 w-3" />
-                          {getVehicleName(d.vehicleId) || "Unknown"}
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground italic text-sm">{t("common.unassigned")}</span>
-                      )}
-                    </td>
-                    <td className="p-4">
-                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
-                        d.isActive
-                          ? "bg-emerald-500/10 text-emerald-500"
-                          : "bg-muted text-muted-foreground"
-                      }`}>
-                        {d.isActive ? t("drivers.active") : t("drivers.inactive")}
-                      </span>
-                    </td>
-                    <td className="p-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="hover:text-primary hover:bg-primary/10"
-                          onClick={() => setEditingDriver(d)}
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => {
-                            if (confirm(t("drivers.deleteConfirm"))) deleteMutation.mutate({ id: d.id, params: { organizationId: ORG_ID } });
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {(!drivers || drivers.length === 0) && (
-                  <tr>
-                    <td colSpan={5} className="p-8 text-center text-muted-foreground">{t("drivers.noDrivers")}</td>
-                  </tr>
+                        </td>
+                        <td className="p-3">
+                          {d.vehicleId ? (
+                            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary">
+                              <Truck className="h-3 w-3" />
+                              {getVehicleName(d.vehicleId) || "Unknown"}
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground italic text-xs">{t("common.unassigned")}</span>
+                          )}
+                        </td>
+                        <td className="p-3">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                            d.isActive
+                              ? "bg-emerald-500/10 text-emerald-500"
+                              : "bg-muted text-muted-foreground"
+                          }`}>
+                            {d.isActive ? t("drivers.active") : t("drivers.inactive")}
+                          </span>
+                        </td>
+                        <td className="p-3 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 hover:text-primary hover:bg-primary/10"
+                              onClick={(e) => { e.stopPropagation(); setEditingDriver(d); }}
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 hover:text-destructive hover:bg-destructive/10"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (confirm(t("drivers.deleteConfirm"))) deleteMutation.mutate({ id: d.id, params: { organizationId: ORG_ID } });
+                              }}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {(!drivers || drivers.length === 0) && (
+                      <tr>
+                        <td colSpan={5} className="p-8 text-center text-muted-foreground">{t("drivers.noDrivers")}</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <Dialog open={!!editingDriver} onOpenChange={(open) => !open && setEditingDriver(null)}>
+              <DialogContent className="sm:max-w-[500px]">
+                <DialogHeader>
+                  <DialogTitle>{t("drivers.editDriver")}</DialogTitle>
+                </DialogHeader>
+                {editingDriver && (
+                  <DriverForm
+                    initialData={editingDriver}
+                    vehicles={vehicles || []}
+                    onSuccess={() => setEditingDriver(null)}
+                  />
                 )}
-              </tbody>
-            </table>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
 
-        <Dialog open={!!editingDriver} onOpenChange={(open) => !open && setEditingDriver(null)}>
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle>{t("drivers.editDriver")}</DialogTitle>
-            </DialogHeader>
-            {editingDriver && (
-              <DriverForm
-                initialData={editingDriver}
-                vehicles={vehicles || []}
-                onSuccess={() => setEditingDriver(null)}
-              />
-            )}
-          </DialogContent>
-        </Dialog>
+        <div className={cn(
+          "shrink-0 border-l border-border bg-card overflow-y-auto transition-all duration-200",
+          selectedDriver ? "w-[380px]" : "w-0"
+        )}>
+          {selectedDriver && (
+            <div className="p-5 space-y-5">
+              <div className="flex items-center justify-between">
+                <h2 className="font-bold text-lg">{selectedDriver.name}</h2>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setSelectedDriverId(null)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 p-4 rounded-xl bg-muted/30 border border-border">
+                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                    <User className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-semibold">{selectedDriver.name}</p>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold mt-1 ${
+                      selectedDriver.isActive
+                        ? "bg-emerald-500/10 text-emerald-500"
+                        : "bg-muted text-muted-foreground"
+                    }`}>
+                      {selectedDriver.isActive ? t("drivers.active") : t("drivers.inactive")}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t("drivers.contact")}</p>
+                  {selectedDriver.phone && (
+                    <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/20 border border-border">
+                      <Phone className="h-4 w-4 text-blue-400" />
+                      <span className="text-sm">{selectedDriver.phone}</span>
+                    </div>
+                  )}
+                  {selectedDriver.email && (
+                    <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/20 border border-border">
+                      <Mail className="h-4 w-4 text-emerald-400" />
+                      <span className="text-sm">{selectedDriver.email}</span>
+                    </div>
+                  )}
+                  {!selectedDriver.phone && !selectedDriver.email && (
+                    <p className="text-xs text-muted-foreground italic">{t("drivers.noContactInfo")}</p>
+                  )}
+                </div>
+
+                {selectedDriver.vehicleId && (
+                  <div className="p-3 rounded-xl bg-blue-500/5 border border-blue-500/20 space-y-1">
+                    <p className="text-xs font-medium text-blue-400">{t("drivers.assignedVehicle")}</p>
+                    <div className="flex items-center gap-2">
+                      <Truck className="h-5 w-5 text-blue-400" />
+                      <p className="text-sm font-semibold">{getVehicleName(selectedDriver.vehicleId)}</p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex gap-2 pt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 gap-1.5 text-xs"
+                    onClick={() => setEditingDriver(selectedDriver)}
+                  >
+                    <Edit2 className="h-3 w-3" />
+                    {t("common.edit") || "Redigera"}
+                  </Button>
+                  <Link href={`/drivers/${selectedDriver.id}`} className="flex-1">
+                    <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs">
+                      <BarChart3 className="h-3 w-3" />
+                      {t("drivers.viewStats") || "Statistik"}
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </AppLayout>
   );
