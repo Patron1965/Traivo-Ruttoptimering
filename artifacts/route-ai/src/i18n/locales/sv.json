@@ -104,9 +104,7 @@
     "routeHistory": "Rutthistorik",
     "driverView": "Förarvy",
     "analytics": "Analys",
-    "webhooks": "Webhooks",
-    "shopify": "Shopify",
-    "billing": "Fakturering",
+    "settings": "Inställningar",
     "orgName": "Stockholm Logistics AB"
   },
   "dashboard": {
@@ -893,6 +891,15 @@
       "flow2": "Dispatcher optimerar rutter i Traivo Route",
       "flow3": "Förare utför leveranser och statusar uppdateras",
       "flow4": "Traivo skickar statusuppdateringar via webhooks tillbaka till ert system"
+    }
+  },
+  "settings": {
+    "title": "Inställningar",
+    "tabs": {
+      "api": "API-koppling",
+      "webhooks": "Webhooks",
+      "shopify": "Shopify",
+      "billing": "Fakturering"
     }
   }
 }

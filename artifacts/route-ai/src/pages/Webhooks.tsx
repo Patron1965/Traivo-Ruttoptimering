@@ -304,7 +304,7 @@ function WebhookCard({ hook, onRefresh }: { hook: WebhookData; onRefresh: () => 
   );
 }
 
-export default function WebhooksPage() {
+export function WebhooksContent() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
@@ -321,58 +321,66 @@ export default function WebhooksPage() {
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["webhooks"] });
 
   return (
-    <AppLayout>
-      <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight flex items-center gap-3">
-              <Webhook className="h-7 w-7 text-primary" />
-              {t("webhooks.title")}
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">{t("webhooks.subtitle")}</p>
-          </div>
-          {!showCreate && (
-            <Button onClick={() => setShowCreate(true)} className="gap-2">
-              <Plus className="h-4 w-4" />
-              {t("webhooks.addWebhook")}
-            </Button>
-          )}
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-3">
+            <Webhook className="h-7 w-7 text-primary" />
+            {t("webhooks.title")}
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">{t("webhooks.subtitle")}</p>
         </div>
+        {!showCreate && (
+          <Button onClick={() => setShowCreate(true)} className="gap-2">
+            <Plus className="h-4 w-4" />
+            {t("webhooks.addWebhook")}
+          </Button>
+        )}
+      </div>
 
-        <div className="p-4 rounded-xl border border-border bg-card/50">
-          <div className="flex items-start gap-3">
-            <Zap className="h-5 w-5 text-amber-400 mt-0.5" />
-            <div>
-              <h3 className="font-semibold text-sm">{t("webhooks.zapierTitle")}</h3>
-              <p className="text-xs text-muted-foreground mt-1">{t("webhooks.zapierDesc")}</p>
-              <div className="mt-2 text-xs text-muted-foreground space-y-1">
-                <p>1. {t("webhooks.zapierStep1")}</p>
-                <p>2. {t("webhooks.zapierStep2")}</p>
-                <p>3. {t("webhooks.zapierStep3")}</p>
-              </div>
+      <div className="p-4 rounded-xl border border-border bg-card/50">
+        <div className="flex items-start gap-3">
+          <Zap className="h-5 w-5 text-amber-400 mt-0.5" />
+          <div>
+            <h3 className="font-semibold text-sm">{t("webhooks.zapierTitle")}</h3>
+            <p className="text-xs text-muted-foreground mt-1">{t("webhooks.zapierDesc")}</p>
+            <div className="mt-2 text-xs text-muted-foreground space-y-1">
+              <p>1. {t("webhooks.zapierStep1")}</p>
+              <p>2. {t("webhooks.zapierStep2")}</p>
+              <p>3. {t("webhooks.zapierStep3")}</p>
             </div>
           </div>
         </div>
+      </div>
 
-        {showCreate && (
-          <CreateWebhookForm onClose={() => setShowCreate(false)} onCreated={refresh} />
-        )}
+      {showCreate && (
+        <CreateWebhookForm onClose={() => setShowCreate(false)} onCreated={refresh} />
+      )}
 
-        {isLoading ? (
-          <LoadingState message={t("common.loading")} />
-        ) : hooks && hooks.length > 0 ? (
-          <div className="space-y-3">
-            {hooks.map((hook) => (
-              <WebhookCard key={hook.id} hook={hook} onRefresh={refresh} />
-            ))}
-          </div>
-        ) : !showCreate ? (
-          <div className="text-center py-16">
-            <Globe className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
-            <h3 className="font-semibold text-lg">{t("webhooks.empty")}</h3>
-            <p className="text-sm text-muted-foreground mt-1">{t("webhooks.emptyDesc")}</p>
-          </div>
-        ) : null}
+      {isLoading ? (
+        <LoadingState message={t("common.loading")} />
+      ) : hooks && hooks.length > 0 ? (
+        <div className="space-y-3">
+          {hooks.map((hook) => (
+            <WebhookCard key={hook.id} hook={hook} onRefresh={refresh} />
+          ))}
+        </div>
+      ) : !showCreate ? (
+        <div className="text-center py-16">
+          <Globe className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
+          <h3 className="font-semibold text-lg">{t("webhooks.empty")}</h3>
+          <p className="text-sm text-muted-foreground mt-1">{t("webhooks.emptyDesc")}</p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+export default function WebhooksPage() {
+  return (
+    <AppLayout>
+      <div className="p-6">
+        <WebhooksContent />
       </div>
     </AppLayout>
   );

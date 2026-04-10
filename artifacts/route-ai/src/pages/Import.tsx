@@ -21,9 +21,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Info,
-  Copy,
   FileDown,
-  Plug,
   GripVertical,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -153,7 +151,7 @@ const ALIAS_MAP: Record<string, string> = {
   description: "notes",
 };
 
-type Tab = "fields" | "upload" | "api";
+type Tab = "fields" | "upload";
 
 type Step = "upload" | "mapping" | "preview";
 
@@ -190,18 +188,10 @@ function parseCsvLine(line: string, delimiter: string): string[] {
 export default function Import() {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<Tab>("fields");
-  const [copiedSnippet, setCopiedSnippet] = useState<string | null>(null);
-
-  const copyToClipboard = useCallback((text: string, id: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedSnippet(id);
-    setTimeout(() => setCopiedSnippet(null), 2000);
-  }, []);
 
   const tabs: { key: Tab; labelKey: string; icon: typeof FileSpreadsheet }[] = [
     { key: "fields", labelKey: "importPage.tabs.fields", icon: GripVertical },
     { key: "upload", labelKey: "importPage.tabs.upload", icon: Upload },
-    { key: "api", labelKey: "importPage.tabs.api", icon: Plug },
   ];
 
   return (
@@ -232,17 +222,8 @@ export default function Import() {
               ))}
             </div>
 
-            {activeTab === "fields" && (
-              <FieldDefinitions />
-            )}
-
-            {activeTab === "upload" && (
-              <FileUploadSection />
-            )}
-
-            {activeTab === "api" && (
-              <ApiDocumentation copiedSnippet={copiedSnippet} onCopy={copyToClipboard} />
-            )}
+            {activeTab === "fields" && <FieldDefinitions />}
+            {activeTab === "upload" && <FileUploadSection />}
           </div>
         </div>
       </div>
@@ -660,207 +641,3 @@ function FileUploadSection() {
   );
 }
 
-function ApiDocumentation({
-  copiedSnippet,
-  onCopy,
-}: {
-  copiedSnippet: string | null;
-  onCopy: (text: string, id: string) => void;
-}) {
-  const { t } = useTranslation();
-
-  const importExample = `POST /api/stops/import
-Content-Type: application/json
-
-{
-  "organizationId": "${ORG_ID}",
-  "stops": [
-    {
-      "address": "Storgatan 12, Stockholm",
-      "latitude": 59.3293,
-      "longitude": 18.0686,
-      "timeWindowStart": "2026-04-10T08:00:00Z",
-      "timeWindowEnd": "2026-04-10T12:00:00Z",
-      "serviceDurationMin": 15,
-      "weightKg": 25.5,
-      "notes": "Portkod 1234"
-    }
-  ]
-}`;
-
-  const webhookExample = `POST /api/webhooks
-Content-Type: application/json
-
-{
-  "organizationId": "${ORG_ID}",
-  "url": "https://ert-system.example.com/traivo-webhook",
-  "events": [
-    "route.optimized",
-    "route.completed",
-    "stop.completed",
-    "stop.failed"
-  ],
-  "name": "ERP Webhook"
-}`;
-
-  const webhookPayload = `{
-  "event": "stop.completed",
-  "timestamp": "2026-04-10T14:32:00Z",
-  "data": {
-    "stopId": "abc-123",
-    "routeId": "route-456",
-    "address": "Storgatan 12, Stockholm",
-    "status": "completed",
-    "completedAt": "2026-04-10T14:30:00Z"
-  }
-}`;
-
-  const exportExample = `GET /api/routes/{routeId}/export
-
-Svar: CSV-fil med alla stopp i rutten
-(Referens, Adress, Koordinater, Tidsfönster, Status)`;
-
-  const listStopsExample = `GET /api/stops?organizationId=${ORG_ID}&status=completed
-
-Svar: JSON-array med alla stopp som har angiven status`;
-
-  return (
-    <div className="space-y-6">
-      <div className="p-4 rounded-xl border border-border bg-card">
-        <div className="flex items-start gap-3">
-          <Plug className="h-5 w-5 text-primary mt-0.5 shrink-0" />
-          <div>
-            <h2 className="font-semibold">{t("importPage.api.title")}</h2>
-            <p className="text-sm text-muted-foreground mt-1">{t("importPage.api.subtitle")}</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid gap-6">
-        <ApiSection
-          title={t("importPage.api.importTitle")}
-          description={t("importPage.api.importDesc")}
-          method="POST"
-          endpoint="/api/stops/import"
-          code={importExample}
-          copiedSnippet={copiedSnippet}
-          onCopy={onCopy}
-          id="import"
-        />
-
-        <ApiSection
-          title={t("importPage.api.webhookTitle")}
-          description={t("importPage.api.webhookDesc")}
-          method="POST"
-          endpoint="/api/webhooks"
-          code={webhookExample}
-          copiedSnippet={copiedSnippet}
-          onCopy={onCopy}
-          id="webhook"
-        />
-
-        <div className="rounded-xl border border-border bg-card overflow-hidden">
-          <div className="p-4 border-b border-border">
-            <h3 className="font-semibold text-sm">{t("importPage.api.webhookPayloadTitle")}</h3>
-            <p className="text-xs text-muted-foreground mt-1">{t("importPage.api.webhookPayloadDesc")}</p>
-          </div>
-          <div className="relative">
-            <pre className="p-4 text-xs font-mono overflow-auto bg-zinc-950 text-zinc-300 max-h-[300px]">{webhookPayload}</pre>
-            <button
-              onClick={() => onCopy(webhookPayload, "payload")}
-              className="absolute top-3 right-3 p-1.5 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-400 transition-colors"
-            >
-              {copiedSnippet === "payload" ? <Check className="h-3.5 w-3.5 text-green-400" /> : <Copy className="h-3.5 w-3.5" />}
-            </button>
-          </div>
-          <div className="p-4 border-t border-border">
-            <p className="text-xs text-muted-foreground">
-              <strong>{t("importPage.api.events")}:</strong> route.optimized, route.started, route.completed, route.cancelled, stop.completed, stop.failed
-            </p>
-          </div>
-        </div>
-
-        <ApiSection
-          title={t("importPage.api.exportTitle")}
-          description={t("importPage.api.exportDesc")}
-          method="GET"
-          endpoint="/api/routes/{id}/export"
-          code={exportExample}
-          copiedSnippet={copiedSnippet}
-          onCopy={onCopy}
-          id="export"
-        />
-
-        <ApiSection
-          title={t("importPage.api.listStopsTitle")}
-          description={t("importPage.api.listStopsDesc")}
-          method="GET"
-          endpoint="/api/stops"
-          code={listStopsExample}
-          copiedSnippet={copiedSnippet}
-          onCopy={onCopy}
-          id="list"
-        />
-      </div>
-
-      <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/5">
-        <div className="flex items-start gap-3">
-          <Info className="h-5 w-5 text-amber-500 mt-0.5 shrink-0" />
-          <div>
-            <h3 className="font-semibold text-sm">{t("importPage.api.flowTitle")}</h3>
-            <div className="mt-2 space-y-2 text-sm text-muted-foreground">
-              <p><strong>1.</strong> {t("importPage.api.flow1")}</p>
-              <p><strong>2.</strong> {t("importPage.api.flow2")}</p>
-              <p><strong>3.</strong> {t("importPage.api.flow3")}</p>
-              <p><strong>4.</strong> {t("importPage.api.flow4")}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ApiSection({
-  title,
-  description,
-  method,
-  endpoint,
-  code,
-  copiedSnippet,
-  onCopy,
-  id,
-}: {
-  title: string;
-  description: string;
-  method: string;
-  endpoint: string;
-  code: string;
-  copiedSnippet: string | null;
-  onCopy: (text: string, id: string) => void;
-  id: string;
-}) {
-  const methodColor = method === "POST" ? "bg-green-500/10 text-green-500" : method === "GET" ? "bg-blue-500/10 text-blue-500" : "bg-amber-500/10 text-amber-500";
-
-  return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden">
-      <div className="p-4 border-b border-border">
-        <div className="flex items-center gap-2 mb-1">
-          <span className={cn("px-2 py-0.5 rounded text-[10px] font-bold uppercase", methodColor)}>{method}</span>
-          <code className="text-xs font-mono text-muted-foreground">{endpoint}</code>
-        </div>
-        <h3 className="font-semibold text-sm mt-2">{title}</h3>
-        <p className="text-xs text-muted-foreground mt-1">{description}</p>
-      </div>
-      <div className="relative">
-        <pre className="p-4 text-xs font-mono overflow-auto bg-zinc-950 text-zinc-300 max-h-[300px]">{code}</pre>
-        <button
-          onClick={() => onCopy(code, id)}
-          className="absolute top-3 right-3 p-1.5 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-400 transition-colors"
-        >
-          {copiedSnippet === id ? <Check className="h-3.5 w-3.5 text-green-400" /> : <Copy className="h-3.5 w-3.5" />}
-        </button>
-      </div>
-    </div>
-  );
-}

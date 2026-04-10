@@ -25,6 +25,7 @@ import Webhooks from "@/pages/Webhooks";
 import ShopifyIntegration from "@/pages/ShopifyIntegration";
 import Import from "@/pages/Import";
 import Billing from "@/pages/Billing";
+import Settings from "@/pages/Settings";
 import NotFound from "@/pages/not-found";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { CommandPalette } from "@/components/CommandPalette";
@@ -69,6 +70,7 @@ function AppRouter() {
       <Route path="/shopify" component={ShopifyIntegration} />
       <Route path="/import" component={Import} />
       <Route path="/billing" component={Billing} />
+      <Route path="/settings" component={Settings} />
       <Route path="/driver-view" component={DriverView} />
       <Route path="/track/:code">
         {(params) => <TrackingPage code={params.code} />}

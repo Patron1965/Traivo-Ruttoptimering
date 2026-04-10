@@ -24,7 +24,7 @@ interface ShopifyStatus {
   importHistory?: ImportLog[];
 }
 
-function ShopifyPage() {
+export function ShopifyContent() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [shopDomain, setShopDomain] = useState("");
@@ -96,17 +96,14 @@ function ShopifyPage() {
 
   if (isLoading) {
     return (
-      <AppLayout>
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      </AppLayout>
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
     );
   }
 
   return (
-    <AppLayout>
-      <div className="max-w-4xl mx-auto p-6 space-y-6">
+    <div className="space-y-6">
         <div className="flex items-center gap-3">
           <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
             <ShoppingBag className="h-6 w-6 text-white" />
@@ -300,6 +297,15 @@ function ShopifyPage() {
             </div>
           </div>
         )}
+      </div>
+  );
+}
+
+function ShopifyPage() {
+  return (
+    <AppLayout>
+      <div className="max-w-4xl mx-auto p-6">
+        <ShopifyContent />
       </div>
     </AppLayout>
   );
