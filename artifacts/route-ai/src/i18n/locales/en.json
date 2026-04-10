@@ -313,8 +313,8 @@
     "batteryStatus": "Battery Status"
   },
   "stops": {
-    "title": "Delivery Stops",
-    "subtitle": "Manage unscheduled and pending deliveries",
+    "title": "Orders",
+    "subtitle": "Manage unscheduled and pending orders",
     "importCsv": "Import CSV",
     "addStop": "Add Stop",
     "addNewStop": "Add New Stop",

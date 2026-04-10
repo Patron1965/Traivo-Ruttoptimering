@@ -330,8 +330,8 @@
     "batteryStatus": "Batteristatus"
   },
   "stops": {
-    "title": "Leveransstopp",
-    "subtitle": "Hantera ej schemalagda och v\u00e4ntande leveranser",
+    "title": "Ordrar",
+    "subtitle": "Hantera ej schemalagda och v\u00e4ntande ordrar",
     "importCsv": "Importera CSV",
     "addStop": "L\u00e4gg till stopp",
     "addNewStop": "L\u00e4gg till nytt stopp",
