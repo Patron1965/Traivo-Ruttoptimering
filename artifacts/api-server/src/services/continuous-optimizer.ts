@@ -9,6 +9,7 @@ import {
   type OptimizationWeights,
   type CostBreakdown,
 } from "./alns";
+import { precomputeDistanceMatrix } from "./osrm";
 
 export interface ImprovementEvent {
   iteration: number;
@@ -94,6 +95,16 @@ export class ContinuousOptimizer extends EventEmitter {
     this.improvementHistory = [];
     this.lastImprovementAt = null;
 
+    const allCoords = [
+      { lat: this.depotLat, lon: this.depotLon },
+      ...this.nodes.map(n => ({ lat: n.latitude, lon: n.longitude })),
+    ];
+    const osrmOk = await precomputeDistanceMatrix(allCoords);
+    console.log(osrmOk
+      ? `ContinuousOptimizer: Using OSRM road distances for ${this.nodes.length} stops`
+      : `ContinuousOptimizer: Falling back to Haversine for ${this.nodes.length} stops`
+    );
+
     const startTime = new Date();
     this.currentSolution = buildInitialSolutionFromCW(
       this.nodes,
@@ -169,7 +180,7 @@ export class ContinuousOptimizer extends EventEmitter {
     return this.currentSolution;
   }
 
-  injectDisruption(newNodes: ALNSNode[], removedNodeIds?: string[]): void {
+  async injectDisruption(newNodes: ALNSNode[], removedNodeIds?: string[]): Promise<void> {
     if (!this.currentSolution) return;
 
     if (removedNodeIds && removedNodeIds.length > 0) {
@@ -182,6 +193,11 @@ export class ContinuousOptimizer extends EventEmitter {
     }
 
     if (newNodes.length > 0) {
+      const newCoords = newNodes.map(n => ({ lat: n.latitude, lon: n.longitude }));
+      const existingCoords = this.nodes.map(n => ({ lat: n.latitude, lon: n.longitude }));
+      const depot = { lat: this.depotLat, lon: this.depotLon };
+      await precomputeDistanceMatrix([depot, ...newCoords, ...existingCoords.slice(0, 20)]);
+
       this.currentSolution.unassigned.push(...newNodes);
       this.nodes = [
         ...this.nodes.filter(

@@ -15,6 +15,7 @@ import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-p
 import { type Stop, type Vehicle, type Route } from "@workspace/api-client-react";
 import { useTranslation } from "react-i18next";
 import { ContinuousOptimization } from "@/components/ContinuousOptimization";
+import { AlternativePlans } from "@/components/AlternativePlans";
 
 interface OptimizedStopRef {
   stopId: string;
@@ -440,6 +441,33 @@ export default function Planner() {
                   <AlertCircle className="h-4 w-4" /> {t("planner.optimizationFailed")}
                 </p>
               )}
+
+              <div className="mt-4 pt-4 border-t border-border">
+                <AlternativePlans
+                  organizationId={ORG_ID}
+                  vehicleIds={Array.from(selectedVehicleIds)}
+                  stopIds={Array.from(selectedStopIds)}
+                  depotLatitude={DEPOT_LOCATION.lat}
+                  depotLongitude={DEPOT_LOCATION.lng}
+                  onSelectPlan={(plan) => {
+                    optimizeMutation.mutate({
+                      data: {
+                        organizationId: ORG_ID,
+                        vehicleIds: Array.from(selectedVehicleIds),
+                        stopIds: Array.from(selectedStopIds),
+                        depotLatitude: DEPOT_LOCATION.lat,
+                        depotLongitude: DEPOT_LOCATION.lng,
+                        optimizationWeights: plan.weights,
+                      },
+                    }, {
+                      onSuccess: (data) => {
+                        setDndRoutes(data.routes as OptimizedRouteResult[]);
+                      }
+                    });
+                  }}
+                  disabled={optimizeMutation.isPending}
+                />
+              </div>
             </div>
           )}
         </div>

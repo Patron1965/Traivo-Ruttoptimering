@@ -420,7 +420,7 @@ async function handleDisruptionReoptimize(event: DisruptionEvent) {
         and(eq(stopsTable.id, affectedStopId), eq(stopsTable.organizationId, organizationId))
       );
       if (newStop) {
-        activeOptimizer.injectDisruption([{
+        await activeOptimizer.injectDisruption([{
           id: newStop.id,
           latitude: newStop.latitude,
           longitude: newStop.longitude,
@@ -432,9 +432,9 @@ async function handleDisruptionReoptimize(event: DisruptionEvent) {
         }]);
       }
     } else if (disruptionType === "stop_cancelled" && affectedStopId) {
-      activeOptimizer.injectDisruption([], [affectedStopId]);
+      await activeOptimizer.injectDisruption([], [affectedStopId]);
     } else if (disruptionType === "traffic_delay" || disruptionType === "vehicle_breakdown") {
-      activeOptimizer.injectDisruption([], []);
+      await activeOptimizer.injectDisruption([], []);
     }
     broadcast(organizationId, "optimization:disruption-injected", {
       disruptionType,

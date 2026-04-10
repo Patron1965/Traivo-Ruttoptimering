@@ -1141,6 +1141,234 @@ function orOptImprove(route: ALNSRoute, vehicle: ALNSVehicle, depotLat: number, 
   return improved;
 }
 
+function relocateImprove(
+  solution: ALNSSolution,
+  vehicles: ALNSVehicle[],
+  depotLat: number,
+  depotLon: number,
+  startTime: Date,
+  weights: OptimizationWeights,
+  driverConstraintsMap: Map<string, ALNSDriverConstraints>,
+  timeBudgetMs = 2000
+): boolean {
+  const vehicleMap = new Map(vehicles.map(v => [v.id, v]));
+  const lsStart = Date.now();
+  let improved = false;
+
+  for (let ri = 0; ri < solution.routes.length; ri++) {
+    if (Date.now() - lsStart >= timeBudgetMs) break;
+    const srcRoute = solution.routes[ri];
+    const srcVehicle = vehicleMap.get(srcRoute.vehicleId);
+    if (!srcVehicle) continue;
+
+    for (let ni = srcRoute.nodes.length - 1; ni >= 0; ni--) {
+      if (Date.now() - lsStart >= timeBudgetMs) break;
+      const node = srcRoute.nodes[ni];
+      if (node.isChargingStation) continue;
+
+      const { cost: costBefore } = computeSolutionCost(
+        solution, vehicles, depotLat, depotLon, startTime, weights, driverConstraintsMap
+      );
+
+      let bestCost = costBefore;
+      let bestTargetIdx = -1;
+      let bestInsertPos = -1;
+
+      for (let rj = 0; rj < solution.routes.length; rj++) {
+        if (rj === ri) continue;
+        const dstRoute = solution.routes[rj];
+        const dstVehicle = vehicleMap.get(dstRoute.vehicleId);
+        if (!dstVehicle) continue;
+
+        if (dstRoute.totalWeight + node.weightKg > dstVehicle.capacityKg) continue;
+        if (dstRoute.totalVolume + node.volumeM3 > dstVehicle.capacityVolume) continue;
+
+        for (let pos = 0; pos <= dstRoute.nodes.length; pos++) {
+          const testDstNodes = [...dstRoute.nodes.slice(0, pos), node, ...dstRoute.nodes.slice(pos)];
+          const testDstRoute: ALNSRoute = {
+            ...dstRoute,
+            nodes: testDstNodes,
+            totalWeight: dstRoute.totalWeight + node.weightKg,
+            totalVolume: dstRoute.totalVolume + node.volumeM3,
+          };
+
+          const dstEval = evaluateRoute(testDstRoute, dstVehicle, depotLat, depotLon, startTime,
+            driverConstraintsMap.get(dstRoute.vehicleId));
+          if (!dstEval.feasible) continue;
+
+          const savedSrcNodes = srcRoute.nodes;
+          const savedDstNodes = dstRoute.nodes;
+          const savedSrcW = srcRoute.totalWeight;
+          const savedDstW = dstRoute.totalWeight;
+          const savedSrcV = srcRoute.totalVolume;
+          const savedDstV = dstRoute.totalVolume;
+
+          srcRoute.nodes = [...savedSrcNodes.slice(0, ni), ...savedSrcNodes.slice(ni + 1)];
+          srcRoute.totalWeight = savedSrcW - node.weightKg;
+          srcRoute.totalVolume = savedSrcV - node.volumeM3;
+          dstRoute.nodes = testDstNodes;
+          dstRoute.totalWeight = testDstRoute.totalWeight;
+          dstRoute.totalVolume = testDstRoute.totalVolume;
+
+          const { cost: candidateCost } = computeSolutionCost(
+            solution, vehicles, depotLat, depotLon, startTime, weights, driverConstraintsMap
+          );
+
+          srcRoute.nodes = savedSrcNodes;
+          srcRoute.totalWeight = savedSrcW;
+          srcRoute.totalVolume = savedSrcV;
+          dstRoute.nodes = savedDstNodes;
+          dstRoute.totalWeight = savedDstW;
+          dstRoute.totalVolume = savedDstV;
+
+          if (candidateCost < bestCost - 0.01) {
+            bestCost = candidateCost;
+            bestTargetIdx = rj;
+            bestInsertPos = pos;
+          }
+        }
+      }
+
+      if (bestTargetIdx >= 0 && bestInsertPos >= 0) {
+        const dstRoute = solution.routes[bestTargetIdx];
+        srcRoute.nodes.splice(ni, 1);
+        srcRoute.totalWeight -= node.weightKg;
+        srcRoute.totalVolume -= node.volumeM3;
+        dstRoute.nodes.splice(bestInsertPos, 0, node);
+        dstRoute.totalWeight += node.weightKg;
+        dstRoute.totalVolume += node.volumeM3;
+        improved = true;
+      }
+    }
+  }
+
+  return improved;
+}
+
+function crossExchangeImprove(
+  solution: ALNSSolution,
+  vehicles: ALNSVehicle[],
+  depotLat: number,
+  depotLon: number,
+  startTime: Date,
+  weights: OptimizationWeights,
+  driverConstraintsMap: Map<string, ALNSDriverConstraints>,
+  timeBudgetMs = 2000
+): boolean {
+  const vehicleMap = new Map(vehicles.map(v => [v.id, v]));
+  const lsStart = Date.now();
+  let improved = false;
+
+  const { cost: baseCost } = computeSolutionCost(
+    solution, vehicles, depotLat, depotLon, startTime, weights, driverConstraintsMap
+  );
+  let currentBest = baseCost;
+
+  for (let ri = 0; ri < solution.routes.length - 1; ri++) {
+    if (Date.now() - lsStart >= timeBudgetMs) break;
+    for (let rj = ri + 1; rj < solution.routes.length; rj++) {
+      if (Date.now() - lsStart >= timeBudgetMs) break;
+
+      const routeA = solution.routes[ri];
+      const routeB = solution.routes[rj];
+      const vehicleA = vehicleMap.get(routeA.vehicleId);
+      const vehicleB = vehicleMap.get(routeB.vehicleId);
+      if (!vehicleA || !vehicleB) continue;
+
+      const deliveryA = routeA.nodes.filter(n => !n.isChargingStation);
+      const deliveryB = routeB.nodes.filter(n => !n.isChargingStation);
+      if (deliveryA.length < 1 || deliveryB.length < 1) continue;
+
+      for (let segLenA = 1; segLenA <= Math.min(2, deliveryA.length); segLenA++) {
+        if (Date.now() - lsStart >= timeBudgetMs) break;
+        for (let segLenB = 1; segLenB <= Math.min(2, deliveryB.length); segLenB++) {
+          if (Date.now() - lsStart >= timeBudgetMs) break;
+
+          for (let sa = 0; sa <= deliveryA.length - segLenA; sa++) {
+            if (Date.now() - lsStart >= timeBudgetMs) break;
+            const segA = deliveryA.slice(sa, sa + segLenA);
+            const segAWeight = segA.reduce((s, n) => s + n.weightKg, 0);
+            const segAVol = segA.reduce((s, n) => s + n.volumeM3, 0);
+            const segAIds = new Set(segA.map(n => n.id));
+
+            for (let sb = 0; sb <= deliveryB.length - segLenB; sb++) {
+              if (Date.now() - lsStart >= timeBudgetMs) break;
+              const segB = deliveryB.slice(sb, sb + segLenB);
+              const segBWeight = segB.reduce((s, n) => s + n.weightKg, 0);
+              const segBVol = segB.reduce((s, n) => s + n.volumeM3, 0);
+              const segBIds = new Set(segB.map(n => n.id));
+
+              const newWeightA = routeA.totalWeight - segAWeight + segBWeight;
+              const newWeightB = routeB.totalWeight - segBWeight + segAWeight;
+              const newVolA = routeA.totalVolume - segAVol + segBVol;
+              const newVolB = routeB.totalVolume - segBVol + segAVol;
+
+              if (newWeightA > vehicleA.capacityKg || newWeightB > vehicleB.capacityKg) continue;
+              if (newVolA > vehicleA.capacityVolume || newVolB > vehicleB.capacityVolume) continue;
+
+              const newNodesA = routeA.nodes.filter(n => !segAIds.has(n.id));
+              const insertPosA = Math.min(sa, newNodesA.length);
+              newNodesA.splice(insertPosA, 0, ...segB);
+
+              const newNodesB = routeB.nodes.filter(n => !segBIds.has(n.id));
+              const insertPosB = Math.min(sb, newNodesB.length);
+              newNodesB.splice(insertPosB, 0, ...segA);
+
+              const testA: ALNSRoute = { ...routeA, nodes: newNodesA, totalWeight: newWeightA, totalVolume: newVolA };
+              const testB: ALNSRoute = { ...routeB, nodes: newNodesB, totalWeight: newWeightB, totalVolume: newVolB };
+
+              const evalA = evaluateRoute(testA, vehicleA, depotLat, depotLon, startTime,
+                driverConstraintsMap.get(routeA.vehicleId));
+              const evalB = evaluateRoute(testB, vehicleB, depotLat, depotLon, startTime,
+                driverConstraintsMap.get(routeB.vehicleId));
+
+              if (!evalA.feasible || !evalB.feasible) continue;
+
+              const savedA = routeA.nodes;
+              const savedB = routeB.nodes;
+              const savedWA = routeA.totalWeight;
+              const savedWB = routeB.totalWeight;
+              const savedVA = routeA.totalVolume;
+              const savedVB = routeB.totalVolume;
+
+              routeA.nodes = newNodesA;
+              routeA.totalWeight = newWeightA;
+              routeA.totalVolume = newVolA;
+              routeB.nodes = newNodesB;
+              routeB.totalWeight = newWeightB;
+              routeB.totalVolume = newVolB;
+
+              const { cost: candidateCost } = computeSolutionCost(
+                solution, vehicles, depotLat, depotLon, startTime, weights, driverConstraintsMap
+              );
+
+              if (candidateCost < currentBest - 0.01) {
+                currentBest = candidateCost;
+                improved = true;
+                break;
+              } else {
+                routeA.nodes = savedA;
+                routeA.totalWeight = savedWA;
+                routeA.totalVolume = savedVA;
+                routeB.nodes = savedB;
+                routeB.totalWeight = savedWB;
+                routeB.totalVolume = savedVB;
+              }
+            }
+            if (improved) break;
+          }
+          if (improved) break;
+        }
+        if (improved) break;
+      }
+      if (improved) break;
+    }
+    if (improved) break;
+  }
+
+  return improved;
+}
+
 function localSearchPostProcess(
   solution: ALNSSolution,
   vehicles: ALNSVehicle[],
@@ -1149,11 +1377,17 @@ function localSearchPostProcess(
   startTime: Date,
   weights: OptimizationWeights,
   driverConstraintsMap: Map<string, ALNSDriverConstraints>,
-  timeBudgetMs = 3000,
+  timeBudgetMs = 5000,
   maxPasses = 3
 ): void {
   const vehicleMap = new Map(vehicles.map(v => [v.id, v]));
   const lsStart = Date.now();
+
+  relocateImprove(solution, vehicles, depotLat, depotLon, startTime, weights, driverConstraintsMap,
+    Math.min(2000, timeBudgetMs / 3));
+
+  crossExchangeImprove(solution, vehicles, depotLat, depotLon, startTime, weights, driverConstraintsMap,
+    Math.min(2000, timeBudgetMs / 3));
 
   for (let pass = 0; pass < maxPasses; pass++) {
     if (Date.now() - lsStart >= timeBudgetMs) break;

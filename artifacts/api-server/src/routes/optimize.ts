@@ -452,6 +452,105 @@ router.post("/optimize", async (req, res) => {
   }
 });
 
+const ALTERNATIVE_PROFILES = [
+  {
+    name: "fastest",
+    weights: { distanceWeight: 0.7, co2Weight: 0.1, etaPrecisionWeight: 0.15, driverHappinessWeight: 0.05 },
+  },
+  {
+    name: "greenest",
+    weights: { distanceWeight: 0.2, co2Weight: 0.5, etaPrecisionWeight: 0.15, driverHappinessWeight: 0.15 },
+  },
+  {
+    name: "balanced",
+    weights: { distanceWeight: 0.45, co2Weight: 0.25, etaPrecisionWeight: 0.15, driverHappinessWeight: 0.15 },
+  },
+];
+
+router.post("/optimize/alternatives", async (req, res) => {
+  try {
+    const parsed = ExtendedOptimizeBody.parse(req.body);
+    const inputs = await loadOptimizationInputs(parsed);
+    const { depotLatitude, depotLongitude, timeBudgetMs, alnsNodes, alnsVehicles, driverConstraints } = inputs;
+
+    const weather = await getWeatherForLocation(depotLatitude, depotLongitude);
+    const environment: EnvironmentContext = {
+      weatherImpact: weather.drivingImpact,
+      evRangeMultiplier: weather.evRangeMultiplier,
+    };
+
+    const startTime = new Date();
+    const perPlanBudget = Math.max(5000, Math.floor((timeBudgetMs ?? 30000) / 3));
+
+    const alternatives = await Promise.all(
+      ALTERNATIVE_PROFILES.map(async (profile) => {
+        const w = normalizeWeights(profile.weights);
+        const result = await optimizeWithALNS(
+          alnsNodes, alnsVehicles, depotLatitude, depotLongitude, startTime,
+          { weights: w, timeLimitMs: perPlanBudget, driverConstraints, environment }
+        );
+
+        const totalDistanceKm = result.costBreakdown.totalDistanceKm;
+        const totalCo2Kg = result.costBreakdown.totalCo2Kg;
+        const totalTimeMin = result.costBreakdown.totalTimeWindowSlackMin;
+        const vehicleCount = result.routes.filter(r => r.nodes.filter(n => !n.isChargingStation).length > 0).length;
+        const totalCost = result.costBreakdown.distanceCost + result.costBreakdown.co2Cost
+          + result.costBreakdown.etaPrecisionCost + result.costBreakdown.driverPenaltyCost;
+
+        let totalDurationMin = 0;
+        for (const route of result.routes) {
+          if (route.nodes.filter(n => !n.isChargingStation).length === 0) continue;
+          let prevLat2 = depotLatitude;
+          let prevLon2 = depotLongitude;
+          let routeTime = 0;
+          for (const node of route.nodes) {
+            const d = cachedDistance(prevLat2, prevLon2, node.latitude, node.longitude);
+            routeTime += estimateDurationMinPredictive(d, startTime);
+            routeTime += node.serviceDurationMin;
+            prevLat2 = node.latitude;
+            prevLon2 = node.longitude;
+          }
+          const dBack = cachedDistance(prevLat2, prevLon2, depotLatitude, depotLongitude);
+          routeTime += estimateDurationMinPredictive(dBack, startTime);
+          totalDurationMin = Math.max(totalDurationMin, routeTime);
+        }
+
+        return {
+          name: profile.name,
+          weights: w,
+          cost: Math.round(totalCost * 100) / 100,
+          vehicleCount,
+          stopCount: alnsNodes.length,
+          unassignedCount: result.unassigned.length,
+          totalDistanceKm: Math.round(totalDistanceKm * 100) / 100,
+          totalCo2Kg: Math.round(totalCo2Kg * 100) / 100,
+          totalDurationMin: Math.round(totalDurationMin),
+          totalTimeWindowSlackMin: Math.round(totalTimeMin * 100) / 100,
+          routes: result.routes.map(r => ({
+            vehicleId: r.vehicleId,
+            stopCount: r.nodes.filter(n => !n.isChargingStation).length,
+            stops: r.nodes.filter(n => !n.isChargingStation).map(n => ({
+              id: n.id,
+              latitude: n.latitude,
+              longitude: n.longitude,
+            })),
+          })),
+        };
+      })
+    );
+
+    res.json({
+      alternatives,
+      weather: {
+        description: weather.description,
+        severity: getWeatherSeverity(weather),
+      },
+    });
+  } catch (err) {
+    handleError(res, err);
+  }
+});
+
 router.get("/optimize/status/:jobId", (req, res) => {
   const job = optimizationJobs.get(req.params.jobId);
   if (!job) {
