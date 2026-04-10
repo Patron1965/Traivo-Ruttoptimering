@@ -35,6 +35,7 @@ export const stopsTable = pgTable("stops", {
   index("stops_organization_id_idx").on(table.organizationId),
   index("stops_lat_lng_idx").on(table.latitude, table.longitude),
   index("stops_route_seq_idx").on(table.routeId, table.sequenceOrder),
+  index("stops_status_idx").on(table.status),
 ]);
 
 export const insertStopSchema = createInsertSchema(stopsTable).omit({ id: true, createdAt: true });

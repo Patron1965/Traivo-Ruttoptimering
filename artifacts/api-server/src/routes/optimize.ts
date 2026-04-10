@@ -64,6 +64,14 @@ function generateTrackingCodeRaw(): string {
   return code;
 }
 
+function generateTrackingCodeBatch(count: number): string[] {
+  const codes = new Set<string>();
+  while (codes.size < count) {
+    codes.add(generateTrackingCodeRaw());
+  }
+  return [...codes];
+}
+
 async function generateUniqueTrackingCode(): Promise<string> {
   const MAX_RETRIES = 10;
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
@@ -175,6 +183,11 @@ async function persistOptimizationResult(
     let prevLat = depotLatitude;
     let prevLon = depotLongitude;
 
+    const deliveryNodes = alnsRoute.nodes.filter(n => !n.isChargingStation);
+    const trackingCodes = generateTrackingCodeBatch(deliveryNodes.length);
+    let codeIdx = 0;
+    const stopUpdates: Array<{ stopId: string; routeId: string; seqOrder: number; trackingCode: string }> = [];
+
     for (const node of alnsRoute.nodes) {
       const dist = cachedDistance(prevLat, prevLon, node.latitude, node.longitude);
       const dur = estimateDurationMin(dist, currentTime);
@@ -205,11 +218,12 @@ async function persistOptimizationResult(
           ? node.timeWindowStart
           : arrivalTime;
 
-        const trackingCode = await generateUniqueTrackingCode();
-        await db
-          .update(stopsTable)
-          .set({ routeId: route.id, sequenceOrder: seqOrder, trackingCode })
-          .where(and(eq(stopsTable.id, node.id), eq(stopsTable.organizationId, organizationId)));
+        stopUpdates.push({
+          stopId: node.id,
+          routeId: route.id,
+          seqOrder,
+          trackingCode: trackingCodes[codeIdx++],
+        });
 
         optimizedStops.push({
           stopId: node.id,
@@ -224,6 +238,12 @@ async function persistOptimizationResult(
       prevLat = node.latitude;
       prevLon = node.longitude;
     }
+
+    await Promise.all(stopUpdates.map(u =>
+      db.update(stopsTable)
+        .set({ routeId: u.routeId, sequenceOrder: u.seqOrder, trackingCode: u.trackingCode })
+        .where(and(eq(stopsTable.id, u.stopId), eq(stopsTable.organizationId, organizationId)))
+    ));
 
     const co2 = estimateCo2(routeDistance, vehicle.vehicleType, alnsRoute.totalWeight, vehicle.capacityKg);
 
@@ -811,6 +831,11 @@ router.post("/optimize/reoptimize", async (req, res) => {
         chargingStationName?: string;
       }> = [];
 
+      const reoptDeliveryNodes = alnsRoute.nodes.filter(n => !n.isChargingStation);
+      const reoptTrackingCodes = generateTrackingCodeBatch(reoptDeliveryNodes.length);
+      let reoptCodeIdx = 0;
+      const reoptStopUpdates: Array<{ stopId: string; routeId: string; seqOrder: number; trackingCode: string }> = [];
+
       for (const node of alnsRoute.nodes) {
         const dist = cachedDistance(prevLat, prevLon, node.latitude, node.longitude);
         const dur = estimateDurationMin(dist, currentTime);
@@ -836,11 +861,12 @@ router.post("/optimize/reoptimize", async (req, res) => {
             ? node.timeWindowStart
             : arrivalTime;
 
-          const trackingCode = await generateUniqueTrackingCode();
-          await db
-            .update(stopsTable)
-            .set({ routeId, sequenceOrder: seqOrder, trackingCode })
-            .where(and(eq(stopsTable.id, node.id), eq(stopsTable.organizationId, organizationId)));
+          reoptStopUpdates.push({
+            stopId: node.id,
+            routeId: routeId,
+            seqOrder,
+            trackingCode: reoptTrackingCodes[reoptCodeIdx++],
+          });
 
           optimizedStops.push({
             stopId: node.id,
@@ -854,6 +880,12 @@ router.post("/optimize/reoptimize", async (req, res) => {
         prevLat = node.latitude;
         prevLon = node.longitude;
       }
+
+      await Promise.all(reoptStopUpdates.map(u =>
+        db.update(stopsTable)
+          .set({ routeId: u.routeId, sequenceOrder: u.seqOrder, trackingCode: u.trackingCode })
+          .where(and(eq(stopsTable.id, u.stopId), eq(stopsTable.organizationId, organizationId)))
+      ));
 
       const co2 = estimateCo2(routeDistance, vehicle.vehicleType, alnsRoute.totalWeight, vehicle.capacityKg);
 

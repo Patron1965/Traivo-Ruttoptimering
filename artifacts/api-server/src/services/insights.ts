@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, and, gte, lt, isNull, sql } from "drizzle-orm";
 import { db, routesTable, vehiclesTable, stopsTable } from "@workspace/db";
 import { openai } from "@workspace/integrations-openai-ai-server";
 
@@ -19,26 +19,54 @@ function todayRange() {
 }
 
 export async function generateInsights(organizationId: string): Promise<Insight[]> {
-  const [vehicles, routes, stops] = await Promise.all([
+  const now = new Date();
+  const { start: todayStart, end: todayEnd } = todayRange();
+  const recentStart = new Date(now.getTime() - 30 * 86400000);
+
+  const [vehicles, todayRoutes, todayStops, unassignedStops, recentStopStats] = await Promise.all([
     db.select().from(vehiclesTable).where(eq(vehiclesTable.organizationId, organizationId)),
-    db.select().from(routesTable).where(eq(routesTable.organizationId, organizationId)),
-    db.select().from(stopsTable).where(eq(stopsTable.organizationId, organizationId)),
+    db.select().from(routesTable).where(
+      and(eq(routesTable.organizationId, organizationId), gte(routesTable.date, todayStart), lt(routesTable.date, todayEnd))
+    ),
+    db.execute(sql`
+      SELECT s.id, s.route_id, s.status, s.time_window_start, s.time_window_end,
+             s.latitude, s.longitude, s.address, s.weight_kg, s.organization_id
+      FROM stops s
+      INNER JOIN routes r ON s.route_id = r.id
+      WHERE r.organization_id = ${organizationId}
+        AND r.date >= ${todayStart} AND r.date < ${todayEnd}
+    `).then(r => (r.rows as any[]).map(s => ({
+      id: s.id,
+      routeId: s.route_id,
+      status: s.status,
+      timeWindowStart: s.time_window_start ? new Date(s.time_window_start) : null,
+      timeWindowEnd: s.time_window_end ? new Date(s.time_window_end) : null,
+      latitude: Number(s.latitude),
+      longitude: Number(s.longitude),
+      address: s.address,
+      weightKg: Number(s.weight_kg) || 0,
+    }))),
+    db.select().from(stopsTable).where(
+      and(eq(stopsTable.organizationId, organizationId), isNull(stopsTable.routeId))
+    ),
+    db.execute(sql`
+      SELECT s.status, s.address, s.latitude, s.longitude FROM stops s
+      INNER JOIN routes r ON s.route_id = r.id
+      WHERE r.organization_id = ${organizationId}
+        AND r.date >= ${recentStart}
+        AND s.status IN ('completed', 'failed')
+    `).then(r => r.rows as any[]),
   ]);
 
   const insights: Insight[] = [];
-  const now = new Date();
-  const { start: todayStart, end: todayEnd } = todayRange();
-
-  const todayRoutes = routes.filter(r => r.date && r.date >= todayStart && r.date < todayEnd);
   const todayRouteIds = new Set(todayRoutes.map(r => r.id));
-  const todayStops = stops.filter(s => s.routeId && todayRouteIds.has(s.routeId));
 
   const lateStops = todayStops.filter(s =>
     s.timeWindowEnd && s.status === "pending" && now > s.timeWindowEnd
   );
   if (lateStops.length > 0) {
     const routeNames = [...new Set(lateStops.map(s => {
-      const r = routes.find(rt => rt.id === s.routeId);
+      const r = todayRoutes.find(rt => rt.id === s.routeId);
       return r?.name ?? "Unknown";
     }))];
     insights.push({
@@ -96,7 +124,6 @@ export async function generateInsights(organizationId: string): Promise<Insight[
     });
   }
 
-  const unassignedStops = stops.filter(s => !s.routeId);
   if (unassignedStops.length > 0) {
     const withTimeWindow = unassignedStops.filter(s => s.timeWindowStart);
     insights.push({
@@ -109,8 +136,8 @@ export async function generateInsights(organizationId: string): Promise<Insight[
     });
   }
 
-  const totalCo2 = routes.reduce((sum, r) => sum + (Number(r.co2EmissionsKg) || 0), 0);
-  const fossilRoutes = routes.filter(r => {
+  const totalCo2 = todayRoutes.reduce((sum, r) => sum + (Number(r.co2EmissionsKg) || 0), 0);
+  const fossilRoutes = todayRoutes.filter(r => {
     const v = vehicles.find(vh => vh.id === r.vehicleId);
     return v && v.vehicleType === "fossil";
   });
@@ -138,7 +165,7 @@ export async function generateInsights(organizationId: string): Promise<Insight[
     const vehicle = vehicleById.get(route.vehicleId);
     if (!vehicle) continue;
 
-    const routeStops = stops.filter(s => s.routeId === route.id);
+    const routeStops = todayStops.filter(s => s.routeId === route.id);
     const totalWeight = routeStops.reduce((sum, s) => sum + (Number(s.weightKg) || 0), 0);
     const utilization = totalWeight / vehicle.capacityKg;
 
@@ -175,18 +202,18 @@ export async function generateInsights(organizationId: string): Promise<Insight[
     });
   }
 
-  if (todayRoutes.length === 0 && stops.length > 0) {
+  if (todayRoutes.length === 0 && unassignedStops.length > 0) {
     insights.push({
       id: "no-routes-today",
       type: "info",
       severity: "medium",
       title: "No routes scheduled for today",
-      description: `There are ${stops.length} stop(s) in the system but no routes scheduled for today. Use the Route Planner to create and optimize today's routes.`,
+      description: `There are ${unassignedStops.length} unassigned stop(s) in the system but no routes scheduled for today. Use the Route Planner to create and optimize today's routes.`,
       category: "planning",
     });
   }
 
-  const routeRiskInsights = analyzeRouteRisks(todayRoutes, todayStops, vehicles, now, stops, routes);
+  const routeRiskInsights = analyzeRouteRisks(todayRoutes, todayStops, vehicles, now, recentStopStats, todayRoutes);
   insights.push(...routeRiskInsights);
 
   insights.sort((a, b) => {

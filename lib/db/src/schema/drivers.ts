@@ -28,6 +28,8 @@ export const driversTable = pgTable("drivers", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => [
   index("drivers_organization_id_idx").on(table.organizationId),
+  index("drivers_vehicle_id_idx").on(table.vehicleId),
+  index("drivers_is_active_idx").on(table.isActive),
 ]);
 
 export const insertDriverSchema = createInsertSchema(driversTable).omit({ id: true, createdAt: true });

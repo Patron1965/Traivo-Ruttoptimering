@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, real, integer, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, real, integer, jsonb, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { organizationsTable } from "./organizations";
@@ -17,7 +17,10 @@ export const routeHistoryTable = pgTable("route_history", {
   co2EmissionsKg: real("co2_emissions_kg"),
   stopsSnapshot: jsonb("stops_snapshot"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => [
+  index("route_history_org_id_idx").on(table.organizationId),
+  index("route_history_route_id_idx").on(table.routeId),
+]);
 
 export const insertRouteHistorySchema = createInsertSchema(routeHistoryTable).omit({ id: true, createdAt: true });
 export type InsertRouteHistory = z.infer<typeof insertRouteHistorySchema>;

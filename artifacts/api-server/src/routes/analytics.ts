@@ -16,87 +16,104 @@ router.get("/analytics", async (req, res) => {
     const from = req.query.from as string | undefined;
     const to = req.query.to as string | undefined;
 
-    const conditions = [eq(routesTable.organizationId, organizationId)];
-    if (from) conditions.push(gte(routesTable.date, new Date(from)));
-    if (to) conditions.push(lte(routesTable.date, new Date(to)));
+    const dateConditions = [];
+    if (from) dateConditions.push(sql`r.date >= ${new Date(from)}`);
+    if (to) dateConditions.push(sql`r.date <= ${new Date(to)}`);
+    const dateFilter = dateConditions.length > 0
+      ? sql` AND ${sql.join(dateConditions, sql` AND `)}`
+      : sql``;
 
-    const routes = await db
-      .select()
-      .from(routesTable)
-      .where(and(...conditions))
-      .orderBy(routesTable.date);
+    const summaryResult = await db.execute(sql`
+      SELECT
+        COUNT(*)::int AS total_routes,
+        COALESCE(SUM(r.total_stops), 0)::int AS total_stops,
+        ROUND(COALESCE(SUM(r.total_distance_km), 0)::numeric, 1) AS total_distance_km,
+        ROUND(COALESCE(SUM(r.co2_emissions_kg), 0)::numeric, 1) AS total_co2_kg,
+        COUNT(CASE WHEN r.status = 'draft' THEN 1 END)::int AS draft,
+        COUNT(CASE WHEN r.status = 'optimized' THEN 1 END)::int AS optimized,
+        COUNT(CASE WHEN r.status = 'in_progress' THEN 1 END)::int AS in_progress,
+        COUNT(CASE WHEN r.status = 'completed' THEN 1 END)::int AS completed,
+        COUNT(CASE WHEN r.status = 'cancelled' THEN 1 END)::int AS cancelled
+      FROM routes r
+      WHERE r.organization_id = ${organizationId}${dateFilter}
+    `);
 
-    const routeIds = routes.map((r) => r.id);
+    const summary = summaryResult.rows[0] as any;
 
-    let allStops: Array<{ routeId: string | null; status: string; serviceDurationMin: number }> = [];
-    if (routeIds.length > 0) {
-      allStops = await db
-        .select({
-          routeId: stopsTable.routeId,
-          status: stopsTable.status,
-          serviceDurationMin: stopsTable.serviceDurationMin,
-        })
-        .from(stopsTable)
-        .where(sql`${stopsTable.routeId} IN (${sql.join(routeIds.map(id => sql`${id}`), sql`, `)})`);
-    }
+    const dailyResult = await db.execute(sql`
+      SELECT
+        DATE_TRUNC('day', r.date)::date AS day,
+        COUNT(*)::int AS routes,
+        COALESCE(SUM(r.total_stops), 0)::int AS stops,
+        ROUND(COALESCE(SUM(r.total_distance_km), 0)::numeric, 1) AS distance_km,
+        ROUND(COALESCE(SUM(r.co2_emissions_kg), 0)::numeric, 1) AS co2_kg
+      FROM routes r
+      WHERE r.organization_id = ${organizationId}${dateFilter}
+      GROUP BY DATE_TRUNC('day', r.date)
+      ORDER BY day
+    `);
 
-    const vehicles = await db
-      .select()
-      .from(vehiclesTable)
-      .where(eq(vehiclesTable.organizationId, organizationId));
-    const vehicleMap = new Map(vehicles.map((v) => [v.id, v]));
+    const stopStatsResult = await db.execute(sql`
+      SELECT
+        COUNT(*)::int AS total,
+        COUNT(CASE WHEN s.status = 'completed' THEN 1 END)::int AS completed,
+        COUNT(CASE WHEN s.status = 'failed' THEN 1 END)::int AS failed
+      FROM stops s
+      INNER JOIN routes r ON s.route_id = r.id
+      WHERE r.organization_id = ${organizationId}${dateFilter}
+    `);
 
-    const dailyVolume: Record<string, { date: string; routes: number; stops: number; distanceKm: number; co2Kg: number }> = {};
-    for (const r of routes) {
-      const day = new Date(r.date).toISOString().slice(0, 10);
-      if (!dailyVolume[day]) {
-        dailyVolume[day] = { date: day, routes: 0, stops: 0, distanceKm: 0, co2Kg: 0 };
-      }
-      dailyVolume[day].routes++;
-      dailyVolume[day].stops += r.totalStops;
-      dailyVolume[day].distanceKm += r.totalDistanceKm ?? 0;
-      dailyVolume[day].co2Kg += r.co2EmissionsKg ?? 0;
-    }
-
-    const totalStops = allStops.length;
-    const completedStops = allStops.filter((s) => s.status === "completed").length;
-    const failedStops = allStops.filter((s) => s.status === "failed").length;
+    const stopStats = stopStatsResult.rows[0] as any;
+    const totalStops = Number(stopStats?.total ?? 0);
+    const completedStops = Number(stopStats?.completed ?? 0);
+    const failedStops = Number(stopStats?.failed ?? 0);
     const onTimeRate = totalStops > 0 ? Math.round((completedStops / totalStops) * 100) : 0;
 
-    const vehicleTypeBreakdown: Record<string, { type: string; routes: number; distanceKm: number; co2Kg: number }> = {};
-    for (const r of routes) {
-      const vehicle = r.vehicleId ? vehicleMap.get(r.vehicleId) : null;
-      const vType = vehicle?.vehicleType || "unknown";
-      if (!vehicleTypeBreakdown[vType]) {
-        vehicleTypeBreakdown[vType] = { type: vType, routes: 0, distanceKm: 0, co2Kg: 0 };
-      }
-      vehicleTypeBreakdown[vType].routes++;
-      vehicleTypeBreakdown[vType].distanceKm += r.totalDistanceKm ?? 0;
-      vehicleTypeBreakdown[vType].co2Kg += r.co2EmissionsKg ?? 0;
-    }
+    const vehicleBreakdownResult = await db.execute(sql`
+      SELECT
+        COALESCE(v.vehicle_type, 'unknown') AS type,
+        COUNT(r.id)::int AS routes,
+        ROUND(COALESCE(SUM(r.total_distance_km), 0)::numeric, 1) AS distance_km,
+        ROUND(COALESCE(SUM(r.co2_emissions_kg), 0)::numeric, 1) AS co2_kg
+      FROM routes r
+      LEFT JOIN vehicles v ON r.vehicle_id = v.id
+      WHERE r.organization_id = ${organizationId}${dateFilter}
+      GROUP BY COALESCE(v.vehicle_type, 'unknown')
+    `);
 
-    const statusBreakdown = {
-      draft: routes.filter((r) => r.status === "draft").length,
-      optimized: routes.filter((r) => r.status === "optimized").length,
-      in_progress: routes.filter((r) => r.status === "in_progress").length,
-      completed: routes.filter((r) => r.status === "completed").length,
-      cancelled: routes.filter((r) => r.status === "cancelled").length,
-    };
+    const totalRoutes = Number(summary?.total_routes ?? 0);
 
     res.json({
       summary: {
-        totalRoutes: routes.length,
+        totalRoutes,
         totalStops,
         completedStops,
         failedStops,
         onTimeRate,
-        totalDistanceKm: Math.round(routes.reduce((s, r) => s + (r.totalDistanceKm ?? 0), 0) * 10) / 10,
-        totalCo2Kg: Math.round(routes.reduce((s, r) => s + (r.co2EmissionsKg ?? 0), 0) * 10) / 10,
-        avgStopsPerRoute: routes.length > 0 ? Math.round(totalStops / routes.length) : 0,
+        totalDistanceKm: Number(summary?.total_distance_km ?? 0),
+        totalCo2Kg: Number(summary?.total_co2_kg ?? 0),
+        avgStopsPerRoute: totalRoutes > 0 ? Math.round(Number(summary?.total_stops ?? 0) / totalRoutes) : 0,
       },
-      dailyVolume: Object.values(dailyVolume).sort((a, b) => a.date.localeCompare(b.date)),
-      vehicleTypeBreakdown: Object.values(vehicleTypeBreakdown),
-      statusBreakdown,
+      dailyVolume: (dailyResult.rows as any[]).map(r => ({
+        date: r.day instanceof Date ? r.day.toISOString().slice(0, 10) : String(r.day),
+        routes: Number(r.routes),
+        stops: Number(r.stops),
+        distanceKm: Number(r.distance_km),
+        co2Kg: Number(r.co2_kg),
+      })),
+      vehicleTypeBreakdown: (vehicleBreakdownResult.rows as any[]).map(r => ({
+        type: r.type,
+        routes: Number(r.routes),
+        distanceKm: Number(r.distance_km),
+        co2Kg: Number(r.co2_kg),
+      })),
+      statusBreakdown: {
+        draft: Number(summary?.draft ?? 0),
+        optimized: Number(summary?.optimized ?? 0),
+        in_progress: Number(summary?.in_progress ?? 0),
+        completed: Number(summary?.completed ?? 0),
+        cancelled: Number(summary?.cancelled ?? 0),
+      },
     });
   } catch (err) {
     handleError(res, err);
