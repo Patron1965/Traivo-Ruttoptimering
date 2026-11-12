@@ -24,6 +24,12 @@ const input = JSON.parse(bytes.toString());
 const hash = createHash("sha256").update(bytes).digest("hex");
 const start = new Date(input[0].date);
 const config = input[0].inputs;
+const profile = process.argv[3] ?? config.objective;
+if (!["balanced", "shortest", "geographic", "areas_worktime", "minimize_vehicles"].includes(profile)) throw Error("Unknown profile");
+const selection = process.argv[4] ?? "use_all_selected_pairs";
+if (!["use_all_selected_pairs", "minimize_vehicles"].includes(selection)) throw Error("Unknown resource selection");
+config.objective = profile;
+config.vehicleSelectionMode = selection;
 const vehicles: ALNSVehicle[] = input.map((r: any) => {
   const d = r.resource.driver, v = r.resource.vehicle;
   if (d.tempo !== "normal" || v.vehicleType !== "fossil") throw Error("Unexpected resource");
@@ -66,7 +72,8 @@ async function main() {
   offline=true;
   const warmupMs=performance.now()-warm;
   const constraints=new Map(vehicles.map(v=>[v.id,v.canonicalDriverConstraints!]));
-  const objective={weights:{...DEFAULT_WEIGHTS,...planningWeights(config)},vehicleDistributionMode:"balance" as const};
+  const objective={weights:{...DEFAULT_WEIGHTS,...planningWeights(config)},vehicleDistributionMode:
+    selection === "use_all_selected_pairs" ? "balance" as const : "minimize" as const};
   let seed=252; Math.random=()=>((seed=(Math.imul(seed,1664525)+1013904223)>>>0)/4294967296);
   const began=performance.now();
   const candidate=await optimizeWithALNS(structuredClone(nodes),structuredClone(vehicles),lat,lon,start,{
@@ -77,12 +84,14 @@ async function main() {
     nodes:r.resource.stops.slice().sort((a:any,b:any)=>a.sequenceOrder-b.sequenceOrder).map((s:any)=>nodes.find(n=>n.id===s.id)),
     totalWeight:0,totalVolume:0})),unassigned:[]};
   const optimizerMs=performance.now()-began;
+  console.log(JSON.stringify({phase:"optimizer_complete",profile,optimizerMs}));
   const rows:any[]=[];
   for(const [label,result] of [["saved",saved],["candidate",candidate]] as const) {
+    console.log(JSON.stringify({phase:"validate",profile,label}));
     await withRequiredRoadData(async()=>{
       reinsertUnassignedNodes(result,vehicles,constraints,lat,lon,start,objective);
       admitPrioritizedUnassignedNodes(result,vehicles,constraints,lat,lon,start,objective);
-      fillExplicitlySelectedEmptyRoutes(result,vehicles,constraints,lat,lon,start,objective);
+      if (selection === "use_all_selected_pairs") fillExplicitlySelectedEmptyRoutes(result,vehicles,constraints,lat,lon,start,objective);
       await recoverPlanningCoverage(result,{nodes,vehicles,constraints,depotLatitude:lat,depotLongitude:lon,start,...objective});
       const metrics=result.routes.map((r:any)=>{
         const v=vehicles.find(v=>v.id===r.vehicleId)!;
@@ -97,12 +106,13 @@ async function main() {
       if(new Set(ids).size!==ids.length || ids.length+result.unassigned.length!==154)throw Error("Coverage");
       const allIds=[...ids,...result.unassigned.map((n:any)=>n.id)].sort();
       if(JSON.stringify(allIds)!==JSON.stringify(nodes.map(n=>n.id).sort()))throw Error("Stop identity mismatch");
-      if(result.unassigned.length || !metrics.every((m:any)=>m.feasible && m.stops>0) ||
-        new Set(result.routes.map((r:any)=>r.vehicleId)).size!==vehicles.length)throw Error("Incomplete or infeasible plan");
+      if(result.unassigned.length || !metrics.every((m:any)=>m.feasible) ||
+        (selection === "use_all_selected_pairs" && (metrics.some((m:any)=>m.stops===0) ||
+        new Set(result.routes.map((r:any)=>r.vehicleId)).size!==vehicles.length)))throw Error("Incomplete or infeasible plan");
       rows.push({label,metrics,unassigned:result.unassigned.length,cohesion:computeGeographicCohesionCost(result.routes)});
     });
   }
-  const report={inputHash:hash,warmupMs,attempts,optimizerMs,wallMs:performance.now()-began,rows};
-  writeFileSync(`${dir}/comparison.json`,JSON.stringify(report,null,2)); console.log(JSON.stringify(report));
+  const report={profile,selection,inputHash:hash,warmupMs,attempts,optimizerMs,wallMs:performance.now()-began,rows};
+  writeFileSync(`${dir}/comparison-${profile}-${selection}.json`,JSON.stringify(report,null,2)); console.log(JSON.stringify(report));
 }
 main().then(()=>process.exit(0)).catch(e=>{console.error(e.name,e.message);process.exit(1)});

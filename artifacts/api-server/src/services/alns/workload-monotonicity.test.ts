@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { compareSolutionScores, computeSolutionCost } from "./cost";
+import { planningProfileWeights } from "./planning-profiles";
 import type { ALNSRoute, ALNSSolution, ALNSVehicle, OptimizationWeights, RouteEvaluation } from "./types";
 
 const start = new Date("2026-11-11T07:00:00Z");
@@ -17,6 +18,19 @@ const weights: OptimizationWeights = {
   distanceWeight: 1, co2Weight: 0, etaPrecisionWeight: 0,
   driverHappinessWeight: 0, geographicCohesionWeight: 0,
 };
+
+test("all five named profiles reject adding distance merely to equalize workdays", () => {
+  for (const name of ["balanced", "shortest", "geographic", "areas_worktime", "minimize_vehicles"] as const) {
+    const weights = planningProfileWeights(name);
+    assert.ok(compareSolutionScores(score([70, 440, 440], 100, weights), score([440, 440, 440], 400, weights)) < 0, name);
+  }
+});
+
+test("resource eligibility alone adds no hidden vehicle cost to shortest driving", () => {
+  const weights = planningProfileWeights("shortest");
+  assert.equal(compareSolutionScores(score([70, 440, 440], 100, weights, "balance"),
+    score([70, 440, 440], 100, weights, "minimize")), 0);
+});
 
 // Controlled canonical-evaluation cache isolates the objective from routing:
 // ownership, feasibility, service, and every other penalty stay identical.

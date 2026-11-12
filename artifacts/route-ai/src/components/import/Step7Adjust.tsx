@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ResourceSelectionMode } from "./ResourceSelectionMode";
 import { useTranslation } from "react-i18next";
 import { useQueries, useQueryClient } from "@tanstack/react-query";
 import {
@@ -1942,18 +1943,7 @@ export function Step7Adjust({
                   value={planningInputs.objective}
                   onValueChange={(objective) =>
                     updatePlanningInputs(
-                      objective === "minimize_vehicles"
-                        ? {
-                            objective,
-                            vehicleSelectionMode: "minimize_vehicles",
-                          }
-                        : {
-                            objective: objective as Exclude<
-                              PlanningInputs["objective"],
-                              "minimize_vehicles"
-                            >,
-                            vehicleSelectionMode: "use_all_selected_pairs",
-                          },
+                      { objective: objective as PlanningInputs["objective"] },
                     )
                   }
                   className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4"
@@ -1976,6 +1966,7 @@ export function Step7Adjust({
                     </label>
                   ))}
                 </RadioGroup>
+                <ResourceSelectionMode inputs={planningInputs} onChange={updatePlanningInputs} />
                 {(planningInputs.objective === "geographic" || planningInputs.objective === "balanced" || planningInputs.objective === "areas_worktime") && (
                   <p className="mt-2 text-sm text-muted-foreground" data-testid="review-optimization-area-guidance">
                     {t(`import.optimization${objectiveTranslationSuffix(planningInputs.objective)}Description`)}

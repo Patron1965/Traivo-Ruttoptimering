@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { planningProfileWeights } from "./alns/planning-profiles";
 import { getTableColumns } from "drizzle-orm";
 import { ImportStopsBody } from "@workspace/api-zod";
 import { geocodeAddress } from "./geocoding";
@@ -221,8 +222,7 @@ export function normalizePlanningInputs(value: unknown): PlanningInputsV1 {
     excludedPairValues: [...new Set(excluded)].sort(),
     depotOverride: input.depotOverride ?? null,
     vehicleSelectionMode:
-      input.vehicleSelectionMode === "minimize_vehicles" ||
-      input.objective === "minimize_vehicles"
+      input.vehicleSelectionMode === "minimize_vehicles"
         ? "minimize_vehicles"
         : "use_all_selected_pairs",
     maxDriverOvertimeMin:
@@ -338,51 +338,7 @@ export function activeOriginalPairs(
 export function planningWeights(
   inputs: PlanningInputsV1,
 ): Partial<OptimizationWeights> {
-  if (inputs.objective === "areas_worktime")
-    return {
-      objectivePriority: "areas_worktime",
-      workloadBalanceWeight: 1,
-      distanceWeight: 0,
-      co2Weight: 0,
-      etaPrecisionWeight: 0,
-      driverHappinessWeight: 0,
-      geographicCohesionWeight: 1,
-    };
-  if (inputs.objective === "shortest")
-    return {
-      workloadBalanceWeight: 0,
-      distanceWeight: 0.8,
-      co2Weight: 0.05,
-      etaPrecisionWeight: 0.1,
-      driverHappinessWeight: 0.05,
-      geographicCohesionWeight: 0,
-    };
-  if (inputs.objective === "geographic")
-    return {
-      workloadBalanceWeight: 0,
-      distanceWeight: 0.25,
-      co2Weight: 0.1,
-      etaPrecisionWeight: 0.1,
-      driverHappinessWeight: 0.05,
-      geographicCohesionWeight: 0.5,
-    };
-  if (inputs.objective === "minimize_vehicles")
-    return {
-      workloadBalanceWeight: 0,
-      distanceWeight: 0.5,
-      co2Weight: 0.2,
-      etaPrecisionWeight: 0.15,
-      driverHappinessWeight: 0.15,
-      geographicCohesionWeight: 0,
-    };
-  return {
-    workloadBalanceWeight: 1,
-    distanceWeight: 0.35,
-    co2Weight: 0.15,
-    etaPrecisionWeight: 0.15,
-    driverHappinessWeight: 0.35,
-    geographicCohesionWeight: 0,
-  };
+  return planningProfileWeights(inputs.objective);
 }
 
 function completeOptimizationWeights(
@@ -390,6 +346,9 @@ function completeOptimizationWeights(
   objective?: PlanningInputsV1["objective"] | null,
 ): OptimizationWeights {
   return {
+    ...(weights?.searchProfile || objective ? {
+      searchProfile: objective ?? weights!.searchProfile!,
+    } : {}),
     ...(weights?.objectivePriority ? { objectivePriority: weights.objectivePriority } : {}),
     workloadBalanceWeight: objective === "geographic" || objective === "shortest" || objective === "minimize_vehicles"
       ? 0 : weights?.workloadBalanceWeight ?? 1,
@@ -418,6 +377,13 @@ export function optimizationEvidenceForConfig(input: {
   effectiveWeights: OptimizationWeights;
   vehicleDistributionMode?: "balance" | "minimize" | null;
 }): OptimizationEvidence {
+  const snapshotWeights = (weights: Partial<OptimizationWeights>, objective?: PlanningInputsV1["objective"] | null) => {
+    // The public contract already records effectiveObjective. Keep internal
+    // search strategy out of the wire/persisted weight schema and restore it
+    // from that authoritative objective when recalculating.
+    const { searchProfile: _searchProfile, ...snapshot } = completeOptimizationWeights(weights, objective);
+    return snapshot;
+  };
   const explicitPlanningInputs =
     input.source === "planningInputs" && input.planningInputs != null;
   return {
@@ -431,8 +397,8 @@ export function optimizationEvidenceForConfig(input: {
     requestedWeights:
       input.requestedWeights == null
         ? null
-        : completeOptimizationWeights(input.requestedWeights),
-    effectiveWeights: completeOptimizationWeights(input.effectiveWeights, explicitPlanningInputs ? input.planningInputs!.objective : null),
+        : snapshotWeights(input.requestedWeights),
+    effectiveWeights: snapshotWeights(input.effectiveWeights, explicitPlanningInputs ? input.planningInputs!.objective : null),
     vehicleDistributionMode: input.vehicleDistributionMode ?? null,
     vehicleSelectionMode: explicitPlanningInputs
       ? input.planningInputs!.vehicleSelectionMode

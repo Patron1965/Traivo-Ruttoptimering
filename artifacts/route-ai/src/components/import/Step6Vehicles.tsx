@@ -1,4 +1,5 @@
 import { ImportInfoSection } from "./ImportInfoDisclosure";
+import { ResourceSelectionMode } from "./ResourceSelectionMode";
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -304,20 +305,7 @@ export function Step6Vehicles({
   };
 
   const handleOptimizationChange = (val: string) => {
-    if (val === "minimize_vehicles") {
-      updateInputs({
-        objective: "minimize_vehicles",
-        vehicleSelectionMode: "minimize_vehicles",
-      });
-    } else {
-      updateInputs({
-        objective: val as Exclude<
-          PlanningInputs["objective"],
-          "minimize_vehicles"
-        >,
-        vehicleSelectionMode: "use_all_selected_pairs",
-      });
-    }
+    updateInputs({ objective: val as PlanningInputs["objective"] });
   };
 
   const handleAssign = async () => {
@@ -613,6 +601,7 @@ export function Step6Vehicles({
             </label>
           ))}
         </RadioGroup>
+        <ResourceSelectionMode inputs={planningInputs} onChange={updateInputs} />
       </fieldset>
 
       <PlanningAllowanceSettings inputs={planningInputs} defaults={currentAllowanceCeilings}

@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { usesRoadSeed } from "./planning-profiles";
+import { roadMedoidClusters } from "./profile-clustering";
 import { getDistanceMatrixCacheCoverage, precomputeDistanceMatrix } from "../osrm";
 import { logger } from "../../lib/logger";
 import { recordUsage } from "../usage";
@@ -274,7 +276,7 @@ export function buildInitialSolutionFromCW(
       for (const route of [...routes].sort((a, b) => a.nodes.length - b.nodes.length)) {
         const vehicle = vehicleMap.get(route.vehicleId);
         if (!vehicle || route.totalWeight + stop.weightKg > vehicle.capacityKg || route.totalVolume + stop.volumeM3 > vehicle.capacityVolume) continue;
-        const positions = weights.objectivePriority === "areas_worktime"
+        const positions = weights.objectivePriority === "areas_worktime" || (!!weights.searchProfile && stops.length > 100)
           ? areasInsertionPositions(route, stop, vehicle, depotLat, depotLon)
           : Array.from({ length: route.nodes.length + 1 }, (_, i) => i);
         for (const position of positions) {
@@ -324,9 +326,9 @@ export function buildInitialSolutionFromCW(
             constraintsMap,
             "balance",
           );
-          const fillSelectedResource = weights.objectivePriority === "areas_worktime" && selected
+          const fillSelectedResource = weights.objectivePriority === "areas_worktime" && vehicleDistributionMode === "balance" && selected
             && route.nodes.length === 0 && selected.route.nodes.length > 0;
-          const keepSelectedResource = weights.objectivePriority === "areas_worktime" && selected
+          const keepSelectedResource = weights.objectivePriority === "areas_worktime" && vehicleDistributionMode === "balance" && selected
             && route.nodes.length > 0 && selected.route.nodes.length === 0;
           if (!selected || fillSelectedResource || (!keepSelectedResource && compareSolutionScores(candidateCost, selected.score) < 0)) {
             selected = { route, position, score: candidateCost };
@@ -544,13 +546,13 @@ export async function buildInitialSolutionFromCWAsync(
     admission: for (let stopIndex = 0; stopIndex < sortedStops.length; stopIndex++) {
       const stop = sortedStops[stopIndex];
       // Scoped to this admission only: original routes are mutated on commit.
-      const evaluations = weights.objectivePriority === "areas_worktime" ? new WeakMap<ALNSRoute, RouteEvaluation>() : undefined;
+      const evaluations = new WeakMap<ALNSRoute, RouteEvaluation>();
       let selected: { route: ALNSRoute; position: number; score: ReturnType<typeof computeSolutionCost> } | null = null;
       for (const route of [...routes].sort((a, b) => a.nodes.length - b.nodes.length)) {
         let geographicCohesionCost: number | undefined;
         const vehicle = vehicleMap.get(route.vehicleId);
         if (!vehicle || route.totalWeight + stop.weightKg > vehicle.capacityKg || route.totalVolume + stop.volumeM3 > vehicle.capacityVolume) continue;
-        const positions = weights.objectivePriority === "areas_worktime"
+        const positions = weights.objectivePriority === "areas_worktime" || (!!weights.searchProfile && stops.length > 100)
           ? areasInsertionPositions(route, stop, vehicle, depotLat, depotLon)
           : Array.from({ length: route.nodes.length + 1 }, (_, i) => i);
         for (const position of positions) {
@@ -581,9 +583,9 @@ export async function buildInitialSolutionFromCWAsync(
             evaluations ? { evaluations, geographicCohesionCost } : undefined,
           );
           geographicCohesionCost = candidateCost.breakdown.geographicCohesionCost;
-          const fillSelectedResource = weights.objectivePriority === "areas_worktime" && selected
+          const fillSelectedResource = weights.objectivePriority === "areas_worktime" && vehicleDistributionMode === "balance" && selected
             && route.nodes.length === 0 && selected.route.nodes.length > 0;
-          const keepSelectedResource = weights.objectivePriority === "areas_worktime" && selected
+          const keepSelectedResource = weights.objectivePriority === "areas_worktime" && vehicleDistributionMode === "balance" && selected
             && route.nodes.length > 0 && selected.route.nodes.length === 0;
           if (!selected || fillSelectedResource || (!keepSelectedResource && compareSolutionScores(candidateCost, selected.score) < 0)) {
             selected = { route, position, score: candidateCost };
@@ -815,8 +817,8 @@ export async function runALNS(
       );
       const areasWarmValid = weights.objectivePriority !== "areas_worktime" || (
         candidate.unassigned.length <= currentSolution.unassigned.length
-        && candidate.routes.filter(r => r.nodes.some(n => !n.isChargingStation)).length
-          >= currentSolution.routes.filter(r => r.nodes.some(n => !n.isChargingStation)).length
+        && (cfg.vehicleDistributionMode !== "balance" || candidate.routes.filter(r => r.nodes.some(n => !n.isChargingStation)).length
+          >= currentSolution.routes.filter(r => r.nodes.some(n => !n.isChargingStation)).length)
         && hasSameRealStopMultiset(initialSolution, candidate)
         && hasHardValidRoutes(candidate, vehicles, depotLat, depotLon, startTime, driverConstraintsMap)
         && candidate.routes.every(r => !r.lockedFirstStopId || r.nodes.find(n => !n.isChargingStation)?.id === r.lockedFirstStopId)
@@ -827,7 +829,8 @@ export async function runALNS(
         currentCost = candidate.cost;
         if (weights.objectivePriority === "areas_worktime"
           ? candidate.unassigned.length <= bestSolution.unassigned.length && compareSolutions(candidate, bestSolution) < 0
-          : compareUnassignedCoverage(candidate.unassigned, bestSolution.unassigned) <= 0 && candidate.cost < bestCost) {
+          : compareUnassignedCoverage(candidate.unassigned, bestSolution.unassigned) <= 0 &&
+            (weights.searchProfile ? compareSolutions(candidate, bestSolution) < 0 : candidate.cost < bestCost)) {
           bestSolution = deepCloneSolution(candidate);
           bestCost = candidate.cost;
           improvements++;
@@ -941,15 +944,17 @@ export async function runALNS(
     candidate.costBreakdown = candidateBreakdown;
 
     const areas = weights.objectivePriority === "areas_worktime";
-    const costDiff = areas ? compareSolutions(candidate, currentSolution) : candidateCost - currentCost;
+    const namedProfile = !!weights.searchProfile;
+    const costDiff = areas || namedProfile ? compareSolutions(candidate, currentSolution) : candidateCost - currentCost;
     const coverageComparison = compareUnassignedCoverage(candidate.unassigned, bestSolution.unassigned);
-    const preservesResources = !areas || candidate.routes.filter(r => r.nodes.some(n => !n.isChargingStation)).length
+    const preservesResources = !areas || cfg.vehicleDistributionMode !== "balance" || candidate.routes.filter(r => r.nodes.some(n => !n.isChargingStation)).length
       >= bestSolution.routes.filter(r => r.nodes.some(n => !n.isChargingStation)).length;
     const hardValid = !areas || (hasHardValidRoutes(candidate, vehicles, depotLat, depotLon, startTime, driverConstraintsMap)
       && candidate.routes.every(r => !r.lockedFirstStopId || r.nodes.find(n => !n.isChargingStation)?.id === r.lockedFirstStopId)
       && hasSameRealStopMultiset(initialSolution, candidate));
     const improvesBest = hardValid && preservesResources && Number.isFinite(candidateCost) &&
-      (areas ? compareSolutions(candidate, bestSolution) < 0
+      (!namedProfile || candidateBreakdown.profileScore?.[0] === 0) &&
+      (areas || namedProfile ? compareSolutions(candidate, bestSolution) < 0
         && candidate.unassigned.length <= bestSolution.unassigned.length
         : (coverageComparison < 0 || (coverageComparison === 0 && candidateCost < bestCost)));
     if (improvesBest) {
@@ -1300,9 +1305,11 @@ async function optimizeWithALNSImpl(
     // Let the HTTP progress endpoint and heartbeat run before the bounded but
     // CPU-heavy consensus pass begins.
     await new Promise<void>((resolve) => setImmediate(resolve));
-    const { clusters, borderStopIds } = consensusClustering(stops, targetClusterSize);
+    const { clusters, borderStopIds } = usesRoadSeed(config.weights?.searchProfile)
+      ? roadMedoidClusters(stops, targetClusterSize)
+      : consensusClustering(stops, targetClusterSize);
     const clusteringMs = Date.now() - clusteringStartedAt;
-    console.log(`Clustering: ${clusters.length} clusters from ${stops.length} stops (DBSCAN consensus, ${borderStopIds.size} border stops)`);
+    console.log(`Clustering: ${clusters.length} clusters from ${stops.length} stops (${usesRoadSeed(config.weights?.searchProfile) ? "road medoids" : "DBSCAN consensus"}, ${borderStopIds.size} border stops)`);
 
     const vehiclesPerCluster = allocateClusterVehicles(clusters, vehicles, startTime, config.driverConstraints);
     const timeBudget = config.timeLimitMs ?? 30000;

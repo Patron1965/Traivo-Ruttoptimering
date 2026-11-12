@@ -27,6 +27,7 @@ test("area and worktime objective survives normalization without changing legacy
   const planning = inputs({ objective: "areas_worktime" });
   assert.equal(planning.objective, "areas_worktime");
   assert.deepEqual(planningWeights(planning), {
+    searchProfile: "areas_worktime",
     objectivePriority: "areas_worktime",
     workloadBalanceWeight: 1,
     distanceWeight: 0,
@@ -49,6 +50,14 @@ test("area and worktime objective survives normalization without changing legacy
   assert.equal(evidence.effectiveObjective, "areas_worktime");
   assert.equal(evidence.requestedWeights?.objectivePriority, "areas_worktime");
   assert.equal(evidence.effectiveWeights?.objectivePriority, "areas_worktime");
+});
+
+test("normalization never changes resource selection to match an objective", () => {
+  for (const objective of ["balanced", "shortest", "geographic", "areas_worktime", "minimize_vehicles"] as const) {
+    for (const vehicleSelectionMode of ["use_all_selected_pairs", "minimize_vehicles"] as const) {
+      assert.equal(inputs({ objective, vehicleSelectionMode }).vehicleSelectionMode, vehicleSelectionMode);
+    }
+  }
 });
 
 test("resource exclusion is applied against the original selection so a later edit can re-add it", () => {

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { evaluateRoute, computeSolutionCost } from "./alns/cost";
+import { evaluateRoute, computeSolutionCost, compareSolutionScores } from "./alns/cost";
 import { compareUnassignedCoverage } from "./alns/fleet-coverage";
 import { DEFAULT_WEIGHTS, getEnvCtx, type ALNSResult, type ALNSNode, type ALNSVehicle, type ALNSDriverConstraints, type OptimizationWeights } from "./alns/types";
 import { retainRuntimeState } from "./planning-runtime-store";
@@ -45,12 +45,12 @@ export async function recoverPlanningCoverage(result: ALNSResult, input: Recover
     };
     const score = (candidate: ALNSResult) => computeSolutionCost(
       { ...candidate, cost: 0 }, vehicles, lat, lon, start, weights, constraints, input.vehicleDistributionMode,
-    ).cost;
+    );
     const choose = (previous: ALNSResult, candidate: ALNSResult): ALNSResult => {
       if (!valid(previous)) return candidate;
       if (!valid(candidate)) return previous;
       const coverage = compareUnassignedCoverage(previous.unassigned, candidate.unassigned);
-      return coverage < 0 || (coverage === 0 && score(previous) <= score(candidate)) ? previous : candidate;
+      return coverage < 0 || (coverage === 0 && compareSolutionScores(score(previous), score(candidate)) <= 0) ? previous : candidate;
     };
     if (!valid(result)) throw new Error("Planeringsresultatet saknar giltig stopptäckning eller bryter mot hårda villkor.");
     let best = result;

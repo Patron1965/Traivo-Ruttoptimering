@@ -245,6 +245,7 @@ export function evaluateRoute(
 
   return {
     feasible: true,
+    drivingMinutes: workday.summary.nonReturnDrivingMin + workday.summary.returnMin,
     actualWorkMinutes: workday.events.reduce((sum, event) =>
       sum + (["driving", "return", "service"].includes(event.type) ? event.durationMin : 0), 0),
     totalDistanceKm: totalDist,
@@ -270,6 +271,7 @@ export function computeSolutionCost(
 ): { cost: number; breakdown: CostBreakdown } {
   const vehicleMap = new Map(vehicles.map(v => [v.id, v]));
   let totalDist = 0;
+  let totalDriving = 0;
   let totalCo2 = 0;
   let totalSlack = 0;
   let totalDriverPenalty = 0;
@@ -299,6 +301,7 @@ export function computeSolutionCost(
     }
     actualWork[route.vehicleId] = (actualWork[route.vehicleId] ?? 0) + (evalResult.actualWorkMinutes ?? 0);
     totalDist += evalResult.totalDistanceKm;
+    totalDriving += evalResult.drivingMinutes ?? 0;
     totalCo2 += evalResult.totalCo2Kg;
     totalSlack += evalResult.totalTimeWindowSlackMin;
     totalDriverPenalty += evalResult.driverPenalty;
@@ -328,7 +331,8 @@ export function computeSolutionCost(
   // Absolute deviation/spread is unsafe: adding driving can reduce that score.
   const distributionPenalty = vehicleDistributionMode === "balance"
     ? Math.max(0, ...routeWorkMinutes) * 20 * (weights.workloadBalanceWeight ?? 1)
-    : activeRouteCount * 1000;
+    : weights.searchProfile ? Math.max(0, ...routeWorkMinutes) * 20 * (weights.workloadBalanceWeight ?? 0)
+      : activeRouteCount * 1000;
 
   const cost =
     weights.distanceWeight * totalDist +
@@ -343,6 +347,19 @@ export function computeSolutionCost(
   return {
     cost,
     breakdown: {
+      ...(weights.searchProfile ? {
+        profileScore: [
+          infeasibleRoutes,
+          solution.unassigned.filter(n => !n.isChargingStation && n.planningPriority === 2).length,
+          solution.unassigned.filter(n => !n.isChargingStation && n.planningPriority === 1).length,
+          solution.unassigned.filter(n => !n.isChargingStation).length,
+          ...(weights.searchProfile === "shortest" ? [totalDist, totalDriving]
+            : weights.searchProfile === "geographic" ? [geographicCohesionCost, totalDist, totalDriving]
+            : weights.searchProfile === "areas_worktime" ? [geographicCohesionCost, Math.max(0, ...routeWorkMinutes), totalDist]
+            : weights.searchProfile === "minimize_vehicles" ? [activeRouteCount, cost]
+            : [cost]),
+        ],
+      } : {}),
       ...(weights.objectivePriority === "areas_worktime" ? {
         areasWorktime: {
           infeasibleRoutes,
@@ -371,6 +388,15 @@ export function compareSolutionScores(
   left: { cost: number; breakdown: CostBreakdown },
   right: { cost: number; breakdown: CostBreakdown },
 ): number {
+  const leftProfile = left.breakdown.profileScore;
+  const rightProfile = right.breakdown.profileScore;
+  if (leftProfile && rightProfile) {
+    for (let i = 0; i < leftProfile.length; i++) {
+      if (Math.abs(leftProfile[i] - rightProfile[i]) > 1e-9)
+        return leftProfile[i] < rightProfile[i] ? -1 : 1;
+    }
+    return 0;
+  }
   const a = left.breakdown.areasWorktime;
   const b = right.breakdown.areasWorktime;
   if (!a || !b) return left.cost - right.cost;

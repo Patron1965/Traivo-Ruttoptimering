@@ -143,6 +143,8 @@ export interface ALNSSolution {
 }
 
 export interface CostBreakdown {
+  /** Internal authoritative ranking: feasibility, coverage, then named objective. */
+  profileScore?: number[];
   areasWorktime?: {
     infeasibleRoutes: number;
     unassignedMandatory: number;
@@ -163,6 +165,8 @@ export interface CostBreakdown {
 }
 
 export interface OptimizationWeights {
+  /** Internal named behavior, restored from planning inputs rather than inferred from weights. */
+  searchProfile?: import("./planning-profiles").PlanningProfile;
   objectivePriority?: "areas_worktime";
   /** Independent of fleet occupancy. Zero disables workload minimax scoring. */
   workloadBalanceWeight?: number;
@@ -217,6 +221,7 @@ export const EMISSION_PROFILES: Record<string, { gCo2PerKm: number; loadFactor: 
 };
 
 export interface RouteEvaluation {
+  drivingMinutes?: number;
   actualWorkMinutes?: number;
   feasible: boolean;
   totalDistanceKm: number;
