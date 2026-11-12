@@ -1,0 +1,57 @@
+{
+  "expo": {
+    "name": "Traivo Route Driver",
+    "slug": "driver-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "driver-app",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": false
+    },
+    "android": {},
+    "web": {
+      "output": "single",
+      "favicon": "./assets/images/icon.png"
+    },
+    "plugins": [
+      [
+        "expo-router",
+        {
+          "origin": "https://replit.com/"
+        }
+      ],
+      "expo-font",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Tillåt Traivo Route att använda kameran för leveransbevis, streckkoder och avvikelser."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Traivo Route använder din position under en aktiv, godkänd rutt.",
+          "locationAlwaysAndWhenInUsePermission": "Traivo Route använder din position under en aktiv, godkänd rutt även när telefonen är låst.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true
+        }
+      ],
+      "expo-notifications",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff"
+        }
+      ],
+      "expo-web-browser"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}

@@ -1,0 +1,21 @@
+expected_aws_account_id = "000000000000"
+image_uri               = "000000000000.dkr.ecr.eu-north-1.amazonaws.com/siths-care-pilot@sha256:REPLACE"
+certificate_arn          = "arn:aws:acm:eu-north-1:000000000000:certificate/REPLACE"
+audit_retention_days     = 0 # REPLACE with an approved 1..3650 integer; zero intentionally fails plan.
+evidence_retention_days  = 0 # REPLACE with an approved 1..3650 value; zero intentionally fails plan.
+
+# Managed rotation: add the new version without removing any old version,
+# apply, then select it as current and apply again.
+# audit_hmac_key_versions        = ["v1", "v2"]
+# current_audit_hmac_key_version = "v2"
+#
+# Optional externally managed legacy keys used only for VerifyMac:
+# previous_audit_hmac_key_arns = ["arn:aws:kms:eu-north-1:000000000000:key/REPLACE"]
+
+# Prefer pre-created and populated secrets:
+# oidc_secret_arn               = "arn:aws:secretsmanager:eu-north-1:000000000000:secret:REPLACE"
+# readiness_evidence_secret_arn = "arn:aws:secretsmanager:eu-north-1:000000000000:secret:REPLACE"
+# The OIDC secret redirectUri MUST be exactly:
+# https://<pilot-host>/siths-care-poc/api/siths/callback
+# hosted_zone_id                = "Z..."
+# domain_name                   = "pilot.example.se"

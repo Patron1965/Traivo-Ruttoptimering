@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#101f2d"/>
+  <rect x="48" y="48" width="1104" height="534" rx="32" fill="#172d3e" stroke="#335366" stroke-width="2"/>
+  <rect x="94" y="94" width="86" height="86" rx="22" fill="#ff6a38"/>
+  <path d="M137 116v40m-20-20h40" stroke="#fff" stroke-width="12" stroke-linecap="round"/>
+  <text x="206" y="149" fill="#d8e5e9" font-family="DejaVu Sans, sans-serif" font-size="31" font-weight="bold">VÅRD • PROOF OF CONCEPT</text>
+  <text x="94" y="312" fill="#fff" font-family="DejaVu Sans, sans-serif" font-size="78" font-weight="bold">SITHS Vård-PoC</text>
+  <text x="98" y="388" fill="#c1d2da" font-family="DejaVu Sans, sans-serif" font-size="35">Stark autentisering · LoA · Medarbetaruppdrag</text>
+  <path d="M98 472h1004" stroke="#335366" stroke-width="2"/>
+  <text x="98" y="530" fill="#9bb8c5" font-family="DejaVu Sans, sans-serif" font-size="25">Isolerad testmiljö utan patientuppgifter</text>
+</svg>

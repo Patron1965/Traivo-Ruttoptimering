@@ -1,0 +1,43 @@
+diff --git a/dist/index.cjs b/dist/index.cjs
+index 6b0d426d1ce9d8884ecc8ec7201ef09aa36ccb89..b4f3227576d7e0e8bafe48610bdc173da478fe35 100644
+--- a/dist/index.cjs
++++ b/dist/index.cjs
+@@ -2,6 +2,8 @@
+ 
+ Object.defineProperty(exports, '__esModule', { value: true });
+ 
++var fs = require("node:fs");
++
+ // lib/types/utils.ts
+ var decoder = new TextDecoder();
+ var toUTF8String = (input, start = 0, end = input.length) => decoder.decode(input.slice(start, end));
+@@ -1001,6 +1003,9 @@ var globalOptions = {
+   disabledTypes: []
+ };
+ function imageSize(input) {
++  if (typeof input === "string") {
++    input = fs.readFileSync(input);
++  }
+   const type = detector(input);
+   if (typeof type !== "undefined") {
+     if (globalOptions.disabledTypes.indexOf(type) > -1) {
+diff --git a/dist/index.mjs b/dist/index.mjs
+index d4acfbcec9712f5399b16263d0809d00d04d2286..4887e2c327cd5a8ee7a4272aa5374e690f6027f5 100644
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -1,3 +1,5 @@
++import { readFileSync } from "node:fs";
++
+ // lib/types/utils.ts
+ var decoder = new TextDecoder();
+ var toUTF8String = (input, start = 0, end = input.length) => decoder.decode(input.slice(start, end));
+@@ -997,6 +999,9 @@ var globalOptions = {
+   disabledTypes: []
+ };
+ function imageSize(input) {
++  if (typeof input === "string") {
++    input = readFileSync(input);
++  }
+   const type = detector(input);
+   if (typeof type !== "undefined") {
+     if (globalOptions.disabledTypes.indexOf(type) > -1) {

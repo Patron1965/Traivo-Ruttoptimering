@@ -1,0 +1,53 @@
+modules = ["nodejs-24", "javascript", "python-3.11", "postgresql-16"]
+
+[[artifacts]]
+id = "artifacts/api-server"
+
+[[artifacts]]
+id = "artifacts/mockup-sandbox"
+
+[deployment]
+router = "application"
+deploymentTarget = "autoscale"
+
+[deployment.postBuild]
+args = ["pnpm", "store", "prune"]
+env = { "CI" = "true" }
+
+[workflows]
+runButton = "Project"
+
+[agent]
+stack = "PNPM_WORKSPACE"
+expertMode = true
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 180000
+
+[nix]
+channel = "stable-25_05"
+
+[userenv]
+
+[userenv.development]
+LINK_MOBILITY_API_VARIANT = "common"
+LINK_MOBILITY_BASE_URL = "https://n-eu.linkmobility.io/sms"
+LINK_MOBILITY_SENDER = "Nhc4O7tu"
+LINK_PLATFORM_ID = "SMSC"
+LINK_PLATFORM_PARTNER_ID = "5885"
+DRIVER_APP_URL = "https://go.traivo.se/driver-app/"
+SMS_PROVIDER = "linkmobility"
+
+[userenv.shared]
+BOOTSTRAP_ADMIN_EMAIL = "tomas@nordicrouting.se"
+AUTH_APP_ORIGIN = "https://go.traivo.se"
+PUBLIC_TRACKING_BASE_URL = "https://go.traivo.se"
+OPERATIONAL_ROAD_PROVIDER = "geoapify"
+
+[userenv.production]
+LINK_MOBILITY_API_VARIANT = "common"
+LINK_MOBILITY_BASE_URL = "https://n-eu.linkmobility.io/sms"
+LINK_MOBILITY_SENDER = "Nhc4O7tu"
+LINK_PLATFORM_ID = "SMSC"
+LINK_PLATFORM_PARTNER_ID = "5885"

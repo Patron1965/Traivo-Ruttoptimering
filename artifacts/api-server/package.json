@@ -1,0 +1,47 @@
+{
+  "name": "@workspace/api-server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "NODE_ENV=development tsx ./src/index.ts",
+    "build": "tsx ./build.ts",
+    "mfa:operator-recovery": "tsx ./src/cli/platform-mfa-recovery.ts",
+    "benchmark:district": "tsx ./src/cli/district-benchmark.ts",
+    "test": "PORT=${PORT:-3000} NODE_ENV=test tsx --experimental-test-module-mocks --test --test-force-exit src/*.test.ts src/**/*.test.ts",
+    "test:customer-notification-flow": "PORT=${PORT:-3000} NODE_ENV=test tsx --experimental-test-module-mocks --test --test-force-exit src/customer-notifications.request.test.ts",
+    "test:tenant-isolation": "PORT=${PORT:-3000} NODE_ENV=test tsx --test --test-force-exit src/tenant-isolation.request.test.ts src/district-tenant-isolation.request.test.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@google-cloud/storage": "^7.19.0",
+    "@replit/connectors-sdk": "^0.4.3",
+    "@sentry/node": "^10.78.0",
+    "@types/multer": "^2.1.0",
+    "@workspace/api-zod": "workspace:*",
+    "@workspace/db": "workspace:*",
+    "@workspace/integrations-openai-ai-server": "workspace:*",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2",
+    "drizzle-orm": "catalog:",
+    "expo-server-sdk": "^6.1.0",
+    "express": "^5.3.0",
+    "express-rate-limit": "^8.3.1",
+    "google-auth-library": "^10.6.1",
+    "helmet": "^8.1.0",
+    "jszip": "^3.10.1",
+    "multer": "^2.5.0",
+    "sharp": "^0.35.5",
+    "ws": "^8.21.3",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/cookie-parser": "^1.4.10",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "catalog:",
+    "@types/ws": "^8.18.1",
+    "esbuild": "^0.28.2",
+    "tsx": "catalog:"
+  }
+}

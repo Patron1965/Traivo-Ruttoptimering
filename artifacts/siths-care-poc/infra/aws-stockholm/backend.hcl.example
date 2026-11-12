@@ -1,0 +1,4 @@
+# Supply this file only to `terraform init -backend-config=backend.hcl`.
+# The bucket must already exist in the dedicated account and eu-north-1.
+bucket = "REPLACE-WITH-DEDICATED-TFSTATE-BUCKET"
+key    = "siths-care-pilot/eu-north-1/terraform.tfstate"

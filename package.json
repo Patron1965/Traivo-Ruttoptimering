@@ -1,0 +1,36 @@
+{
+  "name": "workspace",
+  "version": "0.0.0",
+  "license": "MIT",
+  "scripts": {
+    "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
+    "build": "pnpm run typecheck && pnpm -r --if-present run build",
+    "test:e2e:planning-flow": "playwright test e2e/import-entrypoints.spec.ts e2e/planning-draft-flow.spec.ts e2e/planning-inputs.spec.ts e2e/planner-route-adjustments.spec.ts e2e/planning-overlap-explanation.spec.ts e2e/guided-planning-workflow.spec.ts",
+    "test:e2e:import-address-persistence": "playwright test e2e/import-address-persistence.spec.ts",
+    "test:e2e:district-bulk": "playwright test e2e/district-bulk-lifetime.spec.ts e2e/district-bulk.spec.ts",
+    "test:e2e:dispatch:legacy": "playwright test e2e/dispatch-resize.spec.ts e2e/dispatch-assignment.spec.ts e2e/dispatch-driver-selection.spec.ts e2e/dispatch-view-modes.spec.ts",
+    "test:e2e:dispatch:views": "playwright test e2e/dispatch-view-modes.spec.ts",
+    "test:e2e:dispatch:actual": "playwright test e2e/dispatch-actual-live.spec.ts",
+    "test:e2e:dispatch": "sleep 1 && flock /tmp/traivo-api-codegen-e2e.lock sh -c 'pnpm run test:e2e:planning-flow && pnpm run test:e2e:dispatch:legacy'",
+    "test:e2e:responsive": "playwright test e2e/responsive-actions.spec.ts",
+    "test:e2e:branding": "playwright test e2e/branding.spec.ts",
+    "test:theme-utils": "pnpm --filter @workspace/route-ai run test:theme-utils",
+    "test:tenant-isolation": "flock /tmp/traivo-api-codegen-e2e.lock pnpm --filter @workspace/api-server run test:tenant-isolation",
+    "test:acceptance:ten-drivers": "PORT=${PORT:-3000} NODE_ENV=test pnpm --filter @workspace/api-server exec tsx --test --test-force-exit src/routes/ten-driver-planning.acceptance.test.ts",
+    "acceptance:collect": "node scripts/collect-acceptance-evidence.mjs",
+    "acceptance:verify-restore": "bash scripts/verify-postgres-restore.sh",
+    "acceptance:verify-restored-runtime": "bash scripts/verify-restored-runtime.sh",
+    "test:restore-safety": "bash scripts/verify-postgres-restore.test.sh",
+    "check:api-codegen": "flock /tmp/traivo-api-codegen-e2e.lock sh scripts/check-api-codegen.sh",
+    "check:mobile-production-export": "pnpm install --frozen-lockfile && pnpm --filter @workspace/driver-app run validate:production-export",
+    "typecheck:libs": "tsc --build",
+    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
+    "provision:region-stockholm": "pnpm --filter @workspace/scripts run provision:region-stockholm"
+  },
+  "private": true,
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "prettier": "^3.8.1",
+    "typescript": "~5.9.2"
+  }
+}

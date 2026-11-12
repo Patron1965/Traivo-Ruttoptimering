@@ -1,0 +1,19 @@
+kind = "web"
+previewPath = "/siths-care-poc/"
+title = "SITHS Vård-PoC"
+description = "Separat vårdwebb för SITHS-inloggning, LoA-status och aktivt medarbetaruppdrag utan patientuppgifter."
+version = "1.0.0"
+id = "artifacts/siths-care-poc"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/siths-care-poc/", "/api/siths" ]
+localPort = 23756
+
+[services.development]
+run = "pnpm --filter @workspace/siths-care-poc run dev"
+
+[services.env]
+PORT = "23756"
+BASE_PATH = "/siths-care-poc/"
